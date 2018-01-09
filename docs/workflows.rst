@@ -5,7 +5,7 @@ Translation workflows
 
 Weblate can be configured to support several translation workflows. This
 document is not a complete listing of ways to configure Weblate, there are
-certainly more options. However you can base another workflows based on
+certainly more options. You can base another workflows on the most usual
 examples listed here.
 
 Translation access
@@ -54,6 +54,8 @@ This is also default setup in Weblate.
 +------------------------+------------+-------------------------------------+
 | Setting                |   Value    |   Note                              |
 +========================+============+=====================================+
+| Enable reviews         | disabled   | configured at project level         |
++------------------------+------------+-------------------------------------+
 | Enable suggestions     | enabled    | it is useful for users to be able   |
 |                        |            | suggest when they are not sure      |
 +------------------------+------------+-------------------------------------+
@@ -65,11 +67,6 @@ This is also default setup in Weblate.
 +------------------------+------------+-------------------------------------+
 | Reviewers group        | N/A        | not used                            |
 +------------------------+------------+-------------------------------------+
-
-.. warning::
-
-    As a project admin, you still can approve translations. In this case none
-    of the users will be able to edit it later.
 
 Peer review
 -----------
@@ -84,6 +81,8 @@ from additional member before it is accepted as a translation.
 +------------------------+------------+-------------------------------------+
 | Setting                |   Value    |   Note                              |
 +========================+============+=====================================+
+| Enable reviews         | disabled   | configured at project level         |
++------------------------+------------+-------------------------------------+
 | Enable suggestions     | enabled    |                                     |
 +------------------------+------------+-------------------------------------+
 | Suggestion voting      | enabled    |                                     |
@@ -95,11 +94,6 @@ from additional member before it is accepted as a translation.
 +------------------------+------------+-------------------------------------+
 | Reviewers group        | N/A        | not used, all translators review    |
 +------------------------+------------+-------------------------------------+
-
-.. warning::
-
-    As a project admin, you still can approve translations. In this case none
-    of the users will be able to edit it later.
 
 Dedicated reviewers
 -------------------
@@ -120,6 +114,8 @@ translations are consistent and in a good quality.
 +------------------------+------------+-------------------------------------+
 | Setting                |   Value    |   Note                              |
 +========================+============+=====================================+
+| Enable reviews         | enabled    | configured at project level         |
++------------------------+------------+-------------------------------------+
 | Enable suggestions     | enabled    | it is useful for users to be able   |
 |                        |            | suggest when they are not sure      |
 +------------------------+------------+-------------------------------------+
@@ -131,3 +127,17 @@ translations are consistent and in a good quality.
 +------------------------+------------+-------------------------------------+
 | Reviewers group        | Reviewers  | or Review with access control       |
 +------------------------+------------+-------------------------------------+
+
+Enabling reviews
+----------------
+
+The reviews can be enabled on project configuration, you can find the setting
+on bottom of :guilabel:`Manage users` page (to be found in the :guilabel:`Manage` menu):
+
+.. image:: images/project-access.png
+
+.. note::
+
+    Depending on Weblate configuration, the setting might not be available to
+    you. For example on Hosted Weblate this is not available for projects hosted
+    for free.

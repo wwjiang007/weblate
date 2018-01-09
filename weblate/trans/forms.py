@@ -49,7 +49,7 @@ from weblate.lang.models import Language
 from weblate.trans.models import SubProject, Unit, Project, Change
 from weblate.trans.models.source import PRIORITY_CHOICES
 from weblate.trans.models.unit import (
-    STATE_TRANSLATED, STATE_FUZZY, STATE_APPROVED
+    STATE_TRANSLATED, STATE_FUZZY, STATE_APPROVED, STATE_EMPTY,
 )
 from weblate.trans.checks import CHECKS
 from weblate.permissions.helpers import (
@@ -155,9 +155,9 @@ class UserField(forms.CharField):
         try:
             return User.objects.get(Q(username=value) | Q(email=value))
         except User.DoesNotExist:
-            raise ValidationError(_('No matching user found!'))
+            raise ValidationError(_('No matching user found.'))
         except User.MultipleObjectsReturned:
-            raise ValidationError(_('More users matched!'))
+            raise ValidationError(_('More users matched.'))
 
 
 class PluralTextarea(forms.Textarea):
@@ -378,7 +378,7 @@ class PluralField(forms.CharField):
 
 
 class ChecksumForm(forms.Form):
-    """Form for handling checksum ids for translation."""
+    """Form for handling checksum IDs for translation."""
     checksum = ChecksumField(required=True)
 
     def __init__(self, translation, *args, **kwargs):
@@ -401,9 +401,9 @@ class ChecksumForm(forms.Form):
                 'message %s disappeared!',
                 self.cleaned_data['checksum']
             )
-            raise ValidationError(
-                _('Message you wanted to translate is no longer available!')
-            )
+            raise ValidationError(_(
+                'The message you wanted to translate is no longer available!'
+            ))
 
 
 class FuzzyField(forms.BooleanField):
@@ -412,8 +412,8 @@ class FuzzyField(forms.BooleanField):
     def __init__(self, *args, **kwargs):
         kwargs['label'] = _('Needs editing')
         kwargs['help_text'] = _(
-            'String is usually marked as needing editing after source string '
-            'change or this can be done manually.'
+            'Strings are usually marked as \"Needs editing\" after the source '
+            'string is updated, or when marked as such manually.'
         )
         super(FuzzyField, self).__init__(*args, **kwargs)
         self.widget.attrs['class'] = 'fuzzy_checkbox'
@@ -427,11 +427,11 @@ class TranslationForm(ChecksumForm):
     fuzzy = FuzzyField(required=False)
     review = forms.ChoiceField(
         label=_('Review state'),
-        choices=(
+        choices=[
             (STATE_FUZZY, _('Needs editing')),
             (STATE_TRANSLATED, _('Waiting for review')),
             (STATE_APPROVED, _('Approved')),
-        ),
+        ],
         required=False,
         widget=forms.RadioSelect
     )
@@ -455,12 +455,17 @@ class TranslationForm(ChecksumForm):
         self.fields['target'].widget.attrs['tabindex'] = tabindex
         self.fields['target'].widget.profile = user.profile
         self.fields['review'].widget.attrs['class'] = 'review_radio'
+        # Avoid failing validation on not translated string
+        if args:
+            self.fields['review'].choices.append((STATE_EMPTY, ''))
         self.helper = FormHelper()
         self.helper.form_method = 'post'
         self.helper.layout = Layout(
             Field('checksum'),
             Field('target'),
             Field('fuzzy'),
+            Field('contentsum'),
+            Field('translationsum'),
             InlineRadios('review'),
         )
         if unit and can_review(user, unit.translation):
@@ -1040,7 +1045,10 @@ class CommentForm(forms.Form):
         choices=(
             (
                 'global',
-                _('Source string comment, suggestions to change this string')
+                _(
+                    'Source string comment, suggestions for '
+                    'changes to this string'
+                )
             ),
             (
                 'translation',
@@ -1179,7 +1187,7 @@ class UserManageForm(forms.Form):
     user = UserField(
         label=_('User to add'),
         help_text=_(
-            'Please provide username or email. '
+            'Please provide username or e-mail. '
             'User needs to already have an active account in Weblate.'
         ),
     )
@@ -1391,6 +1399,7 @@ class ProjectAccessForm(forms.ModelForm):
         model = Project
         fields = (
             'access_control',
+            'enable_review',
         )
 
     def __init__(self, *args, **kwargs):
@@ -1399,6 +1408,7 @@ class ProjectAccessForm(forms.ModelForm):
         self.helper.layout = Layout(
             Field('access_control'),
             Div(template='access_control_description.html'),
+            Field('enable_review'),
         )
 
 
@@ -1451,3 +1461,22 @@ class MatrixLanguageForm(forms.Form):
             (l.code, '{0} ({1})'.format(force_text(l), l.code))
             for l in languages
         ])
+
+
+class NewUnitForm(forms.Form):
+    key = forms.CharField(
+        label=_('Translation key'),
+        help_text=_(
+            'Key used to identify unit in translation file. '
+            'File format specific rules might apply.'
+        ),
+        required=True,
+    )
+    value = forms.CharField(
+        label=_('Source language text'),
+        help_text=_(
+            'You can edit this later, as with any other string in '
+            'the source language.'
+        ),
+        required=True,
+    )

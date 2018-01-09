@@ -44,7 +44,7 @@ from weblate.trans.models.unit import STATE_TRANSLATED
 from weblate.trans.autofixes import fix_target
 from weblate.trans.forms import (
     TranslationForm, ZenTranslationForm, SearchForm, InlineWordForm,
-    MergeForm, AutoForm, AntispamForm, CommentForm, RevertForm,
+    MergeForm, AutoForm, AntispamForm, CommentForm, RevertForm, NewUnitForm,
 )
 from weblate.trans.views.helper import (
     get_translation, import_message, show_form_errors,
@@ -55,7 +55,7 @@ from weblate.trans.autotranslate import auto_translate
 from weblate.permissions.helpers import (
     can_translate, can_suggest, can_accept_suggestion, can_delete_suggestion,
     can_vote_suggestion, can_delete_comment, can_automatic_translation,
-    can_add_comment,
+    can_add_comment, can_add_unit,
 )
 
 
@@ -318,7 +318,7 @@ def handle_translate(translation, request, this_unit_url, next_unit_url):
     elif not can_translate(request.user, unit):
         messages.error(
             request,
-            _('You don\'t have privileges to save translations!')
+            _('Insufficient privileges for saving translations.')
         )
     else:
         # Custom commit message
@@ -352,7 +352,7 @@ def handle_merge(translation, request, next_unit_url):
     if not can_translate(request.user, unit):
         messages.error(
             request,
-            _('You don\'t have privileges to save translations!')
+            _('Insufficient privileges for saving translations.')
         )
         return
 
@@ -380,7 +380,7 @@ def handle_revert(translation, request, next_unit_url):
     if not can_translate(request.user, unit):
         messages.error(
             request,
-            _('You don\'t have privileges to save translations!')
+            _('Insufficient privileges for saving translations.')
         )
         return
 
@@ -495,7 +495,7 @@ def translate(request, project, subproject, lang):
 
     # Check boundaries
     if not 0 <= offset < num_results:
-        messages.info(request, _('You have reached end of translating.'))
+        messages.info(request, _('The translation has come to an end.'))
         # Delete search
         del request.session[search_result['key']]
         # Redirect to translation
@@ -788,8 +788,7 @@ def save_zen(request, project, subproject, lang):
         messages.error(request, _('Failed to save translation!'))
     elif not can_translate(request.user, form.cleaned_data['unit']):
         messages.error(
-            request,
-            _('You don\'t have privileges to save translations!')
+            request, _('Insufficient privileges for saving translations.')
         )
     else:
         unit = form.cleaned_data['unit']
@@ -801,3 +800,30 @@ def save_zen(request, project, subproject, lang):
         'zen-response.html',
         {},
     )
+
+
+@require_POST
+@login_required
+def new_unit(request, project, subproject, lang):
+    translation = get_translation(request, project, subproject, lang)
+    if not can_add_unit(request.user, translation):
+        raise PermissionDenied()
+
+    form = NewUnitForm(request.POST)
+    if not form.is_valid():
+        show_form_errors(request, form)
+    else:
+        key = form.cleaned_data['key']
+        value = form.cleaned_data['value']
+
+        if translation.unit_set.filter(context=key).exists():
+            messages.error(
+                request, _('Translation with this key seem to already exist!')
+            )
+        else:
+            translation.new_unit(request, key, value)
+            messages.success(
+                request, _('New translation unit has been added.')
+            )
+
+    return redirect(translation)

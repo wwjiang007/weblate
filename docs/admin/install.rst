@@ -40,7 +40,7 @@ Django (>= 1.11)
     https://www.djangoproject.com/
 siphashc (>= 0.8)
     https://github.com/WeblateOrg/siphashc
-Translate-toolkit (>= 2.0.0)
+Translate-toolkit (>= 2.2.0)
     http://toolkit.translatehouse.org/
 Six (>= 1.7.0)
     https://pypi.python.org/pypi/six
@@ -70,6 +70,8 @@ django-crispy-forms (>= 1.6.1)
     https://django-crispy-forms.readthedocs.io/
 Django REST Framework (>=3.7)
     http://www.django-rest-framework.org/
+user-agents (>= 1.1.0)
+    https://github.com/selwin/python-user-agents
 libravatar (optional for federated avatar support)
     You need to additionally install pydns (on Python 2) or py3dns (on Python 3)
     to make libravatar work.
@@ -1061,16 +1063,35 @@ Template loading
 
 It is recommended to use cached template loader for Django. It caches parsed
 templates and avoids the need to do the parsing with every single request. You can
-configure it using the following snippet:
+configure it using the following snippet (the ``loaders`` setting is important here):
 
 .. code-block:: python
 
-    TEMPLATE_LOADERS = (
-        ('django.template.loaders.cached.Loader', (
-            'django.template.loaders.filesystem.Loader',
-            'django.template.loaders.app_directories.Loader',
-        )),
-    )
+    TEMPLATES = [
+        {
+            'BACKEND': 'django.template.backends.django.DjangoTemplates',
+            'DIRS': [
+                os.path.join(BASE_DIR, 'templates'),
+            ],
+            'OPTIONS': {
+                'context_processors': [
+                    'django.contrib.auth.context_processors.auth',
+                    'django.template.context_processors.debug',
+                    'django.template.context_processors.i18n',
+                    'django.template.context_processors.request',
+                    'django.template.context_processors.csrf',
+                    'django.contrib.messages.context_processors.messages',
+                    'weblate.trans.context_processors.weblate_context',
+                ],
+                'loaders': [
+                    ('django.template.loaders.cached.Loader', [
+                        'django.template.loaders.filesystem.Loader',
+                        'django.template.loaders.app_directories.Loader',
+                    ]),
+                ],
+            },
+        },
+    ]
 
 .. seealso::
 

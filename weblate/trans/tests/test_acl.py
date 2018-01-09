@@ -78,7 +78,7 @@ class ACLTest(FixtureTestCase):
         self.assertEqual(response.status_code, 403)
         response = self.client.get(self.translate_url)
         self.assertContains(
-            response, 'You don\'t have privileges to save translations!'
+            response, 'Insufficient privileges for saving translations.'
         )
 
     def test_acl(self):
@@ -228,7 +228,7 @@ class ACLTest(FixtureTestCase):
             {'user': 'nonexisting'},
             follow=True
         )
-        self.assertContains(response, 'No matching user found!')
+        self.assertContains(response, 'No matching user found.')
 
     def test_change_access(self):
         self.add_acl()
@@ -262,14 +262,32 @@ class ACLTest(FixtureTestCase):
         """
         match = '{}@'.format(self.project.name)
         self.project.access_control = Project.ACCESS_PUBLIC
+        self.project.enable_review = False
         self.project.save()
         self.assertEqual(
             1, Group.objects.filter(name__startswith=match).count()
         )
         self.project.access_control = Project.ACCESS_PROTECTED
+        self.project.enable_review = True
         self.project.save()
         self.assertEqual(
             8, Group.objects.filter(name__startswith=match).count()
+        )
+        self.project.access_control = Project.ACCESS_PRIVATE
+        self.project.enable_review = True
+        self.project.save()
+        self.assertEqual(
+            8, Group.objects.filter(name__startswith=match).count()
+        )
+        self.project.access_control = Project.ACCESS_CUSTOM
+        self.project.save()
+        self.assertEqual(
+            0, Group.objects.filter(name__startswith=match).count()
+        )
+        self.project.access_control = Project.ACCESS_CUSTOM
+        self.project.save()
+        self.assertEqual(
+            0, Group.objects.filter(name__startswith=match).count()
         )
         self.project.access_control = Project.ACCESS_PRIVATE
         self.project.save()

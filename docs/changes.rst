@@ -1,10 +1,21 @@
 Changes
 =======
 
+weblate 2.19
+------------
+
+Released on ? 2018.
+
+* Fixed imports across some file formats.
+* Display human friendly browser information in audit log.
+* Added TMX exporter for files.
+* Various performance improvements for loading translation files.
+* Added option to disable access management in Weblate in favor of Django one.
+
 weblate 2.18
 ------------
 
-Released on ? 2017.
+Released on December 15th 2017.
 
 * Extended contributor stats.
 * Improved configuration of special chars virtual keyboard.
@@ -15,6 +26,8 @@ Released on ? 2017.
 * Added button to copy permalink for current translation.
 * Dropped support for Django 1.10 and added support for Django 2.0.
 * Removed locking of translations while translating.
+* Added support for adding new units to monolingual translations.
+* Added support for translation workflows with dedicated reviewers.
 
 weblate 2.17.1
 --------------

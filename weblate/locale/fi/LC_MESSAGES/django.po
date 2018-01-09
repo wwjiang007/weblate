@@ -7,9 +7,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Weblate 1.2\n"
 "Report-Msgid-Bugs-To: weblate@lists.cihar.com\n"
-"POT-Creation-Date: 2017-12-05 15:36+0000\n"
-"PO-Revision-Date: 2017-11-08 15:45+0000\n"
-"Last-Translator: Tuomas Harju <tuomas@rtj-group.com>\n"
+"POT-Creation-Date: 2018-01-05 15:48+0000\n"
+"PO-Revision-Date: 2017-12-09 12:46+0000\n"
+"Last-Translator: Jiri Grönroos <jiri.gronroos@iki.fi>\n"
 "Language-Team: Finnish <https://hosted.weblate.org/projects/weblate/master/"
 "fi/>\n"
 "Language: fi\n"
@@ -64,7 +64,7 @@ msgstr ""
 "@. + - _"
 
 #: weblate/accounts/forms.py:121 weblate/templates/accounts/user.html:22
-#: weblate/templates/manage-access.html:23
+#: weblate/templates/manage-access.html:24
 msgid "Username"
 msgstr "Käyttäjänimi"
 
@@ -77,7 +77,7 @@ msgid "This username is already taken. Please choose another."
 msgstr ""
 "Tämä käyttäjänimi on jo käytössä. Ole hyvä ja valitse toinen käyttäjänimi."
 
-#: weblate/accounts/forms.py:158 weblate/templates/manage-access.html:24
+#: weblate/accounts/forms.py:158 weblate/templates/manage-access.html:25
 msgid "Full name"
 msgstr "Koko nimi"
 
@@ -105,7 +105,7 @@ msgstr ""
 "projekteissa kääntämiäni kieliä."
 
 #: weblate/accounts/forms.py:296 weblate/accounts/forms.py:367
-#: weblate/templates/manage-access.html:25
+#: weblate/templates/manage-access.html:26
 msgid "E-mail"
 msgstr "Sähköposti"
 
@@ -207,12 +207,12 @@ msgstr "Tämä tili ei ole aktiivinen."
 msgid "Too many authentication attempts!"
 msgstr "Liian monta kirjautumisyritystä!"
 
-#: weblate/accounts/forms.py:623 weblate/trans/models/project.py:91
+#: weblate/accounts/forms.py:623 weblate/trans/models/project.py:92
 msgid "Project name"
 msgstr "Projektin nimi"
 
 #: weblate/accounts/forms.py:628 weblate/templates/project_info.html:3
-#: weblate/trans/models/project.py:103
+#: weblate/trans/models/project.py:104
 msgid "Project website"
 msgstr "Projektin verkkosivu"
 
@@ -502,90 +502,90 @@ msgstr ""
 "Sähköpostiosoitteesi ei enää ole liitetty varmistettuun tiliin, "
 "sähköpostiosoitteeksi on muutettu {0}."
 
-#: weblate/accounts/views.py:117 weblate/accounts/views.py:743
-#: weblate/accounts/views.py:792 weblate/templates/accounts/reset.html:7
+#: weblate/accounts/views.py:118 weblate/accounts/views.py:744
+#: weblate/accounts/views.py:793 weblate/templates/accounts/reset.html:7
 #: weblate/templates/accounts/reset.html:24
 msgid "Password reset"
 msgstr "Salasanan palauttaminen"
 
-#: weblate/accounts/views.py:120
+#: weblate/accounts/views.py:121
 msgid "Remove account"
 msgstr "Poista käyttäjätili"
 
-#: weblate/accounts/views.py:123 weblate/accounts/views.py:632
+#: weblate/accounts/views.py:124 weblate/accounts/views.py:633
 msgid "User registration"
 msgstr "Käyttäjän rekisteröinti"
 
-#: weblate/accounts/views.py:157
+#: weblate/accounts/views.py:158
 msgid "Message could not be sent to administrator!"
 msgstr "Viestiäsi ei voitu lähettää ylläpitäjälle!"
 
-#: weblate/accounts/views.py:175
+#: weblate/accounts/views.py:176
 msgid "Message has been sent to administrator."
 msgstr "Viesti ylläpitäjälle on lähetetty."
 
-#: weblate/accounts/views.py:183
+#: weblate/accounts/views.py:184
 msgid "You cannot change demo account on the demo server."
 msgstr "Et voi vaihtaa demo -tiliä demo -serverillä."
 
-#: weblate/accounts/views.py:208
+#: weblate/accounts/views.py:209
 msgid "Too many attempts, you have been logged out!"
 msgstr "Liian monta epäonnistunutta yritystä, sinut on nyt kirjattu ulos!"
 
-#: weblate/accounts/views.py:270
+#: weblate/accounts/views.py:271
 msgid "Your profile has been updated."
 msgstr "Profiilisi on päivitetty."
 
-#: weblate/accounts/views.py:306
+#: weblate/accounts/views.py:307
 msgid "User profile"
 msgstr "Käyttäjäprofiili"
 
-#: weblate/accounts/views.py:337
+#: weblate/accounts/views.py:338
 msgid "Your account has been removed."
 msgstr "Käyttäjätunnuksesi on poistettu."
 
-#: weblate/accounts/views.py:420
+#: weblate/accounts/views.py:421
 msgid "Too many messages sent, please try again later!"
 msgstr "Liian monta lähetettyä viestiä, yritä myöhemmin uudelleen!"
 
-#: weblate/accounts/views.py:446 weblate/templates/accounts/contact.html:6
-#: weblate/templates/accounts/contact.html:21
+#: weblate/accounts/views.py:447 weblate/templates/accounts/contact.html:6
+#: weblate/templates/accounts/contact.html:21 weblate/templates/footer.html:9
 msgid "Contact"
 msgstr "Ota yhteyttä"
 
-#: weblate/accounts/views.py:482 weblate/templates/accounts/hosting.html:7
+#: weblate/accounts/views.py:483 weblate/templates/accounts/hosting.html:7
 msgid "Hosting"
 msgstr "Hostaus"
 
-#: weblate/accounts/views.py:554 weblate/templates/accounts/login.html:8
+#: weblate/accounts/views.py:555 weblate/templates/accounts/login.html:8
 #: weblate/templates/accounts/login.html:43
 #: weblate/templates/accounts/redirect.html:8 weblate/templates/base.html:135
 msgid "Login"
 msgstr "Kirjaudu sisään"
 
-#: weblate/accounts/views.py:582 weblate/wladmin/sites.py:145
+#: weblate/accounts/views.py:583 weblate/wladmin/sites.py:145
 msgid "Thanks for using Weblate!"
 msgstr "Kiitos Weblaten käyttämisestä!"
 
-#: weblate/accounts/views.py:670 weblate/templates/accounts/email.html:16
+#: weblate/accounts/views.py:671 weblate/templates/accounts/email.html:16
 msgid "Register email"
 msgstr "Rekisteröi sähköposti"
 
-#: weblate/accounts/views.py:713 weblate/templates/accounts/password.html:13
+#: weblate/accounts/views.py:714 weblate/templates/accounts/password.html:13
 #: weblate/templates/accounts/profile.html:192
 msgid "Change password"
 msgstr "Vaihda salasana"
 
-#: weblate/accounts/views.py:728
+#: weblate/accounts/views.py:729
 msgid "Password reset has been already completed!"
 msgstr "Salasanasi palutuspyyntö on jo suoritettu loppuun asti!"
 
-#: weblate/accounts/views.py:759
+#: weblate/accounts/views.py:760
 msgid "Can not reset password, email authentication is disabled!"
 msgstr ""
 "Salasanaa ei voi resetoida koska sähköpostitunnistautuminen ei ole käytössä!"
 
-#: weblate/accounts/views.py:894
+#: weblate/accounts/views.py:895
 msgid ""
 "Failed to verify your registration! Probably the verification token has "
 "expired. Please try the registration again."
@@ -593,30 +593,36 @@ msgstr ""
 "Rekisteröintiäsi ei voida vahvistaa! Todennäköisesti rekisteröinnin varmiste "
 "on vanhentunut. Ole hyvä ja yritä rekisteröintiä uudelleen."
 
-#: weblate/accounts/views.py:901
+#: weblate/accounts/views.py:902
 msgid "Authentication failed due to invalid session state."
 msgstr "Tunnistautuminen epäonnistui koska istunnon tila on virheellinen."
 
-#: weblate/accounts/views.py:915
+#: weblate/accounts/views.py:916
 msgid "Can not change authentication for demo!"
 msgstr "Kokeilutilin tunnistautumistietoja ei voi vaihtaa!"
 
-#: weblate/accounts/views.py:919
+#: weblate/accounts/views.py:920
 msgid "New registrations are disabled!"
 msgstr "Uudet rekisteröinnit on estetty!"
 
-#: weblate/accounts/views.py:926
+#: weblate/accounts/views.py:927
 msgid ""
 "Authentication has failed, probably due to expired token or connection error."
 msgstr ""
 "Tunnistautuminen epäonnistui. Mahdollinen syy voi olla joko vanhentunut "
 "istunto tai yhteysvirhe."
 
-#: weblate/accounts/views.py:930
+#: weblate/accounts/views.py:931
 msgid "Authentication has been cancelled."
 msgstr "Tunnistautuminen on keskeytetty."
 
 #: weblate/accounts/views.py:933
+#, fuzzy
+#| msgid "Authentication has been cancelled."
+msgid "Authentication has been forbidden by server."
+msgstr "Tunnistautuminen on keskeytetty."
+
+#: weblate/accounts/views.py:936
 msgid ""
 "Failed to complete your registration! This authentication, email or username "
 "are already associated with another account!"
@@ -627,7 +633,7 @@ msgstr ""
 #: weblate/billing/admin.py:52 weblate/billing/models.py:128
 #: weblate/templates/accounts/user.html:38
 #: weblate/templates/billing/detail.html:31 weblate/templates/language.html:15
-#: weblate/templates/projects.html:5 weblate/trans/models/project.py:170
+#: weblate/templates/projects.html:5 weblate/trans/models/project.py:180
 #: weblate/trans/views/basic.py:256
 msgid "Projects"
 msgstr "Projektit"
@@ -660,11 +666,11 @@ msgstr "Mutokset viimeisen vuoden aikana"
 msgid "VCS repositories"
 msgstr "Versionhallinnan arkistot"
 
-#: weblate/billing/models.py:140 weblate/trans/models/project.py:309
+#: weblate/billing/models.py:140 weblate/trans/models/project.py:320
 msgid "Source strings"
 msgstr "Lähdeteksti"
 
-#: weblate/billing/models.py:151 weblate/trans/models/project.py:328
+#: weblate/billing/models.py:151 weblate/trans/models/project.py:339
 msgid "Source words"
 msgstr "Lähdetekstin sanat"
 
@@ -672,8 +678,8 @@ msgstr "Lähdetekstin sanat"
 #: weblate/lang/views.py:43 weblate/templates/accounts/profile.html:22
 #: weblate/templates/accounts/profile.html:41 weblate/templates/language.html:6
 #: weblate/templates/languages.html:6 weblate/templates/project.html:26
-#: weblate/templates/trans/change_list.html:18 weblate/trans/forms.py:1084
-#: weblate/trans/forms.py:1443 weblate/trans/models/project.py:339
+#: weblate/templates/trans/change_list.html:18 weblate/trans/forms.py:1092
+#: weblate/trans/forms.py:1453 weblate/trans/models/project.py:350
 msgid "Languages"
 msgstr "Kielet"
 
@@ -703,54 +709,669 @@ msgstr "Rajojen sisällä"
 msgid "Weblate languages"
 msgstr "Weblaten kielet"
 
-#: weblate/lang/data.py:1171 weblate/lang/data.py:1175
-#: weblate/lang/data.py:1181 weblate/lang/data.py:1189
-#: weblate/lang/data.py:1193 weblate/lang/data.py:1198
-#: weblate/lang/data.py:1204 weblate/lang/data.py:1210
-#: weblate/lang/data.py:1215 weblate/lang/data.py:1221
-#: weblate/lang/data.py:1233
+#: weblate/lang/data.py:29 weblate/templates/i18n.html:203
+msgid "Limburgish"
+msgstr "limburgi"
+
+#: weblate/lang/data.py:35 weblate/templates/i18n.html:305
+msgid "Tagalog"
+msgstr "Tagalog"
+
+#: weblate/lang/data.py:41 weblate/templates/i18n.html:324
+msgid "Urdu"
+msgstr "Urdu"
+
+#: weblate/lang/data.py:47 weblate/templates/i18n.html:325
+msgid "Urdu (Pakistan)"
+msgstr "Urdu (Pakistania)"
+
+#: weblate/lang/data.py:53 weblate/templates/i18n.html:327
+msgid "Uzbek (latin)"
+msgstr "Udzbekki (latin)"
+
+#: weblate/lang/data.py:59 weblate/lang/data.py:346
+#: weblate/templates/i18n.html:326
+msgid "Uzbek"
+msgstr "Udzbekki"
+
+#: weblate/lang/data.py:65 weblate/templates/i18n.html:98
+msgid "Bosnian (latin)"
+msgstr "Bosnia (länsimainen)"
+
+#: weblate/lang/data.py:72 weblate/templates/i18n.html:97
+msgid "Bosnian (cyrillic)"
+msgstr "Bosnia (Kyrillinen)"
+
+#: weblate/lang/data.py:79 weblate/templates/i18n.html:277
+msgid "Serbian (latin)"
+msgstr "Serbia (latin)"
+
+#: weblate/lang/data.py:86 weblate/templates/i18n.html:276
+msgid "Serbian (cyrillic)"
+msgstr "Serbia (Kyrillinen)"
+
+#: weblate/lang/data.py:93 weblate/templates/i18n.html:87
+msgid "Belarusian (latin)"
+msgstr "Valkovenäjä(latin)"
+
+#: weblate/lang/data.py:100 weblate/templates/i18n.html:136
+msgid "English (United States)"
+msgstr "Englanti (USA)"
+
+#: weblate/lang/data.py:106 weblate/templates/i18n.html:131
+msgid "English (Canada)"
+msgstr "Englanti (Kanada)"
+
+#: weblate/lang/data.py:112 weblate/templates/i18n.html:130
+msgid "English (Australia)"
+msgstr "Englanti (Australia)"
+
+#: weblate/lang/data.py:118 weblate/templates/i18n.html:132
+msgid "English (Ireland)"
+msgstr "Englanti (Irlanti)"
+
+#: weblate/lang/data.py:124 weblate/templates/i18n.html:133
+msgid "English (Philippines)"
+msgstr "Englanti (Filippiini)"
+
+#: weblate/lang/data.py:130 weblate/templates/i18n.html:240
+msgid "Norwegian Bokmål"
+msgstr "Kirjanorja"
+
+#: weblate/lang/data.py:136 weblate/templates/i18n.html:260
+msgid "Portuguese (Portugal)"
+msgstr "Portugali (Portugali)"
+
+#: weblate/lang/data.py:142 weblate/templates/i18n.html:288
+msgid "Sorani"
+msgstr "Sorani"
+
+#: weblate/lang/data.py:148 weblate/templates/i18n.html:337
+msgid "West Flemish"
+msgstr "Länsi-Flanderin"
+
+#: weblate/lang/data.py:154 weblate/templates/i18n.html:109
+msgid "Chinese"
+msgstr "Kiina"
+
+#: weblate/lang/data.py:160 weblate/templates/i18n.html:190
+msgid "Klingon"
+msgstr "Klingon"
+
+#: weblate/lang/data.py:166 weblate/templates/i18n.html:191
+msgid "Klingon (pIqaD)"
+msgstr "Klingon (pIqaD)"
+
+#: weblate/lang/data.py:172 weblate/templates/i18n.html:116
+msgid "Colognian"
+msgstr "Colognian"
+
+#: weblate/lang/data.py:178 weblate/templates/i18n.html:273
+msgid "Sardinian"
+msgstr "Sardinia"
+
+#: weblate/lang/data.py:184 weblate/templates/i18n.html:318
+msgid "Turkish"
+msgstr "Turkki"
+
+#: weblate/lang/data.py:190 weblate/templates/i18n.html:63
+msgid "Acholi"
+msgstr "Acholi"
+
+#: weblate/lang/data.py:196 weblate/templates/i18n.html:69
+msgid "Angika"
+msgstr "Angika"
+
+#: weblate/lang/data.py:202 weblate/templates/i18n.html:75
+msgid "Assamese"
+msgstr "Assami"
+
+#: weblate/lang/data.py:208 weblate/templates/i18n.html:80
+msgid "Aymará"
+msgstr "Aimarat"
+
+#: weblate/lang/data.py:214 weblate/templates/i18n.html:95
+msgid "Bodo"
+msgstr "Bodo"
+
+#: weblate/lang/data.py:220 weblate/templates/i18n.html:108
+msgid "Chiga"
+msgstr "Chiga"
+
+#: weblate/lang/data.py:226 weblate/templates/i18n.html:125
+msgid "Dogri"
+msgstr "Dogri"
+
+#: weblate/lang/data.py:232 weblate/templates/i18n.html:296
+msgid "Spanish (Argentina)"
+msgstr "Espanja (Argentiina)"
+
+#: weblate/lang/data.py:238 weblate/templates/i18n.html:295
+#, fuzzy
+#| msgid "Spanish (Mexico)"
+msgid "Spanish (Ecuador)"
+msgstr "Espanja (Meksiko)"
+
+#: weblate/lang/data.py:244 weblate/templates/i18n.html:297
+msgid "Spanish (Chile)"
+msgstr "Espanja (Chile)"
+
+#: weblate/lang/data.py:250 weblate/templates/i18n.html:298
+msgid "Spanish (Mexico)"
+msgstr "Espanja (Meksiko)"
+
+#: weblate/lang/data.py:256 weblate/templates/i18n.html:299
+msgid "Spanish (Puerto Rico)"
+msgstr "Espanja (Puerto Rico)"
+
+#: weblate/lang/data.py:262 weblate/templates/i18n.html:294
+msgid "Spanish (American)"
+msgstr "Espanja (Amerikka)"
+
+#: weblate/lang/data.py:268 weblate/templates/i18n.html:107
+msgid "Chhattisgarhi"
+msgstr "Chhattisgarhi"
+
+#: weblate/lang/data.py:274 weblate/templates/i18n.html:206
+msgid "Lojban"
+msgstr "Lojban"
+
+#: weblate/lang/data.py:280 weblate/templates/i18n.html:158
+msgid "Greenlandic"
+msgstr "Grönlanti"
+
+#: weblate/lang/data.py:286 weblate/templates/i18n.html:218
+msgid "Manipuri"
+msgstr "Manipuri"
+
+#: weblate/lang/data.py:292 weblate/templates/i18n.html:217
+msgid "Mandinka"
+msgstr "Mandinka"
+
+#: weblate/lang/data.py:298 weblate/templates/i18n.html:101
+msgid "Burmese"
+msgstr "Burma"
+
+#: weblate/lang/data.py:304 weblate/templates/i18n.html:238
+msgid "Northern Sami"
+msgstr "Pohjoissaame"
+
+#: weblate/lang/data.py:310 weblate/templates/i18n.html:239
+msgid "Norwegian (old code)"
+msgstr "Norja (vanha koodi)"
+
+#: weblate/lang/data.py:316 weblate/templates/i18n.html:189
+msgid "Kinyarwanda"
+msgstr "Ruanda"
+
+#: weblate/lang/data.py:322 weblate/templates/i18n.html:272
+msgid "Santali"
+msgstr "Santali"
+
+#: weblate/lang/data.py:328 weblate/templates/i18n.html:282
+msgid "Sindhi"
+msgstr "Sindhi"
+
+#: weblate/lang/data.py:334 weblate/templates/i18n.html:336
+msgid "Welsh"
+msgstr "Kymri"
+
+#: weblate/lang/data.py:340 weblate/templates/i18n.html:74
+msgid "Armenian"
+msgstr "Armenia"
+
+#: weblate/lang/data.py:352 weblate/templates/i18n.html:250
+msgid "Ossetian"
+msgstr "Osseetti"
+
+#: weblate/lang/data.py:358 weblate/templates/i18n.html:316
+msgid "Tsonga"
+msgstr "Tsonga"
+
+#: weblate/lang/data.py:364 weblate/templates/i18n.html:144
+msgid "Franco-Provençal"
+msgstr "Frankoprovensaali / Arpitaani"
+
+#: weblate/lang/data.py:370 weblate/templates/i18n.html:114
+msgid "Chinese (Traditional)"
+msgstr "Kiina (perinteinen)"
+
+#: weblate/lang/data.py:376 weblate/templates/i18n.html:111
+msgid "Chinese (Hong Kong)"
+msgstr "Kiina (Hong Kong)"
+
+#: weblate/lang/data.py:382 weblate/templates/i18n.html:112
+msgid "Chinese (Simplified)"
+msgstr "Kiina (yksinkertainen)"
+
+#: weblate/lang/data.py:388 weblate/templates/i18n.html:278
+msgid "Serbo-Croatian"
+msgstr "Serbokroatia"
+
+#: weblate/lang/data.py:395 weblate/templates/i18n.html:127
+msgid "Dutch (Belgium)"
+msgstr "Hollanti (Belgia)"
+
+#: weblate/lang/data.py:401 weblate/templates/i18n.html:83
+msgid "Bashkir"
+msgstr "Baškiiri"
+
+#: weblate/lang/data.py:407 weblate/templates/i18n.html:341
+msgid "Yiddish"
+msgstr "Jiddiš"
+
+#: weblate/lang/data.py:413 weblate/templates/i18n.html:77
+msgid "Austrian German"
+msgstr "Itävallan saksa"
+
+#: weblate/lang/data.py:419 weblate/templates/i18n.html:304
+msgid "Swiss High German"
+msgstr "Sveitsi (Yläsaksa)"
+
+#: weblate/lang/data.py:425 weblate/templates/i18n.html:207
+msgid "Low German"
+msgstr "Alasaksa"
+
+#: weblate/lang/data.py:431 weblate/templates/i18n.html:164
+msgid "Hawaiian"
+msgstr "Havaiji"
+
+#: weblate/lang/data.py:437 weblate/templates/i18n.html:330
+msgid "Venetian"
+msgstr "Venetia"
+
+#: weblate/lang/data.py:443 weblate/templates/i18n.html:247
+msgid "Ojibwe"
+msgstr "Odžibwan"
+
+#: weblate/lang/data.py:449 weblate/templates/i18n.html:104
+msgid "Chamorro"
+msgstr "Tšamorro"
+
+#: weblate/lang/data.py:455 weblate/templates/i18n.html:106
+msgid "Cherokee"
+msgstr "Cherokee"
+
+#: weblate/lang/data.py:461 weblate/templates/i18n.html:119
+msgid "Cree"
+msgstr "Cree"
+
+#: weblate/lang/data.py:467 weblate/templates/i18n.html:243
+msgid "Nyanja"
+msgstr "Nyanja"
+
+#: weblate/lang/data.py:473 weblate/templates/i18n.html:201
+msgid "Latin"
+msgstr "Latina"
+
+#: weblate/lang/data.py:479 weblate/templates/i18n.html:71
+msgid "Arabic (Algeria)"
+msgstr "Arabia (Algeria)"
+
+#: weblate/lang/data.py:486 weblate/templates/i18n.html:72
+msgid "Arabic (Morocco)"
+msgstr "Arabia (Marokko)"
+
+#: weblate/lang/data.py:493 weblate/templates/i18n.html:146
+msgid "French (Canada)"
+msgstr "Ranska (Kanada)"
+
+#: weblate/lang/data.py:499 weblate/templates/i18n.html:183
+msgid "Kabyle"
+msgstr "Kabyyli"
+
+#: weblate/lang/data.py:505 weblate/templates/i18n.html:256
+msgid "Pirate"
+msgstr "Pirate"
+
+#: weblate/lang/data.py:511 weblate/templates/i18n.html:173
+msgid "Igbo"
+msgstr "Igbo"
+
+#: weblate/lang/data.py:517 weblate/templates/i18n.html:323
+msgid "Upper Sorbian"
+msgstr "Yläsorbi"
+
+#: weblate/lang/data.py:524 weblate/templates/i18n.html:208
+#, fuzzy
+#| msgid "Upper Sorbian"
+msgid "Lower Sorbian"
+msgstr "Yläsorbi"
+
+#: weblate/lang/data.py:531 weblate/templates/i18n.html:289
+#, fuzzy
+#| msgid "Serbian"
+msgid "Sorbian"
+msgstr "Serbia"
+
+#: weblate/lang/data.py:538 weblate/templates/i18n.html:280
+msgid "Shona"
+msgstr "Shona"
+
+#: weblate/lang/data.py:544 weblate/templates/i18n.html:85
+msgid "Bavarian"
+msgstr "Bavarian"
+
+#: weblate/lang/data.py:550 weblate/templates/i18n.html:124
+msgid "Dhivehi"
+msgstr "Divehi"
+
+#: weblate/lang/data.py:556 weblate/templates/i18n.html:64
+msgid "Afar"
+msgstr "Afar"
+
+#: weblate/lang/data.py:562 weblate/templates/i18n.html:62
+msgid "Abkhazian"
+msgstr "Abhaasi"
+
+#: weblate/lang/data.py:568 weblate/templates/i18n.html:79
+msgid "Avestan"
+msgstr "Avesta"
+
+#: weblate/lang/data.py:574 weblate/templates/i18n.html:78
+msgid "Avaric"
+msgstr "Avaari"
+
+#: weblate/lang/data.py:580 weblate/templates/i18n.html:92
+msgid "Bihari languages"
+msgstr "Bihari -kielet"
+
+#: weblate/lang/data.py:586 weblate/templates/i18n.html:94
+msgid "Bislama"
+msgstr "Bislama"
+
+#: weblate/lang/data.py:592 weblate/templates/i18n.html:82
+msgid "Bambara"
+msgstr "Bambara"
+
+#: weblate/lang/data.py:598 weblate/templates/i18n.html:105
+msgid "Chechen"
+msgstr "Tšetšeeni"
+
+#: weblate/lang/data.py:604 weblate/templates/i18n.html:118
+msgid "Corsican"
+msgstr "Korsika"
+
+#: weblate/lang/data.py:610 weblate/templates/i18n.html:248
+msgid "Old Church Slavonic"
+msgstr "Muinaiskirkkoslaavi"
+
+#: weblate/lang/data.py:616 weblate/templates/i18n.html:115
+msgid "Chuvash"
+msgstr "Tšuvassi"
+
+#: weblate/lang/data.py:622 weblate/templates/i18n.html:139
+msgid "Ewe"
+msgstr "Ewe"
+
+#: weblate/lang/data.py:628 weblate/templates/i18n.html:141
+msgid "Fijian"
+msgstr "Fidži"
+
+#: weblate/lang/data.py:634 weblate/templates/i18n.html:159
+msgid "Guarani"
+msgstr "Guarani"
+
+#: weblate/lang/data.py:640 weblate/templates/i18n.html:219
+msgid "Manx"
+msgstr "Manx"
+
+#: weblate/lang/data.py:647 weblate/templates/i18n.html:169
+msgid "Hiri Motu"
+msgstr "Hiri-motu"
+
+#: weblate/lang/data.py:653 weblate/templates/i18n.html:166
+msgid "Herero"
+msgstr "Herero"
+
+#: weblate/lang/data.py:659 weblate/templates/i18n.html:244
+msgid "Occidental"
+msgstr "Oksitaani"
+
+#: weblate/lang/data.py:665 weblate/templates/i18n.html:242
+msgid "Nuosu"
+msgstr "Nuosu"
+
+#: weblate/lang/data.py:671 weblate/templates/i18n.html:177
+msgid "Inupiaq"
+msgstr "Inupiatun"
+
+#: weblate/lang/data.py:677 weblate/templates/i18n.html:172
+msgid "Ido"
+msgstr "Ido"
+
+#: weblate/lang/data.py:683 weblate/templates/i18n.html:176
+msgid "Inuktitut"
+msgstr "Inuktitut"
+
+#: weblate/lang/data.py:689 weblate/templates/i18n.html:193
+msgid "Kongo"
+msgstr "Kongo"
+
+#: weblate/lang/data.py:695 weblate/templates/i18n.html:156
+msgid "Gikuyu"
+msgstr "Gikuyu"
+
+#: weblate/lang/data.py:701 weblate/templates/i18n.html:198
+msgid "Kwanyama"
+msgstr "Kuanjama"
+
+#: weblate/lang/data.py:707 weblate/templates/i18n.html:185
+msgid "Kanuri"
+msgstr "Kanuri"
+
+#: weblate/lang/data.py:713 weblate/templates/i18n.html:192
+msgid "Komi"
+msgstr "Komi"
+
+#: weblate/lang/data.py:719 weblate/templates/i18n.html:152
+msgid "Ganda"
+msgstr "Ganda"
+
+#: weblate/lang/data.py:725 weblate/templates/i18n.html:209
+msgid "Luba-Katanga"
+msgstr "Katangan luba"
+
+#: weblate/lang/data.py:731 weblate/templates/i18n.html:224
+msgid "Marshallese"
+msgstr "Marshalli"
+
+#: weblate/lang/data.py:737 weblate/templates/i18n.html:226
+msgid "Moldovan"
+msgstr "Moldova"
+
+#: weblate/lang/data.py:743 weblate/templates/i18n.html:232
+msgid "Nauru"
+msgstr "Nauru"
+
+#: weblate/lang/data.py:749 weblate/templates/i18n.html:237
+msgid "North Ndebele"
+msgstr "Pohjoisndebele"
+
+#: weblate/lang/data.py:755 weblate/templates/i18n.html:234
+msgid "Ndonga"
+msgstr "Ambo"
+
+#: weblate/lang/data.py:761 weblate/templates/i18n.html:291
+msgid "South Ndebele"
+msgstr "Eteländebele"
+
+#: weblate/lang/data.py:767 weblate/templates/i18n.html:233
+msgid "Navaho"
+msgstr "Navajo"
+
+#: weblate/lang/data.py:773 weblate/templates/i18n.html:249
+msgid "Oromo"
+msgstr "Oromo"
+
+#: weblate/lang/data.py:779 weblate/templates/i18n.html:251
+msgid "Pali"
+msgstr "Pali"
+
+#: weblate/lang/data.py:785 weblate/templates/i18n.html:263
+msgid "Quechua"
+msgstr "Ketšua"
+
+#: weblate/lang/data.py:791 weblate/templates/i18n.html:266
+msgid "Rundi"
+msgstr "Rundi"
+
+#: weblate/lang/data.py:797 weblate/templates/i18n.html:268
+msgid "Rusyn"
+msgstr "Ruteeni"
+
+#: weblate/lang/data.py:803 weblate/templates/i18n.html:270
+msgid "Sango"
+msgstr "Sango"
+
+#: weblate/lang/data.py:809 weblate/templates/i18n.html:269
+msgid "Samoan"
+msgstr "Samoa"
+
+#: weblate/lang/data.py:815 weblate/templates/i18n.html:292
+msgid "Southern Sami"
+msgstr "Eteläsaame"
+
+#: weblate/lang/data.py:821 weblate/templates/i18n.html:302
+msgid "Swati"
+msgstr "Swazi"
+
+#: weblate/lang/data.py:827 weblate/templates/i18n.html:317
+msgid "Tswana"
+msgstr "Tšwana"
+
+#: weblate/lang/data.py:833 weblate/templates/i18n.html:315
+msgid "Tonga (Tonga Islands)"
+msgstr "Tonga-saarten tonga"
+
+#: weblate/lang/data.py:839 weblate/templates/i18n.html:320
+msgid "Twi"
+msgstr "Twi"
+
+#: weblate/lang/data.py:845 weblate/templates/i18n.html:306
+msgid "Tahitian"
+msgstr "Tahiti"
+
+#: weblate/lang/data.py:851 weblate/templates/i18n.html:332
+msgid "Volapük"
+msgstr "Volapük"
+
+#: weblate/lang/data.py:857 weblate/templates/i18n.html:339
+msgid "Xhosa"
+msgstr "Xhosa"
+
+#: weblate/lang/data.py:863 weblate/templates/i18n.html:344
+msgid "Zhuang"
+msgstr "Zhuang"
+
+#: weblate/lang/data.py:869 weblate/templates/i18n.html:197
+msgid "Kurmanji"
+msgstr "Kurmanji"
+
+#: weblate/lang/data.py:875 weblate/templates/i18n.html:88
+msgid "Bemba"
+msgstr "Bemba"
+
+#: weblate/lang/data.py:881 weblate/templates/i18n.html:120
+msgid "Crimean Tatar"
+msgstr "krimintataari"
+
+#: weblate/lang/data.py:887 weblate/templates/i18n.html:279
+msgid "Shan"
+msgstr "shan"
+
+#: weblate/lang/data.py:893 weblate/templates/i18n.html:335
+msgid "Walser German"
+msgstr "walser"
+
+#: weblate/lang/data.py:899 weblate/templates/i18n.html:223
+msgid "Mari"
+msgstr "mari"
+
+#: weblate/lang/data.py:905 weblate/templates/i18n.html:225
+msgid "Meadow Mari"
+msgstr "niittymari"
+
+#: weblate/lang/data.py:911 weblate/templates/i18n.html:167
+msgid "Hiligaynon"
+msgstr ""
+
+#: weblate/lang/data.py:917 weblate/templates/i18n.html:313
+#, fuzzy
+#| msgid "Tigrinya"
+msgid "Tigre"
+msgstr "Tigrinja"
+
+#: weblate/lang/data.py:923 weblate/templates/i18n.html:180
+msgid "Jamaican Patois"
+msgstr ""
+
+#: weblate/lang/data.py:929 weblate/templates/i18n.html:93
+msgid "Blin"
+msgstr ""
+
+#: weblate/lang/data.py:935 weblate/templates/i18n.html:154
+msgid "Ge'ez"
+msgstr ""
+
+#: weblate/lang/data.py:941 weblate/templates/i18n.html:333
+msgid "Wolaytta"
+msgstr ""
+
+#: weblate/lang/data.py:947
+#, fuzzy
+#| msgid "Chinese"
+msgid "Acehnese"
+msgstr "Kiina"
+
+#: weblate/lang/data.py:1201 weblate/lang/data.py:1205
+#: weblate/lang/data.py:1211 weblate/lang/data.py:1219
+#: weblate/lang/data.py:1223 weblate/lang/data.py:1228
+#: weblate/lang/data.py:1234 weblate/lang/data.py:1240
+#: weblate/lang/data.py:1245 weblate/lang/data.py:1251
+#: weblate/lang/data.py:1263
 msgctxt "Plural form description"
 msgid "One"
 msgstr "Yksi"
 
-#: weblate/lang/data.py:1172 weblate/lang/data.py:1177
-#: weblate/lang/data.py:1185 weblate/lang/data.py:1190
-#: weblate/lang/data.py:1195 weblate/lang/data.py:1201
-#: weblate/lang/data.py:1207 weblate/lang/data.py:1211
-#: weblate/lang/data.py:1218 weblate/lang/data.py:1225
-#: weblate/lang/data.py:1229 weblate/lang/data.py:1237
+#: weblate/lang/data.py:1202 weblate/lang/data.py:1207
+#: weblate/lang/data.py:1215 weblate/lang/data.py:1220
+#: weblate/lang/data.py:1225 weblate/lang/data.py:1231
+#: weblate/lang/data.py:1237 weblate/lang/data.py:1241
+#: weblate/lang/data.py:1248 weblate/lang/data.py:1255
+#: weblate/lang/data.py:1259 weblate/lang/data.py:1267
 msgctxt "Plural form description"
 msgid "Other"
 msgstr "Muu"
 
-#: weblate/lang/data.py:1176 weblate/lang/data.py:1183
-#: weblate/lang/data.py:1206 weblate/lang/data.py:1216
-#: weblate/lang/data.py:1223 weblate/lang/data.py:1235
+#: weblate/lang/data.py:1206 weblate/lang/data.py:1213
+#: weblate/lang/data.py:1236 weblate/lang/data.py:1246
+#: weblate/lang/data.py:1253 weblate/lang/data.py:1265
 msgctxt "Plural form description"
 msgid "Few"
 msgstr "Muutama"
 
-#: weblate/lang/data.py:1180 weblate/lang/data.py:1188
-#: weblate/lang/data.py:1212 weblate/lang/data.py:1232
+#: weblate/lang/data.py:1210 weblate/lang/data.py:1218
+#: weblate/lang/data.py:1242 weblate/lang/data.py:1262
 msgctxt "Plural form description"
 msgid "Zero"
 msgstr "Nolla"
 
-#: weblate/lang/data.py:1182 weblate/lang/data.py:1194
-#: weblate/lang/data.py:1199 weblate/lang/data.py:1205
-#: weblate/lang/data.py:1222 weblate/lang/data.py:1228
-#: weblate/lang/data.py:1234
+#: weblate/lang/data.py:1212 weblate/lang/data.py:1224
+#: weblate/lang/data.py:1229 weblate/lang/data.py:1235
+#: weblate/lang/data.py:1252 weblate/lang/data.py:1258
+#: weblate/lang/data.py:1264
 msgctxt "Plural form description"
 msgid "Two"
 msgstr "Kaksi"
 
-#: weblate/lang/data.py:1184 weblate/lang/data.py:1217
-#: weblate/lang/data.py:1224 weblate/lang/data.py:1236
+#: weblate/lang/data.py:1214 weblate/lang/data.py:1247
+#: weblate/lang/data.py:1254 weblate/lang/data.py:1266
 msgctxt "Plural form description"
 msgid "Many"
 msgstr "Monta"
 
-#: weblate/lang/data.py:1200
+#: weblate/lang/data.py:1230
 msgctxt "Plural form description"
 msgid "Three"
 msgstr "Kolme"
@@ -857,8 +1478,8 @@ msgstr "Monikon tyyppi"
 #: weblate/templates/js/detail.html:16 weblate/templates/js/translations.html:7
 #: weblate/templates/languages.html:14
 #: weblate/templates/list-translations.html:7
-#: weblate/templates/project.html:138 weblate/trans/forms.py:842
-#: weblate/trans/forms.py:1119 weblate/trans/models/whiteboard.py:85
+#: weblate/templates/project.html:138 weblate/trans/forms.py:847
+#: weblate/trans/forms.py:1127 weblate/trans/models/whiteboard.py:85
 msgid "Language"
 msgstr "Kieli"
 
@@ -1059,7 +1680,7 @@ msgstr "Palvelun käyttöehdot"
 msgid "The Terms of Service document is currently available only in English."
 msgstr "Käyttöehdot -asiakirja on tällä hetkellä saatavilla vain englanniksi."
 
-#: weblate/legal/views.py:37 weblate/templates/translation.html:28
+#: weblate/legal/views.py:37 weblate/templates/translation.html:29
 msgid "Overview"
 msgstr "Katsaus"
 
@@ -1067,42 +1688,42 @@ msgstr "Katsaus"
 msgid "Project / Component"
 msgstr "Projekti / Komponentti"
 
-#: weblate/permissions/data.py:192
+#: weblate/permissions/data.py:193
 msgctxt "Permissions group"
 msgid "Administration"
 msgstr "Hallinta"
 
-#: weblate/permissions/data.py:193
+#: weblate/permissions/data.py:194
 msgctxt "Permissions group"
 msgid "Template"
 msgstr "Malli"
 
-#: weblate/permissions/data.py:194
+#: weblate/permissions/data.py:195
 msgctxt "Permissions group"
 msgid "Languages"
 msgstr "Kielet"
 
-#: weblate/permissions/data.py:195
+#: weblate/permissions/data.py:196
 msgctxt "Permissions group"
 msgid "Glossary"
 msgstr "Sanasto"
 
-#: weblate/permissions/data.py:196
+#: weblate/permissions/data.py:197
 msgctxt "Permissions group"
 msgid "Screenshots"
 msgstr "Ruudunkaappauskuvat"
 
-#: weblate/permissions/data.py:197
+#: weblate/permissions/data.py:198
 msgctxt "Permissions group"
 msgid "Translate"
 msgstr "Käännä"
 
-#: weblate/permissions/data.py:198
+#: weblate/permissions/data.py:199
 msgctxt "Permissions group"
 msgid "VCS"
 msgstr "Versionhallintajärjestelmä"
 
-#: weblate/permissions/data.py:199
+#: weblate/permissions/data.py:200
 #, fuzzy
 #| msgid "Review"
 msgctxt "Permissions group"
@@ -1183,25 +1804,30 @@ msgid "Source has been removed."
 msgstr "Lähdeteksti on poistettu."
 
 #: weblate/templates/403.html:5 weblate/templates/403_csrf.html:5
-#: weblate/trans/views/basic.py:492
+#: weblate/trans/views/basic.py:493
 msgid "Permission Denied"
 msgstr "Lupa evätty"
 
 #: weblate/templates/403.html:11
-msgid "You don't have privileges to display this page."
+#, fuzzy
+#| msgid "You don't have privileges to display this page."
+msgid "Insufficient privileges to display this page."
 msgstr "Sinulla ei ole oikeuksia tämän sivun näyttämiseen."
 
-#: weblate/templates/403.html:14
-msgid "Login to Weblate"
-msgstr "Kirjaudu Weblateen"
+#: weblate/templates/403.html:14 weblate/templates/404.html:14
+msgid "Log in"
+msgstr "Kirjaudu sisään"
 
-#: weblate/templates/403.html:20 weblate/templates/404.html:19
+#: weblate/templates/403.html:20 weblate/templates/404.html:23
+#, fuzzy
+#| msgid ""
+#| "However the following translation projects are available on this server:"
 msgid ""
-"However the following translation projects are available on this server:"
+"However, the following translation projects are available on this server:"
 msgstr ""
 "Kuitenkin seuraavat käännös projektit ovat saatavilla tällä palvelimella:"
 
-#: weblate/templates/404.html:5 weblate/trans/views/basic.py:479
+#: weblate/templates/404.html:5 weblate/trans/views/basic.py:480
 msgid "Page Not Found"
 msgstr "Sivua ei löydy"
 
@@ -1209,12 +1835,12 @@ msgstr "Sivua ei löydy"
 msgid "The page you are looking for was not found."
 msgstr "Etsimääsi sivua ei löytynyt."
 
-#: weblate/templates/404.html:15
+#: weblate/templates/404.html:19
 msgid ""
 "The project you are looking for does not exist or is not publicly available."
 msgstr "Projekti, jota etsit, ei löytynyt tai se ei ole julkinen."
 
-#: weblate/templates/500.html:5 weblate/trans/views/basic.py:506
+#: weblate/templates/500.html:5 weblate/trans/views/basic.py:507
 msgid "Internal Server Error"
 msgstr "Palvelimen sisäinen virhe"
 
@@ -1223,23 +1849,33 @@ msgid "Server Error"
 msgstr "Palvelinvirhe"
 
 #: weblate/templates/500.html:12
+#, fuzzy
+#| msgid ""
+#| "The server had serious problems while serving your request. We've just "
+#| "sent our trained monkeys to fix the issue."
 msgid ""
-"The server had serious problems while serving your request. We've just sent "
-"our trained monkeys to fix the issue."
+"The server had serious problems serving your request. Trained monkeys are en-"
+"route fixing the issue."
 msgstr ""
 "Palvelimella oli vakavia ongelmia toteuttaessaan pyyntöäsi. Lähetimme "
 "koulutetut\n"
 "apinamme korjaamaan ongelman."
 
 #: weblate/templates/about.html:5 weblate/templates/about.html:13
-#: weblate/templates/footer.html:6 weblate/trans/views/basic.py:520
+#: weblate/templates/footer.html:6 weblate/trans/views/basic.py:521
 msgid "About Weblate"
 msgstr "Tietoja Weblatesta"
 
 #: weblate/templates/about.html:16
+#, fuzzy
+#| msgid ""
+#| "Weblate is a web based translation tool with tight version control "
+#| "integration. It features simple and clean user interface, propagation of "
+#| "translations across components, quality checks and automatic linking to "
+#| "source files."
 msgid ""
 "Weblate is a web based translation tool with tight version control "
-"integration. It features simple and clean user interface, propagation of "
+"integration. It features a simple and clean user interface, propagation of "
 "translations across components, quality checks and automatic linking to "
 "source files."
 msgstr ""
@@ -1248,52 +1884,67 @@ msgstr ""
 "käyttöliittymän, käännösten etenemisen osien yli, laatutarkistukset ja "
 "automaattisen linkittämisen lähdetiedostoihin."
 
-#: weblate/templates/about.html:18 weblate/templates/accounts/contact.html:13
-#, python-format
+#: weblate/templates/about.html:18
+#, fuzzy, python-format
+#| msgid "More information about Weblate can be found at {0}"
 msgid ""
-"If you are looking for support for Weblate or want to file bug reports check "
-"its website at <a href=\"%(weblate_url)s\">weblate.org</a>."
-msgstr ""
-"Jos etsit Weblate tukea tai haluat lähettää virhe raportteja, katso tämä "
-"sivu <a href=\"%(weblate_url)s\">weblate.org</a>."
+"More information about Weblate can be found on <a href=\"%(weblate_url)s"
+"\">weblate.org</a>."
+msgstr "Lisätietoja Weblatesta osoitteessa {0}"
 
 #: weblate/templates/about.html:20
-msgid ""
-"Weblate is free software created by volunteers, but you can still support "
-"them financially."
+#, fuzzy
+#| msgid ""
+#| "Weblate is free software created by volunteers, but you can still support "
+#| "them financially."
+msgid "Weblate is libre software created by volunteers, and accepts donations."
 msgstr ""
 "Weblate on vapaa ohjelmisto joka on luotu vapaaehtoisvoimin, mutta voit "
 "silti tukea sitä taloudellisesti."
 
 #: weblate/templates/about.html:24
-msgid "Fund Weblate!"
+#, fuzzy
+#| msgid "Fund Weblate!"
+msgid "Fund Weblate"
 msgstr "Rahoita Weblatea!"
 
 #: weblate/templates/about.html:25 weblate/templates/footer.html:11
-msgid "Donate to Weblate!"
-msgstr "Lahjoita Weblatelle!"
+#: weblate/trans/models/advertisement.py:47
+msgid "Donate to Weblate"
+msgstr "Lahjoita Weblate:lle"
 
 #: weblate/templates/about.html:32
 msgid "Hosting translations"
 msgstr "Isännöi käännöksiä"
 
 #: weblate/templates/about.html:35
+#, fuzzy
+#| msgid ""
+#| "This Weblate instance hosts translations for various free software "
+#| "projects."
 msgid ""
-"This Weblate instance hosts translations for various free software projects."
+"This Weblate instance hosts translations for various libre software projects."
 msgstr ""
 "Tämä Weblate-palvelin isännöi käännöksiä eri vapaiden ohjelmien projekteissa."
 
 #: weblate/templates/about.html:36
-msgid ""
-"We can host your project as well, if you are interested, please contact us."
+#, fuzzy
+#| msgid ""
+#| "We can host your project as well, if you are interested, please contact "
+#| "us."
+msgid "Weblate can host your project as well, please get in touch."
 msgstr ""
 "Me voimme isännöidä sinunkin projektiasi, jos olet kiinnostunut, ota "
 "yhteyttä."
 
-#: weblate/templates/about.html:39 weblate/templates/accounts/hosting.html:49
+#: weblate/templates/about.html:39
+#, fuzzy
+#| msgid ""
+#| "Commercial hosting is possible as well, our price starts at 19 EUR per "
+#| "month, please get in touch with us for more details."
 msgid ""
-"Commercial hosting is possible as well, our price starts at 19 EUR per "
-"month, please get in touch with us for more details."
+"Commercial hosting is also available, pricing starts at 19 EUR per month, "
+"please get in touch for more details."
 msgstr ""
 "Kaupallisen palvelun ostaminen on myös mahdollista, edulliset hintamme "
 "alkavat 19 eurosta per kuukausi. Ole hyvä ole yhteydessä meihin saadaksesi "
@@ -1317,11 +1968,13 @@ msgid "Versions"
 msgstr "Versiot"
 
 #: weblate/templates/about.html:68
-msgid "Weblate would not exist without these projects."
+#, fuzzy
+#| msgid "Weblate would not exist without these projects."
+msgid "Weblate owes its existence to these projects."
 msgstr "Weblatea ei olisi olemassa ilman näitä projekteja."
 
 #: weblate/templates/access_control_description.html:4
-#: weblate/trans/models/project.py:130
+#: weblate/trans/models/project.py:131
 msgid "Public"
 msgstr "Julkinen"
 
@@ -1330,7 +1983,7 @@ msgid "Publicly visible and translatable"
 msgstr "Julkisesti näkyvissä ja käännettävissä"
 
 #: weblate/templates/access_control_description.html:6
-#: weblate/trans/models/project.py:131
+#: weblate/trans/models/project.py:132
 msgid "Protected"
 msgstr "Suojattu"
 
@@ -1339,13 +1992,30 @@ msgid "Publicly visible but translatable only for selected users"
 msgstr "Julkisesti näkyvissä, mutta vain valittujen käyttäjien käännettävissä"
 
 #: weblate/templates/access_control_description.html:8
-#: weblate/trans/models/project.py:132
+#: weblate/trans/models/project.py:133
 msgid "Private"
 msgstr "Yksityinen"
 
 #: weblate/templates/access_control_description.html:9
 msgid "Visible and translatable only for selected users"
 msgstr "Näkyvissä ja käännettävissä vain valituille käyttäjille"
+
+#: weblate/templates/access_control_description.html:10
+#: weblate/trans/models/project.py:134
+msgid "Custom"
+msgstr ""
+
+#: weblate/templates/access_control_description.html:11
+msgid ""
+"Use this only if you know what you are doing, enabling this might revoke "
+"your access to this project."
+msgstr ""
+
+#: weblate/templates/access_control_description.html:11
+#, fuzzy
+#| msgid "List of recent changes done in Weblate"
+msgid "Permissions are not managed in Weblate."
+msgstr "Luettelo viimeaikaisista muutoksista Weblatessa"
 
 #: weblate/templates/accounts/confirm.html:7
 #: weblate/templates/accounts/password.html:6
@@ -1373,6 +2043,15 @@ msgstr ""
 msgid "You can contact maintainers of this server here."
 msgstr "Voit ottaa yhteyttä palvelimen ylläpitäjiin."
 
+#: weblate/templates/accounts/contact.html:13
+#, python-format
+msgid ""
+"If you are looking for support for Weblate or want to file bug reports check "
+"its website at <a href=\"%(weblate_url)s\">weblate.org</a>."
+msgstr ""
+"Jos etsit Weblate tukea tai haluat lähettää virhe raportteja, katso tämä "
+"sivu <a href=\"%(weblate_url)s\">weblate.org</a>."
+
 #: weblate/templates/accounts/contact.html:30
 #: weblate/templates/accounts/hosting.html:25
 msgid "Send"
@@ -1397,44 +2076,57 @@ msgid "Registration almost complete"
 msgstr "Rekisteröinti melkein valmis"
 
 #: weblate/templates/accounts/email-sent.html:24
+#, fuzzy
+#| msgid ""
+#| "You will very soon receive an email with a confirmation link. Please "
+#| "follow this link in order to complete your password reset procedure."
 msgid ""
-"You will very soon receive an email with a confirmation link. Please follow "
-"this link in order to complete your password reset procedure."
+"Shortly you should receive an e-mail containing a confirmation link. Click "
+"it to reset your password."
 msgstr ""
 "Saat pian sähköpostiisi vahvistuslinkin. Klikkaa linkkiä palauttaaksesi "
 "salasanasi."
 
 #: weblate/templates/accounts/email-sent.html:26
+#, fuzzy
+#| msgid ""
+#| "You will very soon receive an email with a confirmation link. Please "
+#| "follow this link in order to complete your account removal procedure."
 msgid ""
-"You will very soon receive an email with a confirmation link. Please follow "
-"this link in order to complete your account removal procedure."
+"Shortly you should receive an e-mail containing a confirmation link. Click "
+"it to remove your account."
 msgstr ""
 "Saat pian sähköpostiisi vahvistuslinkin. Klikkaa linkkiä viedäksesi loppuun "
 "käyttäjätilisi poistoprosessin."
 
 #: weblate/templates/accounts/email-sent.html:28
+#, fuzzy
+#| msgid ""
+#| "Thank you for registering. You will very soon receive an email with a "
+#| "confirmation link. Please follow this link in order to complete your "
+#| "registration."
 msgid ""
-"Thank you for registering. You will very soon receive an email with a "
-"confirmation link. Please follow this link in order to complete your "
-"registration."
+"Thank you for registering. Click the confirmation link you receive by e-mail "
+"to complete the registration."
 msgstr ""
 "Kiitos rekisteröitymisestäsi. Saat pian sähköpostiisi vahvistuslinkin. "
 "Valitse linkki vahvistaaksesi rekisteröitymisesi."
 
 #: weblate/templates/accounts/email-sent.html:31
 msgid ""
-"Please note that the confirmation link has limited validity. In case it does "
-"not work, please register again."
+"If the confirmation link expires before you get to use it, register again."
 msgstr ""
-"Ole hyvä ja huomioi että varmistuslinkillä on rajallinen voimassaolo. Jos se "
-"ei toimi, ole hyvä ja rekisteröi uudelleen."
 
 #: weblate/templates/accounts/email-sent.html:35
-#, python-format
+#, fuzzy, python-format
+#| msgid ""
+#| "If you don't receive it shortly, please check your spam folder or retry "
+#| "the registration. If the problem persists, please <a href="
+#| "\"%(contact_url)s?t=reg\">contact us</a>."
 msgid ""
 "If you don't receive it shortly, please check your spam folder or retry the "
-"registration. If the problem persists, please <a href=\"%(contact_url)s?t=reg"
-"\">contact us</a>."
+"registration. Should the problem persist, please <a href=\"%(contact_url)s?"
+"t=reg\">contact us</a>."
 msgstr ""
 "Jos et saa sitä pian, tarkista roskapostikansiosi tai rekisteröidy "
 "uudelleen. Jos ei senkään jälkeen onnistu, <a href=\"%(contact_url)s?t=reg"
@@ -1503,6 +2195,15 @@ msgstr ""
 #: weblate/templates/accounts/hosting.html:45
 msgid "Commercial hosting"
 msgstr "Kaupallisten palvelujen hostaus"
+
+#: weblate/templates/accounts/hosting.html:49
+msgid ""
+"Commercial hosting is possible as well, our price starts at 19 EUR per "
+"month, please get in touch with us for more details."
+msgstr ""
+"Kaupallisen palvelun ostaminen on myös mahdollista, edulliset hintamme "
+"alkavat 19 eurosta per kuukausi. Ole hyvä ole yhteydessä meihin saadaksesi "
+"lisätietoja."
 
 #: weblate/templates/accounts/login.html:14
 msgid "This username/password combination was not found. Please try again."
@@ -1573,7 +2274,7 @@ msgstr ""
 msgid "Change my password"
 msgstr "Vaihda salasanani"
 
-#: weblate/templates/accounts/profile.html:14 weblate/trans/views/basic.py:625
+#: weblate/templates/accounts/profile.html:14 weblate/trans/views/basic.py:626
 #: weblate/trans/views/files.py:75
 msgid "Please fix errors in the form."
 msgstr "Ole hyvä ja korjaa virheet lomakkeessa."
@@ -1811,7 +2512,7 @@ msgstr "Milloin"
 
 #: weblate/templates/accounts/profile.html:310
 msgid "IP address"
-msgstr "IP -osoite"
+msgstr "IP-osoite"
 
 #: weblate/templates/accounts/profile.html:311
 msgid "User agent"
@@ -1880,12 +2581,12 @@ msgstr ""
 #: weblate/templates/data.html:57 weblate/templates/data.html:95
 #: weblate/templates/language.html:37 weblate/templates/list-projects.html:8
 #: weblate/templates/list-translations.html:7
-#: weblate/trans/models/project.py:169 weblate/trans/models/subproject.py:146
+#: weblate/trans/models/project.py:179 weblate/trans/models/subproject.py:146
 #: weblate/trans/models/whiteboard.py:71
 msgid "Project"
 msgstr "Projekti"
 
-#: weblate/templates/accounts/profile.html:421 weblate/trans/forms.py:1312
+#: weblate/templates/accounts/profile.html:421 weblate/trans/forms.py:1320
 msgid "License"
 msgstr "Lisenssi"
 
@@ -2130,13 +2831,17 @@ msgstr "Tarkista tiedot"
 
 #: weblate/templates/checks.html:28 weblate/templates/language.html:16
 #: weblate/templates/project.html:27 weblate/templates/subproject.html:31
-#: weblate/templates/translation.html:29
+#: weblate/templates/translation.html:30
 msgid "Information"
 msgstr "Tiedot"
 
 #: weblate/templates/checks.html:30
+#, fuzzy
+#| msgid ""
+#| "Customizable quality checks will help you in improving quality of "
+#| "translations."
 msgid ""
-"Customizable quality checks will help you in improving quality of "
+"Customizable quality checks will help you improve the quality of "
 "translations."
 msgstr "Muokattavat laatutarkistukset auttavat parantamaan käännösten laatua."
 
@@ -2163,18 +2868,25 @@ msgid "RSS feeds"
 msgstr "RSS-syötteet"
 
 #: weblate/templates/data-root.html:17 weblate/templates/data.html:19
+#, fuzzy
+#| msgid ""
+#| "To follow translation progress you can use RSS feeds which include all "
+#| "important changes in translation."
 msgid ""
-"To follow translation progress you can use RSS feeds which include all "
-"important changes in translation."
+"To follow translation progress you can use RSS feeds, detailing all "
+"important translation changes."
 msgstr ""
 "seurataksesi käännösten edistymistä voit käyttää RSS-syötteitä, jotka "
 "sisältävät kaikki tärkeät muutokset käännökseen."
 
 #: weblate/templates/data-root.html:18 weblate/templates/data.html:20
-#, python-format
+#, fuzzy, python-format
+#| msgid ""
+#| "More information about exported RSS feeds is available in <a href="
+#| "\"%(rss_docs)s\">the documentation</a>."
 msgid ""
-"More information about exported RSS feeds is available in <a href="
-"\"%(rss_docs)s\">the documentation</a>."
+"More information about exported RSS feeds available in <a href=\"%(rss_docs)s"
+"\">the documentation</a>."
 msgstr ""
 "Lisätietoja RSS-syötteiden viennistä on saatavilla <a href=\"%(rss_docs)s"
 "\">asiakirjoista</a>."
@@ -2200,9 +2912,13 @@ msgid "Per project data"
 msgstr "Projektin tiedot"
 
 #: weblate/templates/data-root.html:38
+#, fuzzy
+#| msgid ""
+#| "There is more data exported per project, please check following links for "
+#| "more information."
 msgid ""
-"There is more data exported per project, please check following links for "
-"more information."
+"There is more data exported per project, please check the following links "
+"for more information."
 msgstr ""
 "Lisää tietoja viety projektia kohden, tarkista seuraavista linkkeistä "
 "lisätietoja."
@@ -2212,10 +2928,15 @@ msgid "Notification hooks"
 msgstr "Huomautus koukut"
 
 #: weblate/templates/data-root.html:51 weblate/templates/data.html:88
-#, python-format
+#, fuzzy, python-format
+#| msgid ""
+#| "With notification hooks, Weblate will automatically import changes done "
+#| "by your developers and will allow continuous translation. More "
+#| "information is available in <a href=\"%(hooks_docs)s\">the documentation</"
+#| "a>."
 msgid ""
-"With notification hooks, Weblate will automatically import changes done by "
-"your developers and will allow continuous translation. More information is "
+"With notification hooks, Weblate will automatically import changes made by "
+"your developers, and allows continuous translation. More information "
 "available in <a href=\"%(hooks_docs)s\">the documentation</a>."
 msgstr ""
 "Huomautus koukuilla Weblate tuo automaattisesti kehittäjien tekemät "
@@ -2227,8 +2948,12 @@ msgid "data exports"
 msgstr "tietojen viennit"
 
 #: weblate/templates/data.html:46
+#, fuzzy
+#| msgid ""
+#| "There are also per language RSS feeds available, you can construct them "
+#| "by appending a language code to the above URLs."
 msgid ""
-"There are also per language RSS feeds available, you can construct them by "
+"Per language RSS feeds are also available, you can construct them by "
 "appending a language code to the above URLs."
 msgstr ""
 "Lisää kielikohtaisia RSS-syötteitä on saatavilla, voit tehdä niitä "
@@ -2236,16 +2961,20 @@ msgstr ""
 
 #: weblate/templates/data.html:48 weblate/templates/index.html:38
 #: weblate/templates/stats.html:5 weblate/templates/stats.html:62
-#: weblate/templates/translation.html:38 weblate/templates/translation.html:306
+#: weblate/templates/translation.html:39 weblate/templates/translation.html:328
 msgid "Statistics"
 msgstr "Tilastot"
 
 #: weblate/templates/data.html:51
-#, python-format
+#, fuzzy, python-format
+#| msgid ""
+#| "Translation statistics for every component in the JSON format allow you "
+#| "to use these data in other websites or tools. Format of the data is "
+#| "described in <a href=\"%(api_docs)s\">the documentation</a>."
 msgid ""
-"Translation statistics for every component in the JSON format allow you to "
-"use these data in other websites or tools. Format of the data is described "
-"in <a href=\"%(api_docs)s\">the documentation</a>."
+"Translation statistics for every component in the JSON format allows you to "
+"use the data in other websites or tools. The data format is described in <a "
+"href=\"%(api_docs)s\">the documentation</a>."
 msgstr ""
 "Käännöstilastot kaikissa komponenteissa JSON-muodossa mahdollistavat "
 "tietojen käyttämisen muilla sivuilla tai työkaluissa. Tietojen muoto "
@@ -2257,9 +2986,13 @@ msgid "View"
 msgstr "Näkymä"
 
 #: weblate/templates/data.html:74
+#, fuzzy
+#| msgid ""
+#| "For example getting stats for all translations in one component can be "
+#| "done by:"
 msgid ""
-"For example getting stats for all translations in one component can be done "
-"by:"
+"As an example, fetching stats for all translations in one component can be "
+"done thusly:"
 msgstr ""
 "Esimerkiksi voit hakea yhteenvedon kaikista komponentin käännöksistä "
 "seuraavasti:"
@@ -2269,14 +3002,22 @@ msgid "Hook"
 msgstr "Koukku"
 
 #: weblate/templates/data.html:115
-msgid "For example telling Weblate to pull remote repository can be done by:"
+#, fuzzy
+#| msgid ""
+#| "For example telling Weblate to pull remote repository can be done by:"
+msgid ""
+"As an example, telling Weblate to pull from a remote repository can be done "
+"thusly:"
 msgstr ""
 "Esimerkiksi voit kertoa Weblatelle kuinka hakea muutokset versionhallinnasta "
 "seuraavasti:"
 
 #: weblate/templates/data.html:124
+#, fuzzy
+#| msgid ""
+#| "Weblate also supports direct notification from several code hosting sites:"
 msgid ""
-"Weblate also supports direct notification from several code hosting sites:"
+"Weblate also supports direct notifications from several code hosting sites:"
 msgstr ""
 "Weblate myös tukee suoraa ilmoitusta useilta koodi isännöinti sivuilta:"
 
@@ -2290,7 +3031,9 @@ msgstr "Huomautus"
 
 #: weblate/templates/data.html:138 weblate/templates/data.html:143
 #: weblate/templates/data.html:148
-msgid "See documentation for detailed instructions"
+#, fuzzy
+#| msgid "See documentation for detailed instructions"
+msgid "Browse the documentation for detailed instructions"
 msgstr "Dokumentaatiosta löydät tarkempia tietoja"
 
 #: weblate/templates/dictionaries.html:7 weblate/templates/dictionary.html:9
@@ -2301,8 +3044,8 @@ msgstr "sanastot"
 #: weblate/templates/dictionaries.html:15 weblate/templates/language.html:39
 #: weblate/templates/languages.html:16 weblate/templates/list-projects.html:10
 #: weblate/templates/project.html:106 weblate/templates/project.html:140
-#: weblate/templates/translation.html:122
-#: weblate/templates/translation.html:313
+#: weblate/templates/translation.html:126
+#: weblate/templates/translation.html:335
 msgid "Words"
 msgstr "Sanat"
 
@@ -2343,7 +3086,7 @@ msgstr "TermBase eXchange (TBX)"
 #: weblate/templates/language-project.html:17
 #: weblate/templates/language.html:17 weblate/templates/project.html:34
 #: weblate/templates/subproject.html:37 weblate/templates/translate.html:224
-#: weblate/templates/translation.html:36
+#: weblate/templates/translation.html:37
 msgid "History"
 msgstr "Historia"
 
@@ -2351,7 +3094,7 @@ msgstr "Historia"
 #: weblate/templates/search.html:29 weblate/templates/source-review.html:25
 #: weblate/templates/translate.html:148 weblate/templates/translate.html:232
 #: weblate/templates/translate.html:346 weblate/templates/translate.html:432
-#: weblate/trans/forms.py:307 weblate/trans/forms.py:958
+#: weblate/trans/forms.py:307 weblate/trans/forms.py:963
 msgid "Source"
 msgstr "Lähde"
 
@@ -2360,8 +3103,8 @@ msgstr "Lähde"
 #: weblate/templates/last-changes-content.html:11
 #: weblate/templates/translate.html:232 weblate/templates/translate.html:295
 #: weblate/templates/translate.html:345 weblate/templates/translate.html:433
-#: weblate/trans/forms.py:309 weblate/trans/forms.py:959
-#: weblate/trans/forms.py:1323
+#: weblate/trans/forms.py:309 weblate/trans/forms.py:964
+#: weblate/trans/forms.py:1331
 msgid "Translation"
 msgstr "Käännös"
 
@@ -2388,7 +3131,7 @@ msgid "No words found!"
 msgstr "Sanoja ei löydetty!"
 
 #: weblate/templates/dictionary.html:95 weblate/templates/js/detail.html:42
-#: weblate/templates/manage-access.html:71 weblate/templates/translate.html:446
+#: weblate/templates/manage-access.html:72 weblate/templates/translate.html:446
 msgid "Add"
 msgstr "Lisää"
 
@@ -2405,12 +3148,15 @@ msgid "Change word"
 msgstr "Vaihda sanaa"
 
 #: weblate/templates/engage.html:18
-#, python-format
-msgid "Get involved in %(project)s!"
+#, fuzzy, python-format
+#| msgid "Get involved in %(project)s!"
+msgid "Get involved in %(project)s."
 msgstr "Tule mukaan %(project)s!"
 
 #: weblate/templates/engage.html:21
-msgid "Hi, and thank you for your interest!"
+#, fuzzy
+#| msgid "Hi, and thank you for your interest!"
+msgid "Hi, and thank you for your interest."
 msgstr "Hei ja kiitos mielenkiinnosta!"
 
 #: weblate/templates/engage.html:24
@@ -2434,17 +3180,24 @@ msgstr ""
 "\">rekisteröityä tässä palvelimessa</a>."
 
 #: weblate/templates/engage.html:35
+#, fuzzy
+#| msgid ""
+#| "This translation is open only to limited group of translators, if you "
+#| "want to contribute please get in touch with project maintainers."
 msgid ""
-"This translation is open only to limited group of translators, if you want "
-"to contribute please get in touch with project maintainers."
+"This translation is open only to a limited group of translators, if you want "
+"to contribute please get in touch with the project maintainers."
 msgstr ""
 "Tämä käännös on avoin vain rajatulle ryhmälle kääntäjiä, jos haluat "
 "osallistua, ole hyvä ja ota yhteyttä projektin ylläpitäjiin."
 
 #: weblate/templates/engage.html:39
-#, python-format
+#, fuzzy, python-format
+#| msgid ""
+#| "Once you have activated your account just proceed to the <a href=\"%(url)s"
+#| "\">translation section</a>."
 msgid ""
-"Once you have activated your account just proceed to the <a href=\"%(url)s"
+"Once you have activated your account, proceed to the <a href=\"%(url)s"
 "\">translation section</a>."
 msgstr ""
 "Kun olet aktivoinut käyttäjätilisi, siirry <a href=\"%(url)s\">käännökset "
@@ -2459,10 +3212,6 @@ msgstr "Moottorina <a href=\"%(weblate_url)s\">Weblate %(version)s</a>"
 msgid "Service status"
 msgstr "Palvelun tila"
 
-#: weblate/templates/footer.html:9
-msgid "Contact us"
-msgstr "Ota meihin yhteyttä"
-
 #: weblate/templates/git-commit-info.html:3
 #, python-format
 msgid "Commit %(hash)s"
@@ -2474,7 +3223,9 @@ msgid "Authored by %(author)s on %(date)s"
 msgstr "Kirjoittanut %(author)s %(date)s"
 
 #: weblate/templates/glossary-embed.html:14
-msgid "Copy word to translation"
+#, fuzzy
+#| msgid "Copy word to translation"
+msgid "Copy word into translation"
 msgstr "Kopioi sana käännökseen"
 
 #: weblate/templates/glossary-embed.html:14 weblate/trans/forms.py:242
@@ -2482,1259 +3233,664 @@ msgid "Copy"
 msgstr "Kopioi"
 
 #: weblate/templates/glossary-embed.html:21
-msgid "No related strings were found in the glossary."
+#, fuzzy
+#| msgid "No related strings were found in the glossary."
+msgid "No related strings found in the glossary."
 msgstr "Käännökseen liittyviä tekstejä ei löydetty sanastosta."
 
-#: weblate/templates/i18n.html:9
-msgid ""
-"Hold down \"Control\", or \"Command\" on a Mac, to select more than one."
-msgstr ""
-"Paina \"Control\" tai \"Command\" näppäintä Macilla, valitaksesi useamman, "
-"kuin yhden."
-
-#: weblate/templates/i18n.html:18
+#: weblate/templates/i18n.html:19
 msgid "Your password must be stronger."
 msgstr "Salasanasi on pitää olla vahvempi."
 
-#: weblate/templates/i18n.html:19
+#: weblate/templates/i18n.html:20
 msgid "Use a few words, avoid common phrases."
 msgstr "Käytä useita sanoja, vältä yleisiä fraaseja."
 
-#: weblate/templates/i18n.html:20
+#: weblate/templates/i18n.html:21
 msgid "No need for symbols, digits, or uppercase letters."
 msgstr "Ei ole pakko käyttää symboleita, numeroita eikä isoja kirjaimia."
 
-#: weblate/templates/i18n.html:21
+#: weblate/templates/i18n.html:22
 msgid "Add another word or two. Uncommon words are better."
 msgstr "Lisää sana tai kaksi. Oudot sanat ovat parempia."
 
-#: weblate/templates/i18n.html:22
+#: weblate/templates/i18n.html:23
 msgid "Straight rows of keys are easy to guess."
 msgstr "Peräkkäiset kirjaimet näppäimistöltä on helppo arvata."
 
-#: weblate/templates/i18n.html:23
+#: weblate/templates/i18n.html:24
 msgid "Short keyboard patterns are easy to guess."
 msgstr "Lyhyet näppäimistösarjat on helppo arvata."
 
-#: weblate/templates/i18n.html:24
+#: weblate/templates/i18n.html:25
 msgid "Use a longer keyboard pattern with more turns."
 msgstr "Käytä pidempiä näppäimistösarjoja eri suuntiin."
 
-#: weblate/templates/i18n.html:25
+#: weblate/templates/i18n.html:26
 msgid "Repeats like \"aaa\" are easy to guess."
 msgstr "Toistuvat kirjaimet, kuten \"aaa\" on helppo arvata."
 
-#: weblate/templates/i18n.html:26
+#: weblate/templates/i18n.html:27
 msgid ""
 "Repeats like \"abcabcabc\" are only slightly harder to guess than \"abc\"."
 msgstr ""
 "Peräkkäin toistuvat lyhyet kirjainsarjat (esim. \"abcabcabc\") ovat vai "
 "hieman vaikeammin arvattavissa kuin lyhyet kirjainsarjat (esim. \"abc\")."
 
-#: weblate/templates/i18n.html:27
+#: weblate/templates/i18n.html:28
 msgid "Avoid repeated words and characters."
 msgstr "Vältä toistuvia sanoja ja merkkejä."
 
-#: weblate/templates/i18n.html:28
+#: weblate/templates/i18n.html:29
 msgid "Sequences like \"abc\" or \"6543\" are easy to guess."
 msgstr ""
 "Merkkijonosarjat, kuten \"abc\" tai \"6543\", ovat helposti arvattavissa."
 
-#: weblate/templates/i18n.html:29
+#: weblate/templates/i18n.html:30
 msgid "Avoid sequences."
 msgstr "Vältä sarjoja."
 
-#: weblate/templates/i18n.html:30
+#: weblate/templates/i18n.html:31
 msgid "Recent years are easy to guess."
 msgstr "Edelliset vuosiluvut on helppo arvata."
 
-#: weblate/templates/i18n.html:31
+#: weblate/templates/i18n.html:32
 msgid "Avoid recent years."
 msgstr "Vältä vuosilukuja."
 
-#: weblate/templates/i18n.html:32
+#: weblate/templates/i18n.html:33
 msgid "Avoid years that are associated with you."
 msgstr "Vältä sinuun liittyviä vuosilukuja."
 
-#: weblate/templates/i18n.html:33
+#: weblate/templates/i18n.html:34
 msgid "Dates are often easy to guess."
 msgstr "Päivämäärät ovat yleensä helposti arvattavissa."
 
-#: weblate/templates/i18n.html:34
+#: weblate/templates/i18n.html:35
 msgid "Avoid dates and years that are associated with you."
 msgstr "Vältä päivämääriä ja vuosilukuja jotka liittyvät sinuun."
 
-#: weblate/templates/i18n.html:35
+#: weblate/templates/i18n.html:36
 msgid "This is a top-10 common password."
 msgstr "Tämä salasana kuuluu yleisimpien salasanojen top 10 -listalle."
 
-#: weblate/templates/i18n.html:36
+#: weblate/templates/i18n.html:37
 msgid "This is a top-100 common password."
 msgstr "Tämä salasana kuuluu yleisimpien salasanojen top 100 -listalle."
 
-#: weblate/templates/i18n.html:37
+#: weblate/templates/i18n.html:38
 msgid "This is a very common password."
 msgstr "Tämä on hyvin yleinen salasana."
 
-#: weblate/templates/i18n.html:38
+#: weblate/templates/i18n.html:39
 msgid "This is similar to a commonly used password."
 msgstr "Tämä on samanlainen kuin yleisesti käytetty salasana."
 
-#: weblate/templates/i18n.html:39
+#: weblate/templates/i18n.html:40
 msgid "A word by itself is easy to guess."
 msgstr "Sana itsessään on helppo arvata."
 
-#: weblate/templates/i18n.html:40
+#: weblate/templates/i18n.html:41
 msgid "Names and surnames by themselves are easy to guess."
 msgstr "Etu- ja sukunimet itsessään ovat helposti arvattavissa."
 
-#: weblate/templates/i18n.html:41
+#: weblate/templates/i18n.html:42
 msgid "Common names and surnames are easy to guess."
 msgstr "Yleiset etu- ja sukunimet ovat helposti arvattavissa."
 
-#: weblate/templates/i18n.html:42
+#: weblate/templates/i18n.html:43
 msgid "Capitalization doesn't help very much."
 msgstr "Isojen ja pienten kirjaimien sekoittaminen ei auta kovinkaan paljoa."
 
-#: weblate/templates/i18n.html:43
+#: weblate/templates/i18n.html:44
 msgid "All-uppercase is almost as easy to guess as all-lowercase."
 msgstr ""
 "Isolla kirjoitetut salasanat ovat lähes yhtä helppo arvata kuin pienellä "
 "kirjoitetut."
 
-#: weblate/templates/i18n.html:44
+#: weblate/templates/i18n.html:45
 msgid "Reversed words aren't much harder to guess."
 msgstr "Väärinpäin kirjoitetut sanat eivät ole vaikeampia arvata."
 
-#: weblate/templates/i18n.html:45
+#: weblate/templates/i18n.html:46
 msgid "Predictable substitutions like '@' instead of 'a' don't help very much."
 msgstr ""
 "Ennustettavissa olevat korvaukset, kuten merkki ”@” kirjaimen ”a” sijasta, "
 "eivät auta kovinkaan paljon."
 
-#: weblate/templates/i18n.html:55
-msgid "Abkhazian"
-msgstr "Abhaasi"
-
-#: weblate/templates/i18n.html:56
-msgid "Acholi"
-msgstr "Acholi"
-
-#: weblate/templates/i18n.html:57
-msgid "Afar"
-msgstr "Afar"
-
-#: weblate/templates/i18n.html:58
+#: weblate/templates/i18n.html:65
 msgid "Afrikaans"
 msgstr "Afrikaans"
 
-#: weblate/templates/i18n.html:59
+#: weblate/templates/i18n.html:66
 msgid "Akan"
 msgstr "Akan"
 
-#: weblate/templates/i18n.html:60
+#: weblate/templates/i18n.html:67
 msgid "Albanian"
 msgstr "Albania"
 
-#: weblate/templates/i18n.html:61
+#: weblate/templates/i18n.html:68
 msgid "Amharic"
 msgstr "Amharic"
 
-#: weblate/templates/i18n.html:62
-msgid "Angika"
-msgstr "Angika"
-
-#: weblate/templates/i18n.html:63
+#: weblate/templates/i18n.html:70
 msgid "Arabic"
 msgstr "Arabia"
 
-#: weblate/templates/i18n.html:64
-msgid "Arabic (Algeria)"
-msgstr "Arabia (Algeria)"
-
-#: weblate/templates/i18n.html:65
-msgid "Arabic (Morocco)"
-msgstr "Arabia (Marokko)"
-
-#: weblate/templates/i18n.html:66
+#: weblate/templates/i18n.html:73
 msgid "Aragonese"
 msgstr "Aragon"
 
-#: weblate/templates/i18n.html:67
-msgid "Armenian"
-msgstr "Armenia"
-
-#: weblate/templates/i18n.html:68
-msgid "Assamese"
-msgstr "Assami"
-
-#: weblate/templates/i18n.html:69
+#: weblate/templates/i18n.html:76
 msgid "Asturian"
 msgstr "Asturia"
 
-#: weblate/templates/i18n.html:70
-msgid "Austrian German"
-msgstr "Itävallan saksa"
-
-#: weblate/templates/i18n.html:71
-msgid "Avaric"
-msgstr "Avaari"
-
-#: weblate/templates/i18n.html:72
-msgid "Avestan"
-msgstr "Avesta"
-
-#: weblate/templates/i18n.html:73
-msgid "Aymará"
-msgstr "Aimarat"
-
-#: weblate/templates/i18n.html:74
+#: weblate/templates/i18n.html:81
 msgid "Azerbaijani"
 msgstr "Azeri"
 
-#: weblate/templates/i18n.html:75
-msgid "Bambara"
-msgstr "Bambara"
-
-#: weblate/templates/i18n.html:76
-msgid "Bashkir"
-msgstr "Baškiiri"
-
-#: weblate/templates/i18n.html:77
+#: weblate/templates/i18n.html:84
 msgid "Basque"
 msgstr "Baski"
 
-#: weblate/templates/i18n.html:78
-msgid "Bavarian"
-msgstr "Bavarian"
-
-#: weblate/templates/i18n.html:79
+#: weblate/templates/i18n.html:86
 msgid "Belarusian"
 msgstr "Valkovenäjä"
 
-#: weblate/templates/i18n.html:80
-msgid "Belarusian (latin)"
-msgstr "Valkovenäjä(latin)"
-
-#: weblate/templates/i18n.html:81
-msgid "Bemba"
-msgstr "Bemba"
-
-#: weblate/templates/i18n.html:82
+#: weblate/templates/i18n.html:89
 msgid "Bengali"
 msgstr "Bengali"
 
-#: weblate/templates/i18n.html:83
+#: weblate/templates/i18n.html:90
 msgid "Bengali (Bangladesh)"
 msgstr "Bengali (Bangladesh)"
 
-#: weblate/templates/i18n.html:84
+#: weblate/templates/i18n.html:91
 msgid "Bengali (India)"
 msgstr "Bengali (Intia)"
 
-#: weblate/templates/i18n.html:85
-msgid "Bihari languages"
-msgstr "Bihari -kielet"
-
-#: weblate/templates/i18n.html:86
-msgid "Bislama"
-msgstr "Bislama"
-
-#: weblate/templates/i18n.html:87
-msgid "Bodo"
-msgstr "Bodo"
-
-#: weblate/templates/i18n.html:88
+#: weblate/templates/i18n.html:96
 msgid "Bosnian"
 msgstr "Bosnia"
 
-#: weblate/templates/i18n.html:89
-msgid "Bosnian (cyrillic)"
-msgstr "Bosnia (Kyrillinen)"
-
-#: weblate/templates/i18n.html:90
-msgid "Bosnian (latin)"
-msgstr "Bosnia (länsimainen)"
-
-#: weblate/templates/i18n.html:91
+#: weblate/templates/i18n.html:99
 msgid "Breton"
 msgstr "Breton"
 
-#: weblate/templates/i18n.html:92
+#: weblate/templates/i18n.html:100
 msgid "Bulgarian"
 msgstr "Bulgaria"
 
-#: weblate/templates/i18n.html:93
-msgid "Burmese"
-msgstr "Burma"
-
-#: weblate/templates/i18n.html:94
+#: weblate/templates/i18n.html:102
 msgid "Catalan"
 msgstr "Katalonia"
 
-#: weblate/templates/i18n.html:95
+#: weblate/templates/i18n.html:103
 msgid "Central Khmer"
 msgstr "Keski-khmer"
 
-#: weblate/templates/i18n.html:96
-msgid "Chamorro"
-msgstr "Tšamorro"
-
-#: weblate/templates/i18n.html:97
-msgid "Chechen"
-msgstr "Tšetšeeni"
-
-#: weblate/templates/i18n.html:98
-msgid "Cherokee"
-msgstr "Cherokee"
-
-#: weblate/templates/i18n.html:99
-msgid "Chhattisgarhi"
-msgstr "Chhattisgarhi"
-
-#: weblate/templates/i18n.html:100
-msgid "Chiga"
-msgstr "Chiga"
-
-#: weblate/templates/i18n.html:101
-msgid "Chinese"
-msgstr "Kiina"
-
-#: weblate/templates/i18n.html:102
+#: weblate/templates/i18n.html:110
 msgid "Chinese (China)"
 msgstr "Kiina (Kiina)"
 
-#: weblate/templates/i18n.html:103
-msgid "Chinese (Hong Kong)"
-msgstr "Kiina (Hong Kong)"
-
-#: weblate/templates/i18n.html:104
-msgid "Chinese (Simplified)"
-msgstr "Kiina (yksinkertainen)"
-
-#: weblate/templates/i18n.html:105
+#: weblate/templates/i18n.html:113
 msgid "Chinese (Taiwan)"
 msgstr "Kiina (Taiwan)"
 
-#: weblate/templates/i18n.html:106
-msgid "Chinese (Traditional)"
-msgstr "Kiina (perinteinen)"
-
-#: weblate/templates/i18n.html:107
-msgid "Chuvash"
-msgstr "Tšuvassi"
-
-#: weblate/templates/i18n.html:108
-msgid "Colognian"
-msgstr "Colognian"
-
-#: weblate/templates/i18n.html:109
+#: weblate/templates/i18n.html:117
 msgid "Cornish"
 msgstr "Korni"
 
-#: weblate/templates/i18n.html:110
-msgid "Corsican"
-msgstr "Korsika"
-
-#: weblate/templates/i18n.html:111
-msgid "Cree"
-msgstr "Cree"
-
-#: weblate/templates/i18n.html:112
-msgid "Crimean Tatar"
-msgstr "krimintataari"
-
-#: weblate/templates/i18n.html:113
+#: weblate/templates/i18n.html:121
 msgid "Croatian"
 msgstr "Kroatia"
 
-#: weblate/templates/i18n.html:114
+#: weblate/templates/i18n.html:122
 msgid "Czech"
 msgstr "Tsekki"
 
-#: weblate/templates/i18n.html:115
+#: weblate/templates/i18n.html:123
 msgid "Danish"
 msgstr "Tanska"
 
-#: weblate/templates/i18n.html:116
-msgid "Dhivehi"
-msgstr "Divehi"
-
-#: weblate/templates/i18n.html:117
-msgid "Dogri"
-msgstr "Dogri"
-
-#: weblate/templates/i18n.html:118
+#: weblate/templates/i18n.html:126
 msgid "Dutch"
 msgstr "Hollanti"
 
-#: weblate/templates/i18n.html:119
-msgid "Dutch (Belgium)"
-msgstr "Hollanti (Belgia)"
-
-#: weblate/templates/i18n.html:120
+#: weblate/templates/i18n.html:128
 msgid "Dzongkha"
 msgstr "Dzongkha"
 
-#: weblate/templates/i18n.html:121
+#: weblate/templates/i18n.html:129
 msgid "English"
 msgstr "Englanti"
 
-#: weblate/templates/i18n.html:122
-msgid "English (Australia)"
-msgstr "Englanti (Australia)"
-
-#: weblate/templates/i18n.html:123
-msgid "English (Canada)"
-msgstr "Englanti (Kanada)"
-
-#: weblate/templates/i18n.html:124
-msgid "English (Ireland)"
-msgstr "Englanti (Irlanti)"
-
-#: weblate/templates/i18n.html:125
-msgid "English (Philippines)"
-msgstr "Englanti (Filippiini)"
-
-#: weblate/templates/i18n.html:126
+#: weblate/templates/i18n.html:134
 msgid "English (South Africa)"
 msgstr "Englanti (Etelä-Afrikka)"
 
-#: weblate/templates/i18n.html:127
+#: weblate/templates/i18n.html:135
 msgid "English (United Kingdom)"
 msgstr "Englanti (UK)"
 
-#: weblate/templates/i18n.html:128
-msgid "English (United States)"
-msgstr "Englanti (USA)"
-
-#: weblate/templates/i18n.html:129
+#: weblate/templates/i18n.html:137
 msgid "Esperanto"
 msgstr "Esperanto"
 
-#: weblate/templates/i18n.html:130
+#: weblate/templates/i18n.html:138
 msgid "Estonian"
 msgstr "Viro"
 
-#: weblate/templates/i18n.html:131
-msgid "Ewe"
-msgstr "Ewe"
-
-#: weblate/templates/i18n.html:132
+#: weblate/templates/i18n.html:140
 msgid "Faroese"
 msgstr "Färsaaret"
 
-#: weblate/templates/i18n.html:133
-msgid "Fijian"
-msgstr "Fidži"
-
-#: weblate/templates/i18n.html:134
+#: weblate/templates/i18n.html:142
 msgid "Filipino"
 msgstr "Filippiinit"
 
-#: weblate/templates/i18n.html:135
+#: weblate/templates/i18n.html:143
 msgid "Finnish"
 msgstr "Suomi"
 
-#: weblate/templates/i18n.html:136
-msgid "Franco-Provençal"
-msgstr "Frankoprovensaali / Arpitaani"
-
-#: weblate/templates/i18n.html:137
+#: weblate/templates/i18n.html:145
 msgid "French"
 msgstr "Ranska"
 
-#: weblate/templates/i18n.html:138
-msgid "French (Canada)"
-msgstr "Ranska (Kanada)"
-
-#: weblate/templates/i18n.html:139
+#: weblate/templates/i18n.html:147
 msgid "Frisian"
 msgstr "Friisi"
 
-#: weblate/templates/i18n.html:140
+#: weblate/templates/i18n.html:148
 msgid "Friulian"
 msgstr "Friuli"
 
-#: weblate/templates/i18n.html:141
+#: weblate/templates/i18n.html:149
 msgid "Fulah"
 msgstr "Fulah"
 
-#: weblate/templates/i18n.html:142
+#: weblate/templates/i18n.html:150
 msgid "Gaelic"
 msgstr "Gaeli"
 
-#: weblate/templates/i18n.html:143
+#: weblate/templates/i18n.html:151
 msgid "Galician"
 msgstr "Galisia"
 
-#: weblate/templates/i18n.html:144
-msgid "Ganda"
-msgstr "Ganda"
-
-#: weblate/templates/i18n.html:145
+#: weblate/templates/i18n.html:153
 msgid "Georgian"
 msgstr "Georgia"
 
-#: weblate/templates/i18n.html:146
+#: weblate/templates/i18n.html:155
 msgid "German"
 msgstr "Saksa"
 
-#: weblate/templates/i18n.html:147
-msgid "Gikuyu"
-msgstr "Gikuyu"
-
-#: weblate/templates/i18n.html:148
+#: weblate/templates/i18n.html:157
 msgid "Greek"
 msgstr "Kreikka"
 
-#: weblate/templates/i18n.html:149
-msgid "Greenlandic"
-msgstr "Grönlanti"
-
-#: weblate/templates/i18n.html:150
-msgid "Guarani"
-msgstr "Guarani"
-
-#: weblate/templates/i18n.html:151
+#: weblate/templates/i18n.html:160
 msgid "Gujarati"
 msgstr "Gujarati"
 
-#: weblate/templates/i18n.html:152
+#: weblate/templates/i18n.html:161
 msgid "Gun"
 msgstr "Gun"
 
-#: weblate/templates/i18n.html:153
+#: weblate/templates/i18n.html:162
 msgid "Haitian"
 msgstr "Haiti"
 
-#: weblate/templates/i18n.html:154
+#: weblate/templates/i18n.html:163
 msgid "Hausa"
 msgstr "Hausa"
 
-#: weblate/templates/i18n.html:155
-msgid "Hawaiian"
-msgstr "Havaiji"
-
-#: weblate/templates/i18n.html:156
+#: weblate/templates/i18n.html:165
 msgid "Hebrew"
 msgstr "Hebrea"
 
-#: weblate/templates/i18n.html:157
-msgid "Herero"
-msgstr "Herero"
-
-#: weblate/templates/i18n.html:158
-msgid "Hiligaynon"
-msgstr ""
-
-#: weblate/templates/i18n.html:159
+#: weblate/templates/i18n.html:168
 msgid "Hindi"
 msgstr "Hindi"
 
-#: weblate/templates/i18n.html:160
-msgid "Hiri Motu"
-msgstr "Hiri-motu"
-
-#: weblate/templates/i18n.html:161
+#: weblate/templates/i18n.html:170
 msgid "Hungarian"
 msgstr "Unkari"
 
-#: weblate/templates/i18n.html:162
+#: weblate/templates/i18n.html:171
 msgid "Icelandic"
 msgstr "Islanti"
 
-#: weblate/templates/i18n.html:163
-msgid "Ido"
-msgstr "Ido"
-
-#: weblate/templates/i18n.html:164
-msgid "Igbo"
-msgstr "Igbo"
-
-#: weblate/templates/i18n.html:165
+#: weblate/templates/i18n.html:174
 msgid "Indonesian"
 msgstr "Indonesia"
 
-#: weblate/templates/i18n.html:166
+#: weblate/templates/i18n.html:175
 msgid "Interlingua"
 msgstr "Interlingua"
 
-#: weblate/templates/i18n.html:167
-msgid "Inuktitut"
-msgstr "Inuktitut"
-
-#: weblate/templates/i18n.html:168
-msgid "Inupiaq"
-msgstr "Inupiatun"
-
-#: weblate/templates/i18n.html:169
+#: weblate/templates/i18n.html:178
 msgid "Irish"
 msgstr "Iiri"
 
-#: weblate/templates/i18n.html:170
+#: weblate/templates/i18n.html:179
 msgid "Italian"
 msgstr "Italia"
 
-#: weblate/templates/i18n.html:171
-msgid "Jamaican Patois"
-msgstr ""
-
-#: weblate/templates/i18n.html:172
+#: weblate/templates/i18n.html:181
 msgid "Japanese"
 msgstr "Japani"
 
-#: weblate/templates/i18n.html:173
+#: weblate/templates/i18n.html:182
 msgid "Javanese"
 msgstr "Java"
 
-#: weblate/templates/i18n.html:174
-msgid "Kabyle"
-msgstr "Kabyyli"
-
-#: weblate/templates/i18n.html:175
+#: weblate/templates/i18n.html:184
 msgid "Kannada"
 msgstr "Kannada"
 
-#: weblate/templates/i18n.html:176
-msgid "Kanuri"
-msgstr "Kanuri"
-
-#: weblate/templates/i18n.html:177
+#: weblate/templates/i18n.html:186
 msgid "Kashmiri"
 msgstr "Kašmiri"
 
-#: weblate/templates/i18n.html:178
+#: weblate/templates/i18n.html:187
 msgid "Kashubian"
 msgstr "Kasubi"
 
-#: weblate/templates/i18n.html:179
+#: weblate/templates/i18n.html:188
 msgid "Kazakh"
 msgstr "Kazakki"
 
-#: weblate/templates/i18n.html:180
-msgid "Kinyarwanda"
-msgstr "Ruanda"
-
-#: weblate/templates/i18n.html:181
-msgid "Klingon"
-msgstr "Klingon"
-
-#: weblate/templates/i18n.html:182
-msgid "Klingon (pIqaD)"
-msgstr "Klingon (pIqaD)"
-
-#: weblate/templates/i18n.html:183
-msgid "Komi"
-msgstr "Komi"
-
-#: weblate/templates/i18n.html:184
-msgid "Kongo"
-msgstr "Kongo"
-
-#: weblate/templates/i18n.html:185
+#: weblate/templates/i18n.html:194
 msgid "Konkani"
 msgstr "Konkani"
 
-#: weblate/templates/i18n.html:186
+#: weblate/templates/i18n.html:195
 msgid "Korean"
 msgstr "Korea"
 
-#: weblate/templates/i18n.html:187
+#: weblate/templates/i18n.html:196
 msgid "Kurdish"
 msgstr "Kurdi"
 
-#: weblate/templates/i18n.html:188
-msgid "Kurmanji"
-msgstr "Kurmanji"
-
-#: weblate/templates/i18n.html:189
-msgid "Kwanyama"
-msgstr "Kuanjama"
-
-#: weblate/templates/i18n.html:190
+#: weblate/templates/i18n.html:199
 msgid "Kyrgyz"
 msgstr "Kirgiisi"
 
-#: weblate/templates/i18n.html:191
+#: weblate/templates/i18n.html:200
 msgid "Lao"
 msgstr "Lao"
 
-#: weblate/templates/i18n.html:192
-msgid "Latin"
-msgstr "Latina"
-
-#: weblate/templates/i18n.html:193
+#: weblate/templates/i18n.html:202
 msgid "Latvian"
 msgstr "Latvia"
 
-#: weblate/templates/i18n.html:194
-msgid "Limburgish"
-msgstr "limburgi"
-
-#: weblate/templates/i18n.html:195
+#: weblate/templates/i18n.html:204
 msgid "Lingala"
 msgstr "Lingala"
 
-#: weblate/templates/i18n.html:196
+#: weblate/templates/i18n.html:205
 msgid "Lithuanian"
 msgstr "Liettua"
 
-#: weblate/templates/i18n.html:197
-msgid "Lojban"
-msgstr "Lojban"
-
-#: weblate/templates/i18n.html:198
-msgid "Low German"
-msgstr "Alasaksa"
-
-#: weblate/templates/i18n.html:199
-#, fuzzy
-#| msgid "Upper Sorbian"
-msgid "Lower Sorbian"
-msgstr "Yläsorbi"
-
-#: weblate/templates/i18n.html:200
-msgid "Luba-Katanga"
-msgstr "Katangan luba"
-
-#: weblate/templates/i18n.html:201
+#: weblate/templates/i18n.html:210
 msgid "Luxembourgish"
 msgstr "Luxemburg"
 
-#: weblate/templates/i18n.html:202
+#: weblate/templates/i18n.html:211
 msgid "Macedonian"
 msgstr "Makedonia"
 
-#: weblate/templates/i18n.html:203
+#: weblate/templates/i18n.html:212
 msgid "Maithili"
 msgstr "Maithili"
 
-#: weblate/templates/i18n.html:204
+#: weblate/templates/i18n.html:213
 msgid "Malagasy"
 msgstr "Malagasi"
 
-#: weblate/templates/i18n.html:205
+#: weblate/templates/i18n.html:214
 msgid "Malay"
 msgstr "Malai"
 
-#: weblate/templates/i18n.html:206
+#: weblate/templates/i18n.html:215
 msgid "Malayalam"
 msgstr "Malayalam"
 
-#: weblate/templates/i18n.html:207
+#: weblate/templates/i18n.html:216
 msgid "Maltese"
 msgstr "Malta"
 
-#: weblate/templates/i18n.html:208
-msgid "Mandinka"
-msgstr "Mandinka"
-
-#: weblate/templates/i18n.html:209
-msgid "Manipuri"
-msgstr "Manipuri"
-
-#: weblate/templates/i18n.html:210
-msgid "Manx"
-msgstr "Manx"
-
-#: weblate/templates/i18n.html:211
+#: weblate/templates/i18n.html:220
 msgid "Maori"
 msgstr "Maori"
 
-#: weblate/templates/i18n.html:212
+#: weblate/templates/i18n.html:221
 msgid "Mapudungun"
 msgstr "Mapudungun"
 
-#: weblate/templates/i18n.html:213
+#: weblate/templates/i18n.html:222
 msgid "Marathi"
 msgstr "Marathi"
 
-#: weblate/templates/i18n.html:214
-msgid "Mari"
-msgstr "mari"
-
-#: weblate/templates/i18n.html:215
-msgid "Marshallese"
-msgstr "Marshalli"
-
-#: weblate/templates/i18n.html:216
-msgid "Meadow Mari"
-msgstr "niittymari"
-
-#: weblate/templates/i18n.html:217
-msgid "Moldovan"
-msgstr "Moldova"
-
-#: weblate/templates/i18n.html:218
+#: weblate/templates/i18n.html:227
 msgid "Mongolian"
 msgstr "Mongolia"
 
-#: weblate/templates/i18n.html:219
+#: weblate/templates/i18n.html:228
 msgid "Montenegrin"
 msgstr "Montenegro"
 
-#: weblate/templates/i18n.html:220
+#: weblate/templates/i18n.html:229
 msgid "Morisyen"
 msgstr "Mauritania"
 
-#: weblate/templates/i18n.html:221
+#: weblate/templates/i18n.html:230
 msgid "N'Ko"
 msgstr "N'Kon kieli"
 
-#: weblate/templates/i18n.html:222
+#: weblate/templates/i18n.html:231
 msgid "Nahuatl languages"
 msgstr "Nahuatl-kielet"
 
-#: weblate/templates/i18n.html:223
-msgid "Nauru"
-msgstr "Nauru"
-
-#: weblate/templates/i18n.html:224
-msgid "Navaho"
-msgstr "Navajo"
-
-#: weblate/templates/i18n.html:225
-msgid "Ndonga"
-msgstr "Ambo"
-
-#: weblate/templates/i18n.html:226
+#: weblate/templates/i18n.html:235
 msgid "Neapolitan"
 msgstr "Neapolitan Italia"
 
-#: weblate/templates/i18n.html:227
+#: weblate/templates/i18n.html:236
 msgid "Nepali"
 msgstr "Nepali"
 
-#: weblate/templates/i18n.html:228
-msgid "North Ndebele"
-msgstr "Pohjoisndebele"
-
-#: weblate/templates/i18n.html:229
-msgid "Northern Sami"
-msgstr "Pohjoissaame"
-
-#: weblate/templates/i18n.html:230
-msgid "Norwegian (old code)"
-msgstr "Norja (vanha koodi)"
-
-#: weblate/templates/i18n.html:231
-msgid "Norwegian Bokmål"
-msgstr "Kirjanorja"
-
-#: weblate/templates/i18n.html:232
+#: weblate/templates/i18n.html:241
 msgid "Norwegian Nynorsk"
 msgstr "Uusnorja"
 
-#: weblate/templates/i18n.html:233
-msgid "Nuosu"
-msgstr "Nuosu"
-
-#: weblate/templates/i18n.html:234
-msgid "Nyanja"
-msgstr "Nyanja"
-
-#: weblate/templates/i18n.html:235
-msgid "Occidental"
-msgstr "Oksitaani"
-
-#: weblate/templates/i18n.html:236
+#: weblate/templates/i18n.html:245
 msgid "Occitan"
 msgstr "Oksitaani"
 
-#: weblate/templates/i18n.html:237
+#: weblate/templates/i18n.html:246
 msgid "Odia"
 msgstr "Odi"
 
-#: weblate/templates/i18n.html:238
-msgid "Ojibwe"
-msgstr "Odžibwan"
-
-#: weblate/templates/i18n.html:239
-msgid "Old Church Slavonic"
-msgstr "Muinaiskirkkoslaavi"
-
-#: weblate/templates/i18n.html:240
-msgid "Oromo"
-msgstr "Oromo"
-
-#: weblate/templates/i18n.html:241
-msgid "Ossetian"
-msgstr "Osseetti"
-
-#: weblate/templates/i18n.html:242
-msgid "Pali"
-msgstr "Pali"
-
-#: weblate/templates/i18n.html:243
+#: weblate/templates/i18n.html:252
 msgid "Papiamento"
 msgstr "Papiamentu"
 
-#: weblate/templates/i18n.html:244
+#: weblate/templates/i18n.html:253
 msgid "Pedi"
 msgstr "Pohjoissotho"
 
-#: weblate/templates/i18n.html:245
+#: weblate/templates/i18n.html:254
 msgid "Persian"
 msgstr "Persia"
 
-#: weblate/templates/i18n.html:246
+#: weblate/templates/i18n.html:255
 msgid "Piemontese"
 msgstr "Piemonte"
 
-#: weblate/templates/i18n.html:247
-msgid "Pirate"
-msgstr "Pirate"
-
-#: weblate/templates/i18n.html:248
+#: weblate/templates/i18n.html:257
 msgid "Polish"
 msgstr "Puola"
 
-#: weblate/templates/i18n.html:249
+#: weblate/templates/i18n.html:258
 msgid "Portuguese"
 msgstr "Portugali"
 
-#: weblate/templates/i18n.html:250
+#: weblate/templates/i18n.html:259
 msgid "Portuguese (Brazil)"
 msgstr "Portugali (Brasilia)"
 
-#: weblate/templates/i18n.html:251
-msgid "Portuguese (Portugal)"
-msgstr "Portugali (Portugali)"
-
-#: weblate/templates/i18n.html:252
+#: weblate/templates/i18n.html:261
 msgid "Punjabi"
 msgstr "Punjabi"
 
-#: weblate/templates/i18n.html:253
+#: weblate/templates/i18n.html:262
 msgid "Pushto"
 msgstr "Pastu"
 
-#: weblate/templates/i18n.html:254
-msgid "Quechua"
-msgstr "Ketšua"
-
-#: weblate/templates/i18n.html:255
+#: weblate/templates/i18n.html:264
 msgid "Romanian"
 msgstr "Romania"
 
-#: weblate/templates/i18n.html:256
+#: weblate/templates/i18n.html:265
 msgid "Romansh"
 msgstr "Retoromaani"
 
-#: weblate/templates/i18n.html:257
-msgid "Rundi"
-msgstr "Rundi"
-
-#: weblate/templates/i18n.html:258
+#: weblate/templates/i18n.html:267
 msgid "Russian"
 msgstr "Venäjä"
 
-#: weblate/templates/i18n.html:259
-msgid "Rusyn"
-msgstr "Ruteeni"
-
-#: weblate/templates/i18n.html:260
-msgid "Samoan"
-msgstr "Samoa"
-
-#: weblate/templates/i18n.html:261
-msgid "Sango"
-msgstr "Sango"
-
-#: weblate/templates/i18n.html:262
+#: weblate/templates/i18n.html:271
 msgid "Sanskrit"
 msgstr "Sanskrit"
 
-#: weblate/templates/i18n.html:263
-msgid "Santali"
-msgstr "Santali"
-
-#: weblate/templates/i18n.html:264
-msgid "Sardinian"
-msgstr "Sardinia"
-
-#: weblate/templates/i18n.html:265
+#: weblate/templates/i18n.html:274
 msgid "Scots"
 msgstr "Skotti"
 
-#: weblate/templates/i18n.html:266
+#: weblate/templates/i18n.html:275
 msgid "Serbian"
 msgstr "Serbia"
 
-#: weblate/templates/i18n.html:267
-msgid "Serbian (cyrillic)"
-msgstr "Serbia (Kyrillinen)"
-
-#: weblate/templates/i18n.html:268
-msgid "Serbian (latin)"
-msgstr "Serbia (latin)"
-
-#: weblate/templates/i18n.html:269
-msgid "Serbo-Croatian"
-msgstr "Serbokroatia"
-
-#: weblate/templates/i18n.html:270
-msgid "Shan"
-msgstr "shan"
-
-#: weblate/templates/i18n.html:271
-msgid "Shona"
-msgstr "Shona"
-
-#: weblate/templates/i18n.html:272
+#: weblate/templates/i18n.html:281
 msgid "Silesian"
 msgstr "Sleesia"
 
-#: weblate/templates/i18n.html:273
-msgid "Sindhi"
-msgstr "Sindhi"
-
-#: weblate/templates/i18n.html:274
+#: weblate/templates/i18n.html:283
 msgid "Sinhala"
 msgstr "singaleesi"
 
-#: weblate/templates/i18n.html:275
+#: weblate/templates/i18n.html:284
 msgid "Slovak"
 msgstr "Slovakki"
 
-#: weblate/templates/i18n.html:276
+#: weblate/templates/i18n.html:285
 msgid "Slovenian"
 msgstr "Slovenia"
 
-#: weblate/templates/i18n.html:277
+#: weblate/templates/i18n.html:286
 msgid "Somali"
 msgstr "Somali"
 
-#: weblate/templates/i18n.html:278
+#: weblate/templates/i18n.html:287
 msgid "Songhai languages"
 msgstr "Songhai"
 
-#: weblate/templates/i18n.html:279
-msgid "Sorani"
-msgstr "Sorani"
-
-#: weblate/templates/i18n.html:280
-#, fuzzy
-#| msgid "Serbian"
-msgid "Sorbian"
-msgstr "Serbia"
-
-#: weblate/templates/i18n.html:281
+#: weblate/templates/i18n.html:290
 msgid "Sotho"
 msgstr "Eteläsotho"
 
-#: weblate/templates/i18n.html:282
-msgid "South Ndebele"
-msgstr "Eteländebele"
-
-#: weblate/templates/i18n.html:283
-msgid "Southern Sami"
-msgstr "Eteläsaame"
-
-#: weblate/templates/i18n.html:284
+#: weblate/templates/i18n.html:293
 msgid "Spanish"
 msgstr "Espanja"
 
-#: weblate/templates/i18n.html:285
-msgid "Spanish (American)"
-msgstr "Espanja (Amerikka)"
-
-#: weblate/templates/i18n.html:286
-msgid "Spanish (Argentina)"
-msgstr "Espanja (Argentiina)"
-
-#: weblate/templates/i18n.html:287
-msgid "Spanish (Chile)"
-msgstr "Espanja (Chile)"
-
-#: weblate/templates/i18n.html:288
-msgid "Spanish (Mexico)"
-msgstr "Espanja (Meksiko)"
-
-#: weblate/templates/i18n.html:289
-msgid "Spanish (Puerto Rico)"
-msgstr "Espanja (Puerto Rico)"
-
-#: weblate/templates/i18n.html:290
+#: weblate/templates/i18n.html:300
 msgid "Sundanese"
 msgstr "Sundaneesi"
 
-#: weblate/templates/i18n.html:291
+#: weblate/templates/i18n.html:301
 msgid "Swahili"
 msgstr "Swahili"
 
-#: weblate/templates/i18n.html:292
-msgid "Swati"
-msgstr "Swazi"
-
-#: weblate/templates/i18n.html:293
+#: weblate/templates/i18n.html:303
 msgid "Swedish"
 msgstr "Ruotsi"
 
-#: weblate/templates/i18n.html:294
-msgid "Swiss High German"
-msgstr "Sveitsi (Yläsaksa)"
-
-#: weblate/templates/i18n.html:295
-msgid "Tagalog"
-msgstr "Tagalog"
-
-#: weblate/templates/i18n.html:296
-msgid "Tahitian"
-msgstr "Tahiti"
-
-#: weblate/templates/i18n.html:297
+#: weblate/templates/i18n.html:307
 msgid "Tajik"
 msgstr "Tadziki"
 
-#: weblate/templates/i18n.html:298
+#: weblate/templates/i18n.html:308
 msgid "Tamil"
 msgstr "Tamili"
 
-#: weblate/templates/i18n.html:299
+#: weblate/templates/i18n.html:309
 msgid "Tatar"
 msgstr "Tatar"
 
-#: weblate/templates/i18n.html:300
+#: weblate/templates/i18n.html:310
 msgid "Telugu"
 msgstr "Telugu"
 
-#: weblate/templates/i18n.html:301
+#: weblate/templates/i18n.html:311
 msgid "Thai"
 msgstr "Thai"
 
-#: weblate/templates/i18n.html:302
+#: weblate/templates/i18n.html:312
 msgid "Tibetan"
 msgstr "Tiibet"
 
-#: weblate/templates/i18n.html:303
-#, fuzzy
-#| msgid "Tigrinya"
-msgid "Tigre"
-msgstr "Tigrinja"
-
-#: weblate/templates/i18n.html:304
+#: weblate/templates/i18n.html:314
 msgid "Tigrinya"
 msgstr "Tigrinja"
 
-#: weblate/templates/i18n.html:305
-msgid "Tonga (Tonga Islands)"
-msgstr "Tonga-saarten tonga"
-
-#: weblate/templates/i18n.html:306
-msgid "Tsonga"
-msgstr "Tsonga"
-
-#: weblate/templates/i18n.html:307
-msgid "Tswana"
-msgstr "Tšwana"
-
-#: weblate/templates/i18n.html:308
-msgid "Turkish"
-msgstr "Turkki"
-
-#: weblate/templates/i18n.html:309
+#: weblate/templates/i18n.html:319
 msgid "Turkmen"
 msgstr "Turkmeeni"
 
-#: weblate/templates/i18n.html:310
-msgid "Twi"
-msgstr "Twi"
-
-#: weblate/templates/i18n.html:311
+#: weblate/templates/i18n.html:321
 msgid "Uighur"
 msgstr "Uiguuri"
 
-#: weblate/templates/i18n.html:312
+#: weblate/templates/i18n.html:322
 msgid "Ukrainian"
 msgstr "Ukraina"
 
-#: weblate/templates/i18n.html:313
-msgid "Upper Sorbian"
-msgstr "Yläsorbi"
-
-#: weblate/templates/i18n.html:314
-msgid "Urdu"
-msgstr "Urdu"
-
-#: weblate/templates/i18n.html:315
-msgid "Urdu (Pakistan)"
-msgstr "Urdu (Pakistania)"
-
-#: weblate/templates/i18n.html:316
-msgid "Uzbek"
-msgstr "Udzbekki"
-
-#: weblate/templates/i18n.html:317
-msgid "Uzbek (latin)"
-msgstr "Udzbekki (latin)"
-
-#: weblate/templates/i18n.html:318
+#: weblate/templates/i18n.html:328
 msgid "Valencian"
 msgstr "Valencian"
 
-#: weblate/templates/i18n.html:319
+#: weblate/templates/i18n.html:329
 msgid "Venda"
 msgstr "Venda"
 
-#: weblate/templates/i18n.html:320
-msgid "Venetian"
-msgstr "Venetia"
-
-#: weblate/templates/i18n.html:321
+#: weblate/templates/i18n.html:331
 msgid "Vietnamese"
 msgstr "Vietnam"
 
-#: weblate/templates/i18n.html:322
-msgid "Volapük"
-msgstr "Volapük"
-
-#: weblate/templates/i18n.html:323
+#: weblate/templates/i18n.html:334
 msgid "Walloon"
 msgstr "Vallooni"
 
-#: weblate/templates/i18n.html:324
-msgid "Walser German"
-msgstr "walser"
-
-#: weblate/templates/i18n.html:325
-msgid "Welsh"
-msgstr "Kymri"
-
-#: weblate/templates/i18n.html:326
-msgid "West Flemish"
-msgstr "Länsi-Flanderin"
-
-#: weblate/templates/i18n.html:327
+#: weblate/templates/i18n.html:338
 msgid "Wolof"
 msgstr "Wolof"
 
-#: weblate/templates/i18n.html:328
-msgid "Xhosa"
-msgstr "Xhosa"
-
-#: weblate/templates/i18n.html:329
+#: weblate/templates/i18n.html:340
 msgid "Yakut"
 msgstr "Yakut"
 
-#: weblate/templates/i18n.html:330
-msgid "Yiddish"
-msgstr "Jiddiš"
-
-#: weblate/templates/i18n.html:331
+#: weblate/templates/i18n.html:342
 msgid "Yoruba"
 msgstr "Joruba"
 
-#: weblate/templates/i18n.html:332
+#: weblate/templates/i18n.html:343
 msgid "Yue"
 msgstr "Kantoninkiina"
 
-#: weblate/templates/i18n.html:333
-msgid "Zhuang"
-msgstr "Zhuang"
-
-#: weblate/templates/i18n.html:334
+#: weblate/templates/i18n.html:345
 msgid "Zulu"
 msgstr "Zulu"
 
@@ -3754,27 +3910,31 @@ msgstr ""
 "alla listattujen ohjelmistoprojektien kielitiedostoja."
 
 #: weblate/templates/index.html:15
+#, fuzzy
+#| msgid ""
+#| "You need to be logged in for translating, otherwise you can only make "
+#| "suggestions."
 msgid ""
-"You need to be logged in for translating, otherwise you can only make "
+"You need to be logged in to translate, otherwise you can only make "
 "suggestions."
 msgstr ""
 "Jos haluat kääntää tekstejä, sinun täytyy kirjautua palveluun. Kirjautumatta "
 "voit tehdä vain käännösehdotuksia."
 
 #: weblate/templates/index.html:33 weblate/templates/project.html:31
-#: weblate/templates/subproject.html:34 weblate/templates/translation.html:33
+#: weblate/templates/subproject.html:34 weblate/templates/translation.html:34
 msgid "Insights"
 msgstr "Tilastoja"
 
 #: weblate/templates/index.html:37 weblate/templates/language-project.html:18
 #: weblate/templates/language.html:18 weblate/templates/project.html:35
-#: weblate/templates/subproject.html:38 weblate/templates/translation.html:37
+#: weblate/templates/subproject.html:38 weblate/templates/translation.html:38
 msgid "Activity"
 msgstr "Aktiivisuus"
 
 #: weblate/templates/index.html:43 weblate/templates/language-project.html:21
 #: weblate/templates/language.html:22 weblate/templates/project.html:42
-#: weblate/templates/subproject.html:48 weblate/templates/translation.html:51
+#: weblate/templates/subproject.html:48 weblate/templates/translation.html:52
 msgid "Tools"
 msgstr "Työkalut"
 
@@ -3786,14 +3946,16 @@ msgstr "Työkalut"
 #: weblate/templates/search-form.html:6 weblate/templates/search-form.html:11
 #: weblate/templates/search.html:15 weblate/templates/subproject.html:51
 #: weblate/templates/subproject.html:135 weblate/templates/translate.html:57
-#: weblate/templates/translation.html:30 weblate/templates/translation.html:267
-#: weblate/templates/translation.html:272 weblate/templates/zen.html:36
+#: weblate/templates/translation.html:31 weblate/templates/translation.html:289
+#: weblate/templates/translation.html:294 weblate/templates/zen.html:36
 msgid "Search"
 msgstr "Etsi"
 
 #: weblate/templates/index.html:47
-msgid "Languages summary"
-msgstr "Kielten yhteenveto"
+#, fuzzy
+#| msgid "Number of languages"
+msgid "Summary of languages"
+msgstr "Kielten määrä"
 
 #: weblate/templates/index.html:48
 msgid "All projects"
@@ -3809,8 +3971,12 @@ msgid "Widgets"
 msgstr "Widgetit"
 
 #: weblate/templates/index.html:71
+#, fuzzy
+#| msgid ""
+#| "Choose your languages in preferences and you will get an overview here of "
+#| "available translations for those languages in your watched projects."
 msgid ""
-"Choose your languages in preferences and you will get an overview here of "
+"Choose what languages you want in the preferences, to see overview of "
 "available translations for those languages in your watched projects."
 msgstr ""
 "Valitse kielesi asetuksista ja saat tänne katsauksen saatavilla olevista "
@@ -3822,17 +3988,25 @@ msgid "Manage your languages"
 msgstr "Hallitse kieliäsi"
 
 #: weblate/templates/index.html:86
+#, fuzzy
+#| msgid ""
+#| "Choose your languages in preferences and you will get an overview here of "
+#| "available translations for those languages."
 msgid ""
-"Choose your languages in preferences and you will get an overview here of "
-"available translations for those languages in all projects."
+"Choose languages you speak in the preferences, to see an overview of all "
+"projects that feature those languages here."
 msgstr ""
 "Valitse kielesi asetuksista ja saat tänne katsauksen saatavilla olevista "
 "käännöksistä niille kielille."
 
 #: weblate/templates/index.html:100
+#, fuzzy
+#| msgid ""
+#| "Could not find any suggestions for you, please choose your languages in "
+#| "preferences to get more suggestions."
 msgid ""
-"Could not find any suggestions for you, please choose your languages in "
-"preferences to get more suggestions."
+"Could not find any suggestions for you, please choose your languages in the "
+"preferences to get some."
 msgstr ""
 "Sinulle ei löydy yhtään ehdotuksia. Voit käydä säätämässä asetuksista "
 "kääntämiäsi kieliä saadaksesi enemmän ehdotuksia."
@@ -3875,8 +4049,8 @@ msgstr "Lisää uusi ruudunkaappauskuva"
 
 #: weblate/templates/js/detail.html:103
 #: weblate/templates/screenshots/screenshot_list.html:63
-#: weblate/templates/translation.html:235
-#: weblate/templates/translation.html:246
+#: weblate/templates/translation.html:257
+#: weblate/templates/translation.html:268
 msgid "Upload"
 msgstr "Lähetä"
 
@@ -3902,8 +4076,6 @@ msgid "There has been a merge failure in the repository:"
 msgstr "Arkiston yhdistämisessä on tapahtunut virhe:"
 
 #: weblate/templates/js/git-status.html:27
-#, fuzzy
-#| msgid "Check our FAQ for information how to resolve this."
 msgid "Check the FAQ for information on how to resolve this."
 msgstr "Tarkista FAQ saadaksesi lisätietoja ongelman ratkaisemiseksi."
 
@@ -3912,10 +4084,8 @@ msgid "The remote repository needs to be merged!"
 msgstr "Etäarkiston muutokset pitää yhdistää paikalliseen arkistoon!"
 
 #: weblate/templates/js/git-status.html:34
-#, fuzzy
-#| msgid "There are some new commits in the local repository!"
 msgid "There are some new commits in the local repository."
-msgstr "Palvelussa on uusia committeja paikallisessa arkistossa!"
+msgstr "Palvelussa on uusia committeja paikallisessa arkistossa."
 
 #: weblate/templates/js/git-status.html:37
 msgid "The local repository is up to date."
@@ -3944,7 +4114,7 @@ msgid "Repository tools"
 msgstr "Arkistotyökalut"
 
 #: weblate/templates/js/git-status.html:112 weblate/templates/project.html:61
-#: weblate/templates/subproject.html:69 weblate/templates/translation.html:70
+#: weblate/templates/subproject.html:69 weblate/templates/translation.html:74
 msgid "Commit"
 msgstr "Commitoi"
 
@@ -3990,10 +4160,8 @@ msgid "Unlock"
 msgstr "Poista lukitus"
 
 #: weblate/templates/js/git-status.html:188
-#, fuzzy
-#| msgid "Allow changes in the local repository"
 msgid "Allow changes to the local repository"
-msgstr "Salli muutokset paikallisessa arkistossa"
+msgstr "Salli muutokset paikalliseen arkistoon"
 
 #: weblate/templates/js/git-status.html:196
 msgid "Lock"
@@ -4013,7 +4181,8 @@ msgid "Components"
 msgstr "Komponentit"
 
 #: weblate/templates/language-project.html:25
-#: weblate/templates/language.html:25 weblate/templates/project.html:50
+#: weblate/templates/language.html:25 weblate/templates/legend.html:8
+#: weblate/templates/progress.html:8 weblate/templates/project.html:50
 #: weblate/templates/source-review.html:27 weblate/templates/translate.html:522
 #: weblate/trans/views/checks.py:76
 msgid "Failing checks"
@@ -4038,7 +4207,7 @@ msgstr "Sanastot"
 #: weblate/templates/list-projects.html:9
 #: weblate/templates/list-translations.html:8
 #: weblate/templates/project.html:105 weblate/templates/project.html:139
-#: weblate/templates/stats.html:20 weblate/templates/translation.html:324
+#: weblate/templates/stats.html:20 weblate/templates/translation.html:346
 #: weblate/trans/templatetags/translations.py:534
 msgid "Translated"
 msgstr "Käännetty"
@@ -4061,20 +4230,22 @@ msgid "Revert"
 msgstr "Palauta"
 
 #: weblate/templates/last-changes-content.html:55
-msgid "No matching activity has been found."
+#, fuzzy
+#| msgid "No matching activity has been found."
+msgid "No matching activity found."
 msgstr "Haetun kaltaisia toimintoja ei löytynyt."
 
 #: weblate/templates/legend.html:5 weblate/templates/progress.html:5
-msgid "Good translations"
-msgstr "Valmiit käännökset"
-
-#: weblate/templates/legend.html:8 weblate/templates/progress.html:8
-msgid "Translations with failing checks"
-msgstr "Virheelliset käännökset"
+msgid "Good"
+msgstr ""
 
 #: weblate/templates/legend.html:11 weblate/templates/progress.html:11
-msgid "Fuzzy translations"
-msgstr "Epätarkat käännökset"
+#: weblate/trans/forms.py:413 weblate/trans/forms.py:431
+#: weblate/trans/templatetags/translations.py:519
+#, fuzzy
+#| msgid "Needs review"
+msgid "Needs editing"
+msgstr "Tarkistettava"
 
 #: weblate/templates/list-comments.html:12
 msgid "Translation comment"
@@ -4120,7 +4291,7 @@ msgid "Configure columns"
 msgstr "Määrittele sarakkeet"
 
 #: weblate/templates/list-translations.html:34
-#: weblate/templates/translation.html:107
+#: weblate/templates/translation.html:111
 msgid "This translation is being used as source strings within this component."
 msgstr "Tätä käännöstä käytetään lähdetekstinä tässä komponentissa."
 
@@ -4165,7 +4336,7 @@ msgstr[1] "%(count)s kääntämätöntä tekstiä."
 
 #: weblate/templates/list-translations.html:69
 #: weblate/templates/list-translations.html:71
-#: weblate/templates/translate.html:92 weblate/templates/translation.html:117
+#: weblate/templates/translate.html:92 weblate/templates/translation.html:121
 msgid "Translate"
 msgstr "Käännä"
 
@@ -4212,7 +4383,7 @@ msgstr "Sivuston %(site_title)s käyttäjätiliisi on tehty muutoksia:"
 #: weblate/templates/mail/account_activity.html:18
 #: weblate/templates/mail/account_activity.txt:7
 msgid "IP address:"
-msgstr "IP -osoite:"
+msgstr "IP-osoite:"
 
 #: weblate/templates/mail/account_activity.html:19
 #: weblate/templates/mail/account_activity.txt:8
@@ -4231,7 +4402,7 @@ msgstr ""
 #: weblate/templates/mail/account_activity_subject.txt:4
 #, python-format
 msgid "Activity on your account at %(site_title)s"
-msgstr "Tominta sivuston %(site_title)s käyttäjätililläsi"
+msgstr "Toimintaa sivuston %(site_title)s käyttäjätililläsi"
 
 #: weblate/templates/mail/activation.html:11
 #: weblate/templates/mail/activation.txt:3
@@ -4269,7 +4440,7 @@ msgstr "Rekisteröitymisesi palvelussa %(site_title)s"
 
 #: weblate/templates/mail/base.html:30 weblate/templates/mail/signature.txt:2
 msgid "Sent by Weblate translation system"
-msgstr "Lähettänyt Weblate -käännösjärjestelmä"
+msgstr "Lähettänyt Weblate-käännösjärjestelmä"
 
 #: weblate/templates/mail/base.html:32
 msgid "Change subscription settings"
@@ -4577,35 +4748,46 @@ msgstr "Muuta tilausasetuksia:"
 msgid "Manage users"
 msgstr "Hallitse käyttäjiä"
 
-#: weblate/templates/manage-access.html:18
+#: weblate/templates/manage-access.html:19
+#: weblate/templates/manage-access.html:81
 msgid "Users"
 msgstr "Käyttäjät"
 
-#: weblate/templates/manage-access.html:44
+#: weblate/templates/manage-access.html:45
 #: weblate/templates/screenshots/screenshot_sources_body.html:20
 msgid "Remove"
 msgstr "Poista"
 
-#: weblate/templates/manage-access.html:53
+#: weblate/templates/manage-access.html:54
+#, fuzzy
+#| msgid ""
+#| "The user will be removed from the project once you remove last user "
+#| "permission."
 msgid ""
-"The user will be removed from the project once you remove last user "
-"permission."
+"The user will be removed from the project once all user permissions are "
+"removed."
 msgstr ""
 "Käyttäjä poistetaan projektista kun olet poistanut viimeiset käyttöoikeudet."
 
-#: weblate/templates/manage-access.html:65
+#: weblate/templates/manage-access.html:66
 msgid "Add new user"
 msgstr "Lisää uusi käyttäjä"
 
 #: weblate/templates/manage-access.html:84
+msgid ""
+"The user management in Weblate is disabled, you can change permissions in "
+"the Django admin interface."
+msgstr ""
+
+#: weblate/templates/manage-access.html:97
 msgid "Project access control"
 msgstr "Projektin pääsynhallinta"
 
-#: weblate/templates/manage-access.html:91
+#: weblate/templates/manage-access.html:104
 msgid "Change"
 msgstr "Muutos"
 
-#: weblate/templates/manage-access.html:93
+#: weblate/templates/manage-access.html:106
 msgid "You do not have permission to change project access control."
 msgstr "Sinulla ei ole oikeuksia muuttaa projektin pääsynhallinta-asetuksia."
 
@@ -4628,22 +4810,31 @@ msgid "Start new translation"
 msgstr "Aloita uusi käännös"
 
 #: weblate/templates/new-language.html:25
-#, python-format
+#, fuzzy, python-format
+#| msgid ""
+#| "Should your language be missing, please follow <a href=\"%(url)s"
+#| "\">translator instructions</a>."
 msgid ""
-"Should your language be missing, please follow <a href=\"%(url)s"
-"\">translator instructions</a>."
+"Should your language be missing, please follow <a href=\"%(url)s\">the "
+"translator instructions</a>."
 msgstr ""
 "Mikäli kielesi puuttuu, ole hyvä ja katso <a href=\"%(url)s\">kääntäjien "
 "ohjeet</a>."
 
 #: weblate/templates/new-language.html:27
-msgid "Please choose the language into which you would like to translate."
+#, fuzzy
+#| msgid "Please choose the language into which you would like to translate."
+msgid "Please choose the language you want to translate to."
 msgstr "Valitse kieli, jolle haluat kääntää."
 
 #: weblate/templates/new-language.html:29
+#, fuzzy
+#| msgid ""
+#| "Project maintainers will get notified about this request and will add the "
+#| "language manually."
 msgid ""
-"Project maintainers will get notified about this request and will add the "
-"language manually."
+"Project maintainers are notified of this request, which prompts them to add "
+"the language manually."
 msgstr ""
 "Projektin ylläpitäjät saavat ilmoituksen pyynnöstäsi ja lisäävät kielen "
 "projektiin."
@@ -4678,54 +4869,57 @@ msgstr "Lataa tilastotiedot (JSON)"
 
 #: weblate/templates/project.html:47 weblate/templates/project.html:194
 #: weblate/templates/replace.html:13 weblate/templates/subproject.html:53
-#: weblate/templates/subproject.html:144 weblate/templates/translation.html:59
-#: weblate/templates/translation.html:217 weblate/trans/models/change.py:227
+#: weblate/templates/subproject.html:144 weblate/templates/translation.html:60
+#: weblate/templates/translation.html:221 weblate/trans/models/change.py:228
 msgid "Search and replace"
 msgstr "Etsi ja korvaa"
 
 #: weblate/templates/project.html:49 weblate/templates/subproject.html:55
-#: weblate/templates/translation.html:54
+#: weblate/templates/translation.html:55
 msgid "Data exports"
 msgstr "Tietojen viennit"
 
 #: weblate/templates/project.html:57 weblate/templates/subproject.html:65
-#: weblate/templates/translation.html:66
+#: weblate/templates/translation.html:70
 msgid "Manage"
 msgstr "Hallinnoi"
 
 #: weblate/templates/project.html:64 weblate/templates/subproject.html:72
-#: weblate/templates/translation.html:73
+#: weblate/templates/translation.html:77
 msgid "Repository maintenance"
 msgstr "Arkiston ylläpito"
 
 #: weblate/templates/project.html:81 weblate/templates/subproject.html:89
-#: weblate/templates/translation.html:81
+#: weblate/templates/translation.html:85
 msgid "Share"
 msgstr "Jaa"
 
 #: weblate/templates/project.html:85 weblate/templates/share.html:9
-#: weblate/templates/subproject.html:93 weblate/templates/translation.html:85
-msgid "Share on Facebook!"
+#: weblate/templates/translation.html:89
+#, fuzzy
+#| msgid "Share on Facebook!"
+msgid "Share on Facebook"
 msgstr "Jaa Facebookissa!"
 
 #: weblate/templates/project.html:86 weblate/templates/share.html:10
-#: weblate/templates/subproject.html:94 weblate/templates/translation.html:86
+#: weblate/templates/subproject.html:94 weblate/templates/translation.html:90
 #, python-format
 msgid "Translate %(object)s using %%23Weblate at %(share_url)s!"
 msgstr "Käännä %(object)s käyttäen %%23Weblatea %(share_url)s!"
 
-#: weblate/templates/project.html:86 weblate/templates/share.html:10
-#: weblate/templates/subproject.html:94 weblate/templates/translation.html:86
-msgid "Tweet this translation!"
+#: weblate/templates/project.html:86
+#, fuzzy
+#| msgid "Tweet this translation!"
+msgid "Tweet this translation"
 msgstr "Twiittaa tämä käännös!"
 
 #: weblate/templates/project.html:87 weblate/templates/subproject.html:95
-#: weblate/templates/translation.html:87
+#: weblate/templates/translation.html:91
 msgid "Engage page"
 msgstr "Osallistu -sivu"
 
 #: weblate/templates/project.html:88 weblate/templates/subproject.html:96
-#: weblate/templates/translation.html:88
+#: weblate/templates/translation.html:92
 msgid "Status widgets"
 msgstr "Tilawidgetit"
 
@@ -4746,25 +4940,29 @@ msgstr "Hallitse kaikkia sanastoja"
 msgid "Browse all project changes"
 msgstr "Selaa projektin muutoksia"
 
-#: weblate/templates/project.html:196 weblate/templates/subproject.html:146
-#: weblate/templates/translation.html:219
+#: weblate/templates/project.html:196 weblate/templates/translation.html:223
+#, fuzzy
+#| msgid ""
+#| "You can replace string in all units at once. The search is simple "
+#| "substring case sensitive search."
 msgid ""
-"You can replace string in all units at once. The search is simple substring "
-"case sensitive search."
+"You can replace a string in all units at once. The search is a simple "
+"substring case sensitive search."
 msgstr ""
 "Voit korvata tekstin kaikissa käännösyksiköissä kerralla. Haku on "
 "kirjainkoosta riippuvainen, ja se hakee myös pidempiin sanoihin sisältyviä "
 "sanoja, eli ts. se hakee myös merkkijonosta alimerkkijonoa."
 
 #: weblate/templates/project.html:201 weblate/templates/replace.html:45
-#: weblate/templates/subproject.html:151 weblate/templates/translation.html:206
-#: weblate/templates/translation.html:224
+#: weblate/templates/subproject.html:151 weblate/templates/translation.html:210
+#: weblate/templates/translation.html:228
+#: weblate/templates/translation.html:246
 msgid "Process"
 msgstr "Edistyminen"
 
 #: weblate/templates/project.html:210 weblate/templates/subproject.html:167
 #: weblate/templates/translate.html:333 weblate/templates/translate.html:337
-#: weblate/templates/translation.html:256 weblate/trans/forms.py:231
+#: weblate/templates/translation.html:278 weblate/trans/forms.py:231
 msgid "Loading…"
 msgstr "Ladataan…"
 
@@ -4857,8 +5055,8 @@ msgstr ""
 "lähdeteksteistä."
 
 #: weblate/templates/screenshots/screenshot_list.html:22
-#: weblate/templates/translation.html:113
-#: weblate/templates/translation.html:312
+#: weblate/templates/translation.html:117
+#: weblate/templates/translation.html:334
 msgid "Strings"
 msgstr "Tekstit"
 
@@ -4867,7 +5065,9 @@ msgid "No source strings are currently assigned!"
 msgstr "Ei liitettyjä lähdetekstejä!"
 
 #: weblate/templates/search.html:42
-msgid "No matching strings found!"
+#, fuzzy
+#| msgid "No matching strings found!"
+msgid "No matching strings found."
 msgstr "Hakuehtoa vastaavia tekstejä ei löytynyt!"
 
 #: weblate/templates/share.html:6
@@ -4875,10 +5075,13 @@ msgid "Share your translation"
 msgstr "Jaa käännöksesi"
 
 #: weblate/templates/share.html:26
-#, python-format
+#, fuzzy, python-format
+#| msgid ""
+#| "You can also promote this translation project using various <a href="
+#| "\"%(widgets_url)s\">other possibilities</a>."
 msgid ""
 "You can also promote this translation project using various <a href="
-"\"%(widgets_url)s\">other possibilities</a>."
+"\"%(widgets_url)s\">other means</a>."
 msgstr ""
 "Voit myös edistää tätä käännös projektia käyttämällä erilaisia <a href="
 "\"%(widgets_url)s\">muita mahdollisuuksia</a>."
@@ -4893,7 +5096,9 @@ msgstr ""
 "jota kone ymmärtää."
 
 #: weblate/templates/show-lock.html:3
-msgid "This translation is currently locked for updates!"
+#, fuzzy
+#| msgid "This translation is currently locked for updates!"
+msgid "This translation is currently locked for updates."
 msgstr ""
 "Tämä käännöskomponetti on lukittu hetkeksi lähdetekstien päivityksen vuoksi!"
 
@@ -4905,7 +5110,7 @@ msgstr "lähdetekstit"
 msgid "review"
 msgstr "Yhteenveto"
 
-#: weblate/templates/source-review.html:26 weblate/trans/forms.py:1145
+#: weblate/templates/source-review.html:26 weblate/trans/forms.py:1153
 #: weblate/trans/models/subproject.py:494
 msgid "Priority"
 msgstr "Tärkeys"
@@ -4915,14 +5120,16 @@ msgid "Comment"
 msgstr "Kommentti"
 
 #: weblate/templates/source-review.html:65
-msgid "No matching source strings found!"
+#, fuzzy
+#| msgid "No matching source strings found!"
+msgid "No matching source strings found."
 msgstr "Hakuehtoja vastaavia lähdetekstejä ei löytynyt!"
 
-#: weblate/templates/source.html:19 weblate/templates/translation.html:139
+#: weblate/templates/source.html:19 weblate/templates/translation.html:143
 msgid "Strings to check"
 msgstr "Tarkistettavat tekstit"
 
-#: weblate/templates/source.html:34 weblate/templates/translation.html:163
+#: weblate/templates/source.html:34 weblate/templates/translation.html:167
 msgid "Project Information"
 msgstr "Tietoja projektista"
 
@@ -4939,16 +5146,22 @@ msgid "Suggested"
 msgstr "Ehdottanut"
 
 #: weblate/templates/stats.html:66
-msgid "Strings to translate"
-msgstr "Käännettävät tekstit"
+#, fuzzy
+#| msgid "Translated strings"
+msgid "Translatable strings"
+msgstr "Käännetyt tekstit"
 
 #: weblate/templates/stats.html:70
-msgid "Units to translate"
-msgstr "Käännettävät yksiköt"
+#, fuzzy
+#| msgid "Translate"
+msgid "Translatable units"
+msgstr "Käännä"
 
 #: weblate/templates/stats.html:74
-msgid "Words to translate"
-msgstr "Sanat käännettäväksi"
+#, fuzzy
+#| msgid "Untranslated strings"
+msgid "Translatable words"
+msgstr "Kääntämättömät merkkijonot"
 
 #: weblate/templates/stats.html:78
 msgid "Used languages"
@@ -4986,6 +5199,23 @@ msgstr "Matriisinäkymä"
 #: weblate/templates/subproject.html:57
 msgid "Source strings review"
 msgstr "Lähdetekstien yhteenveto"
+
+#: weblate/templates/subproject.html:93
+msgid "Share on Facebook!"
+msgstr "Jaa Facebookissa!"
+
+#: weblate/templates/subproject.html:94 weblate/templates/translation.html:90
+msgid "Tweet this translation!"
+msgstr "Twiittaa tämä käännös!"
+
+#: weblate/templates/subproject.html:146
+msgid ""
+"You can replace string in all units at once. The search is simple substring "
+"case sensitive search."
+msgstr ""
+"Voit korvata tekstin kaikissa käännösyksiköissä kerralla. Haku on "
+"kirjainkoosta riippuvainen, ja se hakee myös pidempiin sanoihin sisältyviä "
+"sanoja, eli ts. se hakee myös merkkijonosta alimerkkijonoa."
 
 #: weblate/templates/subproject.html:181
 msgid "Credits"
@@ -5040,7 +5270,9 @@ msgid "Translations can be made directly."
 msgstr "Käännöksiä voidaan tehdä suoraan."
 
 #: weblate/templates/subproject_info.html:20
-msgid "Suggestions to improve translation can be given."
+#, fuzzy
+#| msgid "Suggestions to improve translation can be given."
+msgid "Suggestions to improve translation can be made."
 msgstr "Voidaan tehdä ehdotuksia käännöksen parantamiseksi."
 
 #: weblate/templates/subproject_info.html:22
@@ -5073,6 +5305,12 @@ msgstr "Arkistohaara"
 msgid "Repository with Weblate translations"
 msgstr "Weblate -käännösarkisto"
 
+#: weblate/templates/trans/change_list.html:21
+#, fuzzy
+#| msgid "Change"
+msgid "Changes"
+msgstr "Muutos"
+
 #: weblate/templates/trans/change_list.html:32
 msgid "Download latest changes as CSV"
 msgstr "Lataa viimeisimmät muutokset (CSV)"
@@ -5099,7 +5337,7 @@ msgstr "Muutos verrattuna tähän käännökseen:"
 
 #: weblate/templates/trans/suggestion_list.html:7
 #: weblate/templates/translate.html:212 weblate/templates/translate.html:403
-#: weblate/trans/forms.py:1325
+#: weblate/trans/forms.py:1333
 msgid "Suggestions"
 msgstr "Ehdotukset"
 
@@ -5150,7 +5388,7 @@ msgstr "Viimeinen"
 
 #: weblate/templates/translate.html:77
 msgid "Copy permalink"
-msgstr ""
+msgstr "Kopioi pysyväislinkki"
 
 #: weblate/templates/translate.html:80
 msgid "Keyboard shortcuts available:"
@@ -5167,14 +5405,12 @@ msgstr "Ctrl+Shift+Enter - Poista Tarkistettava -ehto ja tallenna käännnös"
 #: weblate/templates/translate.html:83
 #, fuzzy
 #| msgid "Alt+PageUp/PageDown/Home/End - Translation units navigation"
-msgid "Ctrl+PageUp/PageDown/Home/End - Translation units navigation"
+msgid "Alt+PageUp/PageDown/Home/End - Translation units navigation"
 msgstr "Alt+PageUp/PageDown/Home/End - Käännösten välillä navigointi"
 
 #: weblate/templates/translate.html:84
-#, fuzzy
-#| msgid "Alt+E - Focus translation editor"
 msgid "Ctrl+E - Focus translation editor"
-msgstr "Alt+E - Siirry käännöseditoriin"
+msgstr "Ctrl+E - Siirry käännöseditoriin"
 
 #: weblate/templates/translate.html:85
 #, fuzzy
@@ -5191,7 +5427,7 @@ msgstr "Alt + M - Näytä konekäännös -välilehti"
 #: weblate/templates/translate.html:87
 #, fuzzy
 #| msgid "Alt+N - Shows nearby strings tab"
-msgid "Ctrl+N - Shows nearby strings tab"
+msgid "Ctrl+J - Shows nearby strings tab"
 msgstr "Alt+N - Näytä samankaltaiset tekstit -välilehti"
 
 #: weblate/templates/translate.html:88
@@ -5201,10 +5437,8 @@ msgid "Ctrl+S - Shows search tab"
 msgstr "Alt+S - Näytä etsi -välilehti"
 
 #: weblate/templates/translate.html:89
-#, fuzzy
-#| msgid "Alt+V - Copies source string"
 msgid "Ctrl+O - Copies source string"
-msgstr "Alt+V - Kopioi lähdeteksti"
+msgstr "Ctrl+O - Kopioi lähdeteksti"
 
 #: weblate/templates/translate.html:90
 #, fuzzy
@@ -5238,30 +5472,32 @@ msgstr "Muokkaa lähdetekstiä"
 
 #: weblate/templates/translate.html:170
 #, fuzzy
-#| msgid "Base file for new translations"
-msgid "Please log in for saving translations."
-msgstr "kantatiedosto uusille käännöksille"
+#| msgid "Please log in for saving translations."
+msgid "Please log in to save translations."
+msgstr "Kirjaudu sisään tallentaaksesi käännöksiä."
 
 #: weblate/templates/translate.html:172
 msgid ""
-"Only reviewers can change approved string, please add suggestion if you "
+"Only reviewers can change approved strings, please add a suggestion if you "
 "think the string should be changed."
 msgstr ""
 
 #: weblate/templates/translate.html:174 weblate/trans/views/edit.py:321
 #: weblate/trans/views/edit.py:355 weblate/trans/views/edit.py:383
-#: weblate/trans/views/edit.py:792
-msgid "You don't have privileges to save translations!"
-msgstr "Sinulla ei ole oikeuksia tallentaa käännöstä!"
+#: weblate/trans/views/edit.py:791
+#, fuzzy
+#| msgid "Please log in for saving translations."
+msgid "Insufficient privileges for saving translations."
+msgstr "Kirjaudu sisään tallentaaksesi käännöksiä."
 
 #: weblate/templates/translate.html:177 weblate/templates/translate.html:187
-#, fuzzy
-#| msgid "Translation is currently not locked."
 msgid "This translation is currently locked."
-msgstr "Käännös ei tällä hetkellä ole lukittu."
+msgstr "Tämä käännös on parhaillaan lukittu."
 
 #: weblate/templates/translate.html:185
-msgid "No privileges for adding suggestions!"
+#, fuzzy
+#| msgid "No privileges for adding suggestions!"
+msgid "Insufficient privileges for adding suggestions."
 msgstr "Sinulla ei ole oikeuksia lisätä käännösehdotuksia!"
 
 #: weblate/templates/translate.html:189
@@ -5281,8 +5517,12 @@ msgid "Additional text to include"
 msgstr "Sisällytettävä lisäteksti"
 
 #: weblate/templates/translate.html:201
+#, fuzzy
+#| msgid ""
+#| "You can leave this empty in most cases as Weblate generates basic commit "
+#| "messages automatically."
 msgid ""
-"You can leave this empty in most cases as Weblate generates basic commit "
+"You can leave this empty in most cases, as Weblate generates basic commit "
 "messages automatically."
 msgstr ""
 "Voit jättää tämän useimmissa tapauksissa tyhjäksi, sillä Weblate luo "
@@ -5387,14 +5627,16 @@ msgstr[1] "Seuraavilla teksteillä on erit lähdetekstit mutta sama asiayhteys."
 msgid "Service"
 msgstr "Palvelu"
 
-#: weblate/templates/translate.html:375 weblate/trans/forms.py:1054
+#: weblate/templates/translate.html:375 weblate/trans/forms.py:1062
 msgid "New comment"
 msgstr "Uusi kommentti"
 
 #: weblate/templates/translate.html:377
-msgid ""
-"You can share comments about this string with other translators and "
-"developers."
+#, fuzzy
+#| msgid ""
+#| "You can share comments about this string with other translators and "
+#| "developers."
+msgid "Comment on this string for fellow translators and developers to read."
 msgstr ""
 "Voit jakaa kommentteja tästä tekstistä muiden kääntäjien ja kehittäjien "
 "kanssa."
@@ -5437,6 +5679,7 @@ msgstr "Tekstin tärkeys"
 #: weblate/templates/translation-download.html:9
 #: weblate/templates/translation-download.html:10
 #: weblate/templates/translation-download.html:11
+#: weblate/templates/translation-download.html:12
 msgid "Download for an offline translation."
 msgstr "Lataa offline -kääntämistä varten."
 
@@ -5465,50 +5708,62 @@ msgstr "Lataa käännöstiedosto (Gettext MO)"
 msgid "Download translation as CSV"
 msgstr "Lataa käännöstiedosto (CSV)"
 
-#: weblate/templates/translation-download.html:14
+#: weblate/templates/translation-download.html:12
+#, fuzzy
+#| msgid "Download translation as XLIFF"
+msgid "Download translation as TMX"
+msgstr "Lataa käännöstiedosto (XLIFF)"
+
+#: weblate/templates/translation-download.html:15
 msgid "Upload translation"
 msgstr "Lähetä käännöstiedosto"
 
-#: weblate/templates/translation.html:43 weblate/trans/forms.py:1359
+#: weblate/templates/translation.html:44 weblate/trans/forms.py:1367
 msgid "Files"
 msgstr "Tiedostot"
 
-#: weblate/templates/translation.html:56 weblate/templates/translation.html:199
-#: weblate/trans/models/change.py:205
+#: weblate/templates/translation.html:57 weblate/templates/translation.html:203
+#: weblate/trans/models/change.py:206
 msgid "Automatic translation"
 msgstr "Automaattinen kääntäminen"
 
-#: weblate/templates/translation.html:103 weblate/templates/widgets.html:56
+#: weblate/templates/translation.html:63 weblate/templates/translation.html:239
+#, fuzzy
+#| msgid "Add as translation"
+msgid "Add new translation unit"
+msgstr "Lisää käännös"
+
+#: weblate/templates/translation.html:107 weblate/templates/widgets.html:56
 #: weblate/templates/widgets.html:64 weblate/templates/widgets.html:71
 #: weblate/templates/widgets.html:79
 msgid "Translation status"
 msgstr "Käännöksen tila"
 
-#: weblate/templates/translation.html:144
+#: weblate/templates/translation.html:148
 #, python-format
 msgid "%(count)s word"
 msgid_plural "%(count)s words"
 msgstr[0] "%(count)s sana"
 msgstr[1] "%(count)s sanaa"
 
-#: weblate/templates/translation.html:151
+#: weblate/templates/translation.html:155
 msgid "Other components"
 msgstr "Muut komponentit"
 
-#: weblate/templates/translation.html:170
+#: weblate/templates/translation.html:174
 #: weblate/templates/unit-details.html:26
 msgid "Translation file"
 msgstr "Käännöstiedosto"
 
-#: weblate/templates/translation.html:174
+#: weblate/templates/translation.html:178
 msgid "Download"
 msgstr "Lataa"
 
-#: weblate/templates/translation.html:191
+#: weblate/templates/translation.html:195
 msgid "Browse all translation changes"
 msgstr "Selaa kaikkia tapahtumia"
 
-#: weblate/templates/translation.html:201
+#: weblate/templates/translation.html:205
 msgid ""
 "Automatic translation takes existing translations in this project and "
 "applies them to the current component. It can be used to push translations "
@@ -5520,53 +5775,65 @@ msgstr ""
 "työntämiseen eri haaraan, virheellisten käännösten korjaamiseen tai uuden "
 "komponentin kääntämiseen käännösmuistin avulla."
 
-#: weblate/templates/translation.html:238
+#: weblate/templates/translation.html:241
 msgid ""
-"Uploaded file will be merged with current translation. In case you want to "
-"overwrite already translated strings, don't forget to enable it."
+"You can add new translation unit here, it will automatically appear in all "
+"translations."
+msgstr ""
+
+#: weblate/templates/translation.html:260
+#, fuzzy
+#| msgid ""
+#| "Uploaded file will be merged with current translation. In case you want "
+#| "to overwrite already translated strings, don't forget to enable it."
+msgid ""
+"The uploaded file will be merged with the current translation. In case you "
+"want to overwrite already translated strings, don't forget to enable it."
 msgstr ""
 "Lähetetty tiedosto yhdistetään nykyisen käännöksen kanssa. Mikäli tahdot "
 "ylikirjoittaa valmiiksi käännetyt tekstit, muista merkitä kyseinen "
 "valintaruutu."
 
-#: weblate/templates/translation.html:240
-msgid "Uploaded file will be merged with current translation."
+#: weblate/templates/translation.html:262
+#, fuzzy
+#| msgid "Uploaded file will be merged with current translation."
+msgid "The uploaded file will be merged with the current translation."
 msgstr "Lähetetty tiedosto yhdistetään nykyisen käännöksen kanssa."
 
-#: weblate/templates/translation.html:283
-#: weblate/templates/translation.html:330
+#: weblate/templates/translation.html:305
+#: weblate/templates/translation.html:352
 msgid "Review"
 msgstr "Tarkistettava"
 
-#: weblate/templates/translation.html:285
+#: weblate/templates/translation.html:307
 msgid "Review translations touched by other users."
 msgstr "Tarkista muiden tekemiä käännöksiä."
 
-#: weblate/templates/translation.html:289
+#: weblate/templates/translation.html:311
 msgid "Start review"
 msgstr "Aloita tarkistus"
 
-#: weblate/templates/translation.html:311
+#: weblate/templates/translation.html:333
 msgid "Percent"
 msgstr "Prosentti"
 
-#: weblate/templates/translation.html:318
+#: weblate/templates/translation.html:340
 msgid "Total"
 msgstr "Yhteensä"
 
-#: weblate/templates/translation.html:336
+#: weblate/templates/translation.html:358
 msgid "Failing check"
 msgstr "Epäonnistunut tarkistus"
 
-#: weblate/templates/translation.html:351
+#: weblate/templates/translation.html:373
 msgid "Last activity"
 msgstr "Viimeiset tapahtumat"
 
-#: weblate/templates/translation.html:355
+#: weblate/templates/translation.html:377
 msgid "Last change"
 msgstr "Viimeinen muutos"
 
-#: weblate/templates/translation.html:359
+#: weblate/templates/translation.html:381
 msgid "Last author"
 msgstr "Viimeisimmän tekstin kääntäjä"
 
@@ -5645,10 +5912,15 @@ msgid "Image widgets"
 msgstr "Kuvawidgetit"
 
 #: weblate/templates/widgets.html:27
+#, fuzzy
+#| msgid ""
+#| "You can use the following widgets to promote translation of your project. "
+#| "They can increase visibility of your translation projects and bring new "
+#| "contributors."
 msgid ""
 "You can use the following widgets to promote translation of your project. "
-"They can increase visibility of your translation projects and bring new "
-"contributors."
+"They can increase the visibility of your translation projects and bring in "
+"new contributors."
 msgstr ""
 "Voit käyttää seuraavia widgettejä edistääksesi projektisi käännöstä. Ne "
 "voivat kasvattaa näkyvyyttä käännösprojekteissasi ja tuoda uusia avustajia."
@@ -5691,8 +5963,10 @@ msgid "Open in full editor"
 msgstr "Avaa täysmuokkaimessa"
 
 #: weblate/templates/zen-units.html:73 weblate/trans/views/edit.py:498
-msgid "You have reached end of translating."
-msgstr "Olet saavuttanut viimeiseen käännöksen."
+#, fuzzy
+#| msgid "Translation has been removed."
+msgid "The translation has come to an end."
+msgstr "Käännös on poistettu."
 
 #: weblate/templates/zen.html:14
 msgid "zen"
@@ -6026,124 +6300,132 @@ msgstr "Viimeaikaiset muutokset %s"
 msgid "All recent changes made using Weblate in %s."
 msgstr "Luettelo viimeaikaisista muutoksista Weblatessa %s."
 
-#: weblate/trans/formats.py:872
+#: weblate/trans/formats.py:906
 msgid "Automatic detection"
 msgstr "Automaattinen tunnistus"
 
-#: weblate/trans/formats.py:903
+#: weblate/trans/formats.py:937
 msgid "Gettext PO file"
 msgstr "Gettext PO tiedosto"
 
-#: weblate/trans/formats.py:968
+#: weblate/trans/formats.py:1002
 #, fuzzy
 #| msgid "Gettext PO file (monolingual)"
 msgid "Gettext PO file (unwrapped)"
 msgstr "Gettext PO tiedosto (yksikielinen)"
 
-#: weblate/trans/formats.py:990
+#: weblate/trans/formats.py:1024
 msgid "Gettext PO file (monolingual)"
 msgstr "Gettext PO tiedosto (yksikielinen)"
 
-#: weblate/trans/formats.py:997
+#: weblate/trans/formats.py:1031
+#, fuzzy
+#| msgid "Gettext PO file (monolingual)"
+msgid "Gettext PO file (monolingual, unwrapped)"
+msgstr "Gettext PO tiedosto (yksikielinen)"
+
+#: weblate/trans/formats.py:1038
 msgid "Qt Linguist Translation File"
 msgstr "Qt Linguist"
 
-#: weblate/trans/formats.py:1015
+#: weblate/trans/formats.py:1056
 msgid "XLIFF Translation File"
 msgstr "XLIFF käännöstiedosto"
 
-#: weblate/trans/formats.py:1058
+#: weblate/trans/formats.py:1099
 msgid "XLIFF Translation File with PO extensions"
 msgstr "XLIFF -käännöstiedosto PO -laajennuksella"
 
-#: weblate/trans/formats.py:1066
+#: weblate/trans/formats.py:1107
 msgid "OS X Strings"
 msgstr "OS X -tekstit"
 
-#: weblate/trans/formats.py:1075
+#: weblate/trans/formats.py:1116
 msgid "OS X Strings (UTF-8)"
 msgstr "OS X -tekstit (UTF-8)"
 
-#: weblate/trans/formats.py:1083
+#: weblate/trans/formats.py:1124
 msgid "Java Properties (UTF-8)"
 msgstr "Java ominaisuudet (UTF-8)"
 
-#: weblate/trans/formats.py:1092
+#: weblate/trans/formats.py:1133
 msgid "Java Properties (UTF-16)"
 msgstr "Java Properties (UTF-16)"
 
-#: weblate/trans/formats.py:1099
+#: weblate/trans/formats.py:1140
 msgid "Java Properties (ISO-8859-1)"
 msgstr "Java Properties (ISO-8859-1)"
 
-#: weblate/trans/formats.py:1121
+#: weblate/trans/formats.py:1162
 msgid "Joomla Language File"
 msgstr "Joomla -kielitiedosto"
 
-#: weblate/trans/formats.py:1131
+#: weblate/trans/formats.py:1172
 msgid "PHP strings"
 msgstr "PHP -tekstit"
 
-#: weblate/trans/formats.py:1172
+#: weblate/trans/formats.py:1222
 msgid ".Net resource file"
 msgstr ".Net -resurssitiedosto"
 
-#: weblate/trans/formats.py:1183
+#: weblate/trans/formats.py:1233
 msgid "Android String Resource"
 msgstr "Android resurssien tekstit"
 
-#: weblate/trans/formats.py:1213
+#: weblate/trans/formats.py:1263
 msgid "JSON file"
 msgstr "JSON -tiedosto (yksinkertainen)"
 
-#: weblate/trans/formats.py:1233
+#: weblate/trans/formats.py:1283
 msgid "JSON nested structure file"
 msgstr "JSON -tiedosto (sisäkkäinen rakenne)"
 
-#: weblate/trans/formats.py:1240
+#: weblate/trans/formats.py:1290
 msgid "WebExtension JSON file"
 msgstr "WebExtension JSON -tiedosto"
 
-#: weblate/trans/formats.py:1249
+#: weblate/trans/formats.py:1299
 msgid "i18next JSON file"
 msgstr "i18next JSON -tiedosto"
 
-#: weblate/trans/formats.py:1256
+#: weblate/trans/formats.py:1306
 msgid "CSV file"
 msgstr "CSV -tiedosto"
 
-#: weblate/trans/formats.py:1327
+#: weblate/trans/formats.py:1377
 msgid "Simple CSV file"
 msgstr "Yksinkertainen CSV -tiedosto"
 
-#: weblate/trans/formats.py:1364
+#: weblate/trans/formats.py:1414
 msgid "Simple CSV file (ISO-8859-1)"
 msgstr "Yksinkertainen CSV -tiedosto (ISO-8859-1)"
 
-#: weblate/trans/formats.py:1371
+#: weblate/trans/formats.py:1421
 msgid "YAML file"
 msgstr "YAML -tiedosto"
 
-#: weblate/trans/formats.py:1391
+#: weblate/trans/formats.py:1441
 msgid "Ruby YAML file"
 msgstr "Ruby YAML -tiedosto"
 
-#: weblate/trans/formats.py:1399
-#, fuzzy
-#| msgid "CSV file"
+#: weblate/trans/formats.py:1449
 msgid "DTD file"
-msgstr "CSV -tiedosto"
+msgstr "DTD-tiedosto"
 
 #: weblate/trans/forms.py:148
 msgid "Invalid checksum specified!"
 msgstr "Virheellinen tarkistussumma!"
 
 #: weblate/trans/forms.py:158
-msgid "No matching user found!"
+#, fuzzy
+#| msgid "No matching user found!"
+msgid "No matching user found."
 msgstr "Vastaavia käyttäjiä ei löytynyt!"
 
 #: weblate/trans/forms.py:160
-msgid "More users matched!"
+#, fuzzy
+#| msgid "More users matched!"
+msgid "More users matched."
 msgstr "Monta käyttäjää täsmäsi!"
 
 #: weblate/trans/forms.py:197 weblate/trans/forms.py:205
@@ -6171,20 +6453,15 @@ msgid "Missing translated string!"
 msgstr "Käännösteksti puuttuu!"
 
 #: weblate/trans/forms.py:405
-msgid "Message you wanted to translate is no longer available!"
-msgstr "Viesti jonka halusit kääntää ei ole enää olemassa!"
-
-#: weblate/trans/forms.py:413 weblate/trans/forms.py:431
-#: weblate/trans/templatetags/translations.py:519
 #, fuzzy
-#| msgid "Needs review"
-msgid "Needs editing"
-msgstr "Tarkistettava"
+#| msgid "Message you wanted to translate is no longer available!"
+msgid "The message you wanted to translate is no longer available!"
+msgstr "Viesti jonka halusit kääntää ei ole enää olemassa!"
 
 #: weblate/trans/forms.py:415
 msgid ""
-"String is usually marked as needing editing after source string change or "
-"this can be done manually."
+"Strings are usually marked as \"Needs editing\" after the source string is "
+"updated, or when marked as such manually."
 msgstr ""
 
 #: weblate/trans/forms.py:429
@@ -6201,277 +6478,275 @@ msgstr "Satunnaiset tekstit tarkistettavaksi"
 
 #: weblate/trans/forms.py:433 weblate/trans/templatetags/translations.py:529
 msgid "Approved"
-msgstr ""
+msgstr "Hyväksytty"
 
-#: weblate/trans/forms.py:484
+#: weblate/trans/forms.py:489
 msgid ""
 "Source of the message has been changed meanwhile. Please check your changes."
 msgstr ""
 
-#: weblate/trans/forms.py:492
+#: weblate/trans/forms.py:497
 msgid ""
 "Translation of the message has been changed meanwhile. Please check your "
 "changes."
 msgstr ""
 
-#: weblate/trans/forms.py:501
+#: weblate/trans/forms.py:506
 msgid "Translation text too long!"
 msgstr "Käännösteksti on liian pitkä!"
 
-#: weblate/trans/forms.py:536 weblate/trans/forms.py:979
+#: weblate/trans/forms.py:541 weblate/trans/forms.py:984
 msgid "File"
 msgstr "Tiedosto"
 
-#: weblate/trans/forms.py:540 weblate/trans/forms.py:987
+#: weblate/trans/forms.py:545 weblate/trans/forms.py:992
 msgid "Merge method"
 msgstr "Yhdistä menetelmä"
 
-#: weblate/trans/forms.py:542
+#: weblate/trans/forms.py:547
 msgid "Add as translation"
 msgstr "Lisää käännös"
 
-#: weblate/trans/forms.py:543
+#: weblate/trans/forms.py:548
 msgid "Add as a suggestion"
 msgstr "Lisää ehdotus"
 
-#: weblate/trans/forms.py:544
+#: weblate/trans/forms.py:549
 #, fuzzy
 #| msgid "Add as translation needing review"
 msgid "Add as translation needing edit"
 msgstr "Lisää käännöksenä joka on tarkistettava myöhemmin"
 
-#: weblate/trans/forms.py:548
+#: weblate/trans/forms.py:553
 #, fuzzy
 #| msgid "Processing of strings needing review"
 msgid "Processing of strings needing edit"
 msgstr "Käsitellään tarkistusta vaativia käännöstekstejä"
 
-#: weblate/trans/forms.py:550
+#: weblate/trans/forms.py:555
 msgid "Do not import"
 msgstr "Älä tuo"
 
-#: weblate/trans/forms.py:551
+#: weblate/trans/forms.py:556
 #, fuzzy
 #| msgid "Import as string needing review"
 msgid "Import as string needing edit"
 msgstr "Tuo tarkistuksen vaativana käännöstekstinä"
 
-#: weblate/trans/forms.py:552
+#: weblate/trans/forms.py:557
 msgid "Import as translated"
 msgstr "Tuo käännettynä"
 
-#: weblate/trans/forms.py:557
+#: weblate/trans/forms.py:562
 msgid "Merge file header"
 msgstr "Yhdistä tiedoston otsikko"
 
-#: weblate/trans/forms.py:558
+#: weblate/trans/forms.py:563
 msgid "Merges content of file header into the translation."
 msgstr "Tiedoston otsikon sisältö on liitetty onnistuneesti käännökseen."
 
-#: weblate/trans/forms.py:574
+#: weblate/trans/forms.py:579
 msgid "Overwrite existing translations"
 msgstr "Korvaa aiemmat käännökset"
 
-#: weblate/trans/forms.py:576
+#: weblate/trans/forms.py:581
 msgid ""
 "Whether to overwrite existing translations if the string is already "
 "translated."
 msgstr ""
 "Ylikirjoitetaanko olemassaoleva käännös vai ei vaikka käännös olisi valmis."
 
-#: weblate/trans/forms.py:587
+#: weblate/trans/forms.py:592
 msgid "Author name"
 msgstr "Tekijän nimi"
 
-#: weblate/trans/forms.py:589 weblate/trans/forms.py:594
+#: weblate/trans/forms.py:594 weblate/trans/forms.py:599
 msgid "Keep empty for using currently logged in user."
 msgstr "Pidä tyhjänä kirjautuneille käyttäjille."
 
-#: weblate/trans/forms.py:592
+#: weblate/trans/forms.py:597
 msgid "Author email"
 msgstr "Tekijän sähköposti"
 
-#: weblate/trans/forms.py:618
+#: weblate/trans/forms.py:623
 msgid "Search filter"
 msgstr "Hakusuodatin"
 
-#: weblate/trans/forms.py:621 weblate/trans/models/translation.py:820
+#: weblate/trans/forms.py:626 weblate/trans/models/translation.py:820
 #: weblate/trans/models/translation.py:862
 msgid "All strings"
 msgstr "Kaikki tekstit"
 
-#: weblate/trans/forms.py:622 weblate/trans/models/translation.py:915
+#: weblate/trans/forms.py:627 weblate/trans/models/translation.py:916
 msgid "Not translated strings"
 msgstr "Kääntämättömät tekstit"
 
-#: weblate/trans/forms.py:623 weblate/trans/models/translation.py:906
+#: weblate/trans/forms.py:628 weblate/trans/models/translation.py:907
 msgid "Strings needing action"
 msgstr "Toimenpiteitä odottavat tekstit"
 
-#: weblate/trans/forms.py:624 weblate/trans/models/translation.py:879
+#: weblate/trans/forms.py:629 weblate/trans/models/translation.py:879
 msgid "Translated strings"
 msgstr "Käännetyt tekstit"
 
-#: weblate/trans/forms.py:625
+#: weblate/trans/forms.py:630
 #, fuzzy
 #| msgid "Strings marked for review"
 msgid "Strings marked for edit"
 msgstr "Tarkistettavat tekstit"
 
-#: weblate/trans/forms.py:626 weblate/trans/models/translation.py:933
+#: weblate/trans/forms.py:631 weblate/trans/models/translation.py:934
 msgid "Strings with suggestions"
 msgstr "Ehdotetut tekstit"
 
-#: weblate/trans/forms.py:627 weblate/trans/models/translation.py:848
-#: weblate/trans/models/translation.py:961
+#: weblate/trans/forms.py:632 weblate/trans/models/translation.py:848
+#: weblate/trans/models/translation.py:962
 msgid "Strings with comments"
 msgstr "Kommentoidut tekstit"
 
-#: weblate/trans/forms.py:628 weblate/trans/models/translation.py:828
-#: weblate/trans/models/translation.py:941
+#: weblate/trans/forms.py:633 weblate/trans/models/translation.py:828
+#: weblate/trans/models/translation.py:942
 msgid "Strings with any failing checks"
 msgstr "Automaattitarkistuksen hylkäämät tekstit"
 
-#: weblate/trans/forms.py:629 weblate/trans/models/translation.py:870
-#, fuzzy
-#| msgid "Source strings"
+#: weblate/trans/forms.py:634 weblate/trans/models/translation.py:870
 msgid "Approved strings"
-msgstr "Lähdeteksti"
+msgstr "Hyväksytyt tekstit"
 
-#: weblate/trans/forms.py:632 weblate/trans/models/translation.py:897
+#: weblate/trans/forms.py:637 weblate/trans/models/translation.py:898
 #, fuzzy
 #| msgid "Strings with suggestions"
 msgid "Approved strings with suggestions"
 msgstr "Ehdotetut tekstit"
 
-#: weblate/trans/forms.py:634 weblate/trans/models/translation.py:888
+#: weblate/trans/forms.py:639 weblate/trans/models/translation.py:889
 #, fuzzy
 #| msgid "Strings marked for review"
 msgid "Strings waiting for review"
 msgstr "Tarkistettavat tekstit"
 
-#: weblate/trans/forms.py:640
+#: weblate/trans/forms.py:645
 msgid "Please select a valid filter type."
 msgstr "Valitse kelvollinen suodintyyppi."
 
-#: weblate/trans/forms.py:714
+#: weblate/trans/forms.py:719
 msgid "Query"
 msgstr "Kysely"
 
-#: weblate/trans/forms.py:719
+#: weblate/trans/forms.py:724
 msgid "Search type"
 msgstr "Hakutyyppi"
 
-#: weblate/trans/forms.py:722
+#: weblate/trans/forms.py:727
 msgid "Fulltext"
 msgstr "Kokoteksti"
 
-#: weblate/trans/forms.py:723
+#: weblate/trans/forms.py:728
 msgid "Substring"
 msgstr "Alimerkkijono"
 
-#: weblate/trans/forms.py:724
+#: weblate/trans/forms.py:729
 msgid "Exact match"
 msgstr "Täydellinen sopivuus"
 
-#: weblate/trans/forms.py:728
+#: weblate/trans/forms.py:733
 msgid "Please select a valid search type."
 msgstr "Valitse kelvollinen hakutyyppi."
 
-#: weblate/trans/forms.py:732
+#: weblate/trans/forms.py:737
 msgid "Search in source strings"
 msgstr "Etsi lähdeteksteistä"
 
-#: weblate/trans/forms.py:737
+#: weblate/trans/forms.py:742
 msgid "Search in target strings"
 msgstr "Etsi käännösteksteistä"
 
-#: weblate/trans/forms.py:742
+#: weblate/trans/forms.py:747
 msgid "Search in context strings"
 msgstr "Etsi kontekstitiedoista"
 
-#: weblate/trans/forms.py:747
+#: weblate/trans/forms.py:752
 msgid "Search in location strings"
 msgstr "Etsi sijaintitiedoista"
 
-#: weblate/trans/forms.py:752
+#: weblate/trans/forms.py:757
 msgid "Search in comment strings"
 msgstr "Etsi kommenteista"
 
-#: weblate/trans/forms.py:759
+#: weblate/trans/forms.py:764
 msgid "Show ignored checks as well"
 msgstr "Näytä myös ohitettavaksi merkityt tarkistukset"
 
-#: weblate/trans/forms.py:764
+#: weblate/trans/forms.py:769
 msgid "Changed since"
 msgstr "Muutokset alkaen"
 
-#: weblate/trans/forms.py:768
+#: weblate/trans/forms.py:773
 msgid "Changed by user"
 msgstr "Käyttäjän tekemät muutokset"
 
-#: weblate/trans/forms.py:772
+#: weblate/trans/forms.py:777
 msgid "Exclude changes by user"
 msgstr "Älä huomioi käyttäjän tekemiä muutoksia"
 
-#: weblate/trans/forms.py:788
+#: weblate/trans/forms.py:793
 msgid "The query string has to be longer!"
 msgstr "Haettava teksti on liian lyhyt!"
 
-#: weblate/trans/forms.py:810
+#: weblate/trans/forms.py:815
 #, python-format
 msgid "Fulltext search for \"%s\""
 msgstr "Etsi koko tekstistä \"%s\""
 
-#: weblate/trans/forms.py:812
+#: weblate/trans/forms.py:817
 #, python-format
 msgid "Search for exact string \"%s\""
 msgstr "Etsi tarkka merkkijono \"%s\""
 
-#: weblate/trans/forms.py:814
+#: weblate/trans/forms.py:819
 #, python-format
 msgid "Substring search for \"%s\""
 msgstr "Alimerkkijonon \"%s\" etsiminen"
 
-#: weblate/trans/forms.py:825
+#: weblate/trans/forms.py:830
 #, python-brace-format
 msgctxt "String to concatenate search and filter names"
 msgid "{filter_name}, {search_name}"
 msgstr "{filter_name}, {search_name}"
 
-#: weblate/trans/forms.py:844 weblate/trans/forms.py:1063
+#: weblate/trans/forms.py:849 weblate/trans/forms.py:1071
 msgid "All languages"
 msgstr "Kaikki kielet"
 
-#: weblate/trans/forms.py:876 weblate/trans/forms.py:878
+#: weblate/trans/forms.py:881 weblate/trans/forms.py:883
 msgid "Merged unit not found!"
 msgstr "Yhdistettyä yksikköä ei löydy!"
 
-#: weblate/trans/forms.py:897
+#: weblate/trans/forms.py:902
 msgid "Reverted change not found!"
 msgstr "Palautettua muutosta ei löydy!"
 
-#: weblate/trans/forms.py:904
+#: weblate/trans/forms.py:909
 msgid "Overwrite strings"
 msgstr "Korvaa tekstit"
 
-#: weblate/trans/forms.py:909
+#: weblate/trans/forms.py:914
 msgid "Replace inconsistent"
 msgstr "Korjaa epämääräisyydet"
 
-#: weblate/trans/forms.py:914
+#: weblate/trans/forms.py:919
 msgid "Component to use"
 msgstr "Käytettävä komponentti"
 
-#: weblate/trans/forms.py:940
+#: weblate/trans/forms.py:945
 msgid "All components in current project"
 msgstr "Kaikki komponentit nykyisessä projektissa"
 
-#: weblate/trans/forms.py:953
+#: weblate/trans/forms.py:958
 msgid "Invalid integer list!"
 msgstr "Virheellinen kokonaislukulista!"
 
-#: weblate/trans/forms.py:982
+#: weblate/trans/forms.py:987
 msgid ""
 "You can upload any format which is understood by Translate Toolkit "
 "(including TBX, CSV or Gettext PO files)."
@@ -6479,74 +6754,76 @@ msgstr ""
 "Voit lähettää käännöstiedoston palvelimelle missä tahansa muodossa, jota "
 "Translate Toolkit ymmärtää (mukaan lukien TBX, CSV tai Gettext PO tiedostot)."
 
-#: weblate/trans/forms.py:989
+#: weblate/trans/forms.py:994
 msgid "Keep current"
 msgstr "Pidä ajan tasalla"
 
-#: weblate/trans/forms.py:990
+#: weblate/trans/forms.py:995
 msgid "Overwrite existing"
 msgstr "Korvaa olemassa oleva"
 
-#: weblate/trans/forms.py:991
+#: weblate/trans/forms.py:996
 msgid "Add as other translation"
 msgstr "Lisää muita käännöksiä"
 
-#: weblate/trans/forms.py:1000 weblate/trans/forms.py:1208
+#: weblate/trans/forms.py:1005 weblate/trans/forms.py:1216
 msgid "Starting date"
 msgstr "Aloituspäivä"
 
-#: weblate/trans/forms.py:1017
+#: weblate/trans/forms.py:1022
 msgctxt "Select starting letter in glossary"
 msgid "Any"
 msgstr "Kaikki"
 
-#: weblate/trans/forms.py:1019
+#: weblate/trans/forms.py:1024
 msgid "Starting letter"
 msgstr "Aloituskirjain"
 
-#: weblate/trans/forms.py:1035
+#: weblate/trans/forms.py:1040
 msgid "Scope"
 msgstr "Laajuus"
 
-#: weblate/trans/forms.py:1037
+#: weblate/trans/forms.py:1042
 msgid ""
 "Is your comment specific to this translation or generic for all of them?"
 msgstr ""
 "Onko kommenttisi vain tähän tiettyyn käännökseen vai yleisesti kaikkiin "
 "niihin?"
 
-#: weblate/trans/forms.py:1043
-msgid "Source string comment, suggestions to change this string"
+#: weblate/trans/forms.py:1049
+#, fuzzy
+#| msgid "Source string comment, suggestions to change this string"
+msgid "Source string comment, suggestions for changes to this string"
 msgstr "Lähdetekstin kommentti, ehdotukset tämän tekstin muuttamiseksi"
 
-#: weblate/trans/forms.py:1047
+#: weblate/trans/forms.py:1055
 msgid "Translation comment, discussions with other translators"
 msgstr "Kommentti liittyen käännökseen, keskustelut muiden kääntäjien kanssa"
 
-#: weblate/trans/forms.py:1067
+#: weblate/trans/forms.py:1075
 msgid "All components"
 msgstr "Kaikki komponentit"
 
-#: weblate/trans/forms.py:1107
+#: weblate/trans/forms.py:1115
 #, python-brace-format
 msgid "Similar translation already exists in the project ({0})!"
 msgstr "Samanlainen käännös on jo tässä projektissa ({0})!"
 
-#: weblate/trans/forms.py:1126
+#: weblate/trans/forms.py:1134
 msgid "Please select"
 msgstr "Valitse"
 
-#: weblate/trans/forms.py:1148
+#: weblate/trans/forms.py:1156
 msgid "Strings with higher priority are offered first to translators."
 msgstr ""
 "Tekstit näkyvät kääntäjille tärkeyden perusteella lajiteltuna, korkeimman "
 "prioriteetin tekstit näytetään ensin."
 
-#: weblate/trans/forms.py:1155
+#: weblate/trans/forms.py:1163
 msgid "Check flags"
 msgstr "Automaattiset tarkistukset"
 
-#: weblate/trans/forms.py:1162
+#: weblate/trans/forms.py:1170
 #, python-brace-format
 msgid ""
 "Please enter a comma separated list of check flags, see <a href="
@@ -6555,105 +6832,130 @@ msgstr ""
 "Anna pilkulla erotettu lista automaattitarkistusehdoista, katso <a href="
 "\"{url}\">ohjeista</a> lisätietoja."
 
-#: weblate/trans/forms.py:1180
+#: weblate/trans/forms.py:1188
 msgid "User to add"
 msgstr "Lisättävä käyttäjä"
 
-#: weblate/trans/forms.py:1182
+#: weblate/trans/forms.py:1190
+#, fuzzy
+#| msgid ""
+#| "Please provide username or email. User needs to already have an active "
+#| "account in Weblate."
 msgid ""
-"Please provide username or email. User needs to already have an active "
+"Please provide username or e-mail. User needs to already have an active "
 "account in Weblate."
 msgstr ""
 "Anna joko käyttäjän käyttäjätunnus tai sähköpostiosoite. Huomaa: Käyttäjällä "
 "pitää olla olemassa aktiivinen käyttäjätili Weblatessa."
 
-#: weblate/trans/forms.py:1190
+#: weblate/trans/forms.py:1198
 msgid "Report format"
 msgstr "Raportin muoto"
 
-#: weblate/trans/forms.py:1191
+#: weblate/trans/forms.py:1199
 msgid "Choose file format for the report"
 msgstr "Valitse raportin tiedostomuoto"
 
-#: weblate/trans/forms.py:1193
+#: weblate/trans/forms.py:1201
 msgid "reStructuredText"
 msgstr "reStructuredText"
 
-#: weblate/trans/forms.py:1194
+#: weblate/trans/forms.py:1202
 msgid "JSON"
 msgstr "JSON"
 
-#: weblate/trans/forms.py:1195
+#: weblate/trans/forms.py:1203
 msgid "HTML"
 msgstr "HTML"
 
-#: weblate/trans/forms.py:1199
+#: weblate/trans/forms.py:1207
 msgid "Report period"
 msgstr "Raportin ajanjakso"
 
-#: weblate/trans/forms.py:1201
+#: weblate/trans/forms.py:1209
 msgid "Last month"
 msgstr "Viime kuussa"
 
-#: weblate/trans/forms.py:1202
+#: weblate/trans/forms.py:1210
 msgid "Last year"
 msgstr "Viime vuonna"
 
-#: weblate/trans/forms.py:1203
+#: weblate/trans/forms.py:1211
 msgid "As specified"
 msgstr "Kuten on määritelty"
 
-#: weblate/trans/forms.py:1213
+#: weblate/trans/forms.py:1221
 msgid "Ending date"
 msgstr "Loppupäivämäärä"
 
-#: weblate/trans/forms.py:1253
+#: weblate/trans/forms.py:1261
 msgid "Starting and ending dates have to be specified!"
 msgstr "Alkamis- ja päättymispäivä on määritettävä!"
 
-#: weblate/trans/forms.py:1267
+#: weblate/trans/forms.py:1275
 msgid "Starting date has to be before ending date!"
 msgstr "Aloituspäivämäärän pitää olla aiempi kuin lopetuspäivämäärän!"
 
-#: weblate/trans/forms.py:1310
+#: weblate/trans/forms.py:1318
 msgid "Basic"
 msgstr "Perus"
 
-#: weblate/trans/forms.py:1317
+#: weblate/trans/forms.py:1325
 msgid "Upstream links"
 msgstr "Lähetyslinkit"
 
-#: weblate/trans/forms.py:1331
+#: weblate/trans/forms.py:1339
 msgid "Translation settings"
 msgstr "Kääntämisasetukset"
 
-#: weblate/trans/forms.py:1339
+#: weblate/trans/forms.py:1347
 msgid "Version control"
 msgstr "Versionhallinta"
 
-#: weblate/trans/forms.py:1341
+#: weblate/trans/forms.py:1349
 msgid "Locations"
 msgstr "Sijainnit"
 
-#: weblate/trans/forms.py:1345
+#: weblate/trans/forms.py:1353
 msgid "Version control settings"
 msgstr "Versionhallinnan asetukset"
 
-#: weblate/trans/forms.py:1351
+#: weblate/trans/forms.py:1359
 msgid "Commit messages"
 msgstr "Commit -viesti"
 
-#: weblate/trans/forms.py:1361
+#: weblate/trans/forms.py:1369
 msgid "Languages processing"
 msgstr "Kieliä prosessoidaan"
 
-#: weblate/trans/forms.py:1413
+#: weblate/trans/forms.py:1423
 msgid "Search string"
 msgstr "Hakuteksti"
 
-#: weblate/trans/forms.py:1418
+#: weblate/trans/forms.py:1428
 msgid "Replacement string"
 msgstr "Korvaava teksti"
+
+#: weblate/trans/forms.py:1468
+#, fuzzy
+#| msgid "Translation"
+msgid "Translation key"
+msgstr "Käännös"
+
+#: weblate/trans/forms.py:1470
+msgid ""
+"Key used to identify unit in translation file. File format specific rules "
+"might apply."
+msgstr ""
+
+#: weblate/trans/forms.py:1476
+msgid "Source language text"
+msgstr "Lähdetekstin kieli"
+
+#: weblate/trans/forms.py:1478
+msgid ""
+"You can edit this later, as with any other string in the source language."
+msgstr ""
 
 #: weblate/trans/models/advertisement.py:41
 #, python-brace-format
@@ -6670,10 +6972,6 @@ msgstr "Tue Weblatea osoitteessa {0}"
 #, python-brace-format
 msgid "More information about Weblate can be found at {0}"
 msgstr "Lisätietoja Weblatesta osoitteessa {0}"
-
-#: weblate/trans/models/advertisement.py:47
-msgid "Donate to Weblate"
-msgstr "Lahjoita Weblate:lle"
 
 #: weblate/trans/models/advertisement.py:48
 msgid "Support Weblate on Liberapay"
@@ -6727,123 +7025,129 @@ msgstr "Mainos"
 msgid "Advertisements"
 msgstr "Mainokset"
 
-#: weblate/trans/models/change.py:199
+#: weblate/trans/models/change.py:200
 msgid "Resource update"
 msgstr "Resurssien päivitys"
 
-#: weblate/trans/models/change.py:200
+#: weblate/trans/models/change.py:201
 msgid "Translation completed"
 msgstr "Käännös valmistunut"
 
-#: weblate/trans/models/change.py:201
+#: weblate/trans/models/change.py:202
 msgid "Translation changed"
 msgstr "Käännöstä muokattu"
 
-#: weblate/trans/models/change.py:202 weblate/trans/models/subproject.py:406
+#: weblate/trans/models/change.py:203 weblate/trans/models/subproject.py:406
 msgid "New translation"
 msgstr "Uusi käännös"
 
-#: weblate/trans/models/change.py:203
+#: weblate/trans/models/change.py:204
 msgid "Comment added"
 msgstr "Kommentti lisätty"
 
-#: weblate/trans/models/change.py:204
+#: weblate/trans/models/change.py:205
 msgid "Suggestion added"
 msgstr "Ehdotus on lisätty"
 
-#: weblate/trans/models/change.py:206
+#: weblate/trans/models/change.py:207
 msgid "Suggestion accepted"
 msgstr "Ehdotus hyväksytty"
 
-#: weblate/trans/models/change.py:207
+#: weblate/trans/models/change.py:208
 msgid "Translation reverted"
 msgstr "Käännös palautunut"
 
-#: weblate/trans/models/change.py:208
+#: weblate/trans/models/change.py:209
 msgid "Translation uploaded"
 msgstr "Käännös lähetetty"
 
-#: weblate/trans/models/change.py:209
+#: weblate/trans/models/change.py:210
 msgid "Glossary added"
 msgstr "Sanasto lisätty"
 
-#: weblate/trans/models/change.py:210
+#: weblate/trans/models/change.py:211
 msgid "Glossary updated"
 msgstr "Sanasto päivitetty"
 
-#: weblate/trans/models/change.py:211
+#: weblate/trans/models/change.py:212
 msgid "Glossary uploaded"
 msgstr "Sanasto lähetetty"
 
-#: weblate/trans/models/change.py:212
+#: weblate/trans/models/change.py:213
 msgid "New source string"
 msgstr "Uusi lähdeteksti"
 
-#: weblate/trans/models/change.py:213
+#: weblate/trans/models/change.py:214
 msgid "Component locked"
 msgstr "Komponentti lukittu"
 
-#: weblate/trans/models/change.py:214
+#: weblate/trans/models/change.py:215
 msgid "Component unlocked"
 msgstr "Komponentin lukko poistettu"
 
-#: weblate/trans/models/change.py:215
+#: weblate/trans/models/change.py:216
 msgid "Detected duplicate string"
 msgstr "Sama teksti kahteen kertaan"
 
-#: weblate/trans/models/change.py:216
+#: weblate/trans/models/change.py:217
 msgid "Committed changes"
 msgstr "Muutosten commitointi"
 
-#: weblate/trans/models/change.py:217
+#: weblate/trans/models/change.py:218
 msgid "Pushed changes"
 msgstr "Pushatut muutokset"
 
-#: weblate/trans/models/change.py:218
+#: weblate/trans/models/change.py:219
 msgid "Reset repository"
 msgstr "Nollaa arkisto"
 
-#: weblate/trans/models/change.py:219
+#: weblate/trans/models/change.py:220
 msgid "Merged repository"
 msgstr "Yhdistetty arkisto"
 
-#: weblate/trans/models/change.py:220
+#: weblate/trans/models/change.py:221
 msgid "Rebased repository"
 msgstr "Uudelleen alustettu (rebase) arkisto"
 
-#: weblate/trans/models/change.py:221
+#: weblate/trans/models/change.py:222
 msgid "Failed merge on repository"
 msgstr "Arkiston yhdistäminen epäonnistui: %s"
 
-#: weblate/trans/models/change.py:222
+#: weblate/trans/models/change.py:223
 msgid "Failed rebase on repository"
 msgstr "Arkiston uudelleen alustaminen (rebase) epäonnistui: %s"
 
-#: weblate/trans/models/change.py:223
+#: weblate/trans/models/change.py:224
 msgid "Failed push on repository"
 msgstr "Arkistoon vienti (push) epäonnistui"
 
-#: weblate/trans/models/change.py:224
+#: weblate/trans/models/change.py:225
 msgid "Parse error"
 msgstr "Jäsennysvirhe"
 
-#: weblate/trans/models/change.py:225
+#: weblate/trans/models/change.py:226
 msgid "Removed translation"
 msgstr "Poistetut käännökset"
 
-#: weblate/trans/models/change.py:226
+#: weblate/trans/models/change.py:227
 msgid "Suggestion removed"
 msgstr "Ehdotus poistettu"
 
-#: weblate/trans/models/change.py:230
+#: weblate/trans/models/change.py:231
 msgid "Suggestion removed during cleanup"
 msgstr "Ehdotus poistettu puhdistuksen yhteydessä"
 
-#: weblate/trans/models/change.py:232
+#: weblate/trans/models/change.py:233
 msgid "Source string changed"
 msgstr "Lähdeteksti muutettu"
 
-#: weblate/trans/models/change.py:320
+#: weblate/trans/models/change.py:234
+#, fuzzy
+#| msgid "Comment added"
+msgid "New unit added"
+msgstr "Kommentti lisätty"
+
+#: weblate/trans/models/change.py:323
 #, python-format
 msgid "%(action)s at %(time)s on %(translation)s by %(user)s"
 msgstr "%(action)s, tehnyt %(user)s %(time)s käännökselle %(translation)s"
@@ -6852,17 +7156,17 @@ msgstr "%(action)s, tehnyt %(user)s %(time)s käännökselle %(translation)s"
 msgid "Component list name"
 msgstr "Komponenttilistan nimi"
 
-#: weblate/trans/models/componentlist.py:39 weblate/trans/models/project.py:94
+#: weblate/trans/models/componentlist.py:39 weblate/trans/models/project.py:95
 #: weblate/trans/models/subproject.py:136
 msgid "Name to display"
 msgstr "Näytettävä nimi"
 
-#: weblate/trans/models/componentlist.py:43 weblate/trans/models/project.py:97
+#: weblate/trans/models/componentlist.py:43 weblate/trans/models/project.py:98
 #: weblate/trans/models/subproject.py:139
 msgid "URL slug"
 msgstr "URL slug"
 
-#: weblate/trans/models/componentlist.py:46 weblate/trans/models/project.py:100
+#: weblate/trans/models/componentlist.py:46
 #: weblate/trans/models/subproject.py:142
 msgid "Name used in URLs and file names."
 msgstr "Osoitteissa (URL) käytettävä nimi ja tiedosto nimet."
@@ -6899,64 +7203,85 @@ msgstr "Automaattinen komponenttilistan liittäminen"
 msgid "Automatic component list assignments"
 msgstr "Automaattiset komponenttilistojen liittämiset"
 
-#: weblate/trans/models/project.py:104
+#: weblate/trans/models/project.py:101
+#, fuzzy
+#| msgid "Name used in URLs and file names."
+msgid "Name used in URLs and filenames."
+msgstr "Osoitteissa (URL) käytettävä nimi ja tiedosto nimet."
+
+#: weblate/trans/models/project.py:105
 msgid "Main website of translated project."
 msgstr "Käännösprojektin pääsivusto."
 
-#: weblate/trans/models/project.py:107
+#: weblate/trans/models/project.py:108
 msgid "Mailing list"
 msgstr "Postituslista"
 
-#: weblate/trans/models/project.py:110
+#: weblate/trans/models/project.py:111
 msgid "Mailing list for translators."
 msgstr "Sähköpostilista kääntäjille."
 
-#: weblate/trans/models/project.py:113
+#: weblate/trans/models/project.py:114
 msgid "Translation instructions"
 msgstr "Käännös ohjeet"
 
-#: weblate/trans/models/project.py:115
+#: weblate/trans/models/project.py:116
 msgid "URL with instructions for translators."
 msgstr "URL kääntäjien käännösohjeeseen."
 
-#: weblate/trans/models/project.py:119
+#: weblate/trans/models/project.py:120
 msgid "Set Translation-Team header"
 msgstr "Aseta Käännös-Team header"
 
-#: weblate/trans/models/project.py:122
+#: weblate/trans/models/project.py:123
 msgid ""
 "Whether the Translation-Team in file headers should be updated by Weblate."
 msgstr "Onko Käännös-Team tiedostojen otsikot päivitettävä Weblatessa."
 
-#: weblate/trans/models/project.py:134
+#: weblate/trans/models/project.py:136
 msgid "Access control"
 msgstr "Pääsynhallinta"
 
-#: weblate/trans/models/project.py:136
+#: weblate/trans/models/project.py:138
+#, fuzzy
+#| msgid ""
+#| "How to restrict access to this project, please check documentation for "
+#| "more details."
 msgid ""
-"How to restrict access to this project, please check documentation for more "
-"details."
+"How to restrict access to this project, please check the documentation for "
+"more details."
 msgstr ""
 "Miten rajoitetaan pääsyä tähän projektiin, katso dokumentaatiosta "
 "lisätietoja."
 
-#: weblate/trans/models/project.py:141
+#: weblate/trans/models/project.py:143
+#, fuzzy
+#| msgid "Enable suggestions"
+msgid "Enable reviews"
+msgstr "Ota käyttöön ehdotukset"
+
+#: weblate/trans/models/project.py:146
+msgid ""
+"Enable this if you intend for dedicated reviewers to approve translations."
+msgstr ""
+
+#: weblate/trans/models/project.py:151
 msgid "Enable hooks"
 msgstr "Ota käyttöön koukut"
 
-#: weblate/trans/models/project.py:144
+#: weblate/trans/models/project.py:154
 msgid "Whether to allow updating this repository by remote hooks."
 msgstr "Sallitaanko tämän arkiston päivittäminen etäkoukuista."
 
-#: weblate/trans/models/project.py:149
+#: weblate/trans/models/project.py:159
 msgid "Source language"
 msgstr "Lähdetekstin kieli"
 
-#: weblate/trans/models/project.py:151
+#: weblate/trans/models/project.py:161
 msgid "Language used for source strings in all components"
 msgstr "Kaikissa komponenteissa käytetty lähdetekstin kieli"
 
-#: weblate/trans/models/project.py:231
+#: weblate/trans/models/project.py:242
 #, python-format
 msgid "Could not create project directory: %s"
 msgstr "Projektin kansiota ei voitu luoda: %s"
@@ -7578,7 +7903,7 @@ msgstr ""
 msgid "Failed to parse file %(file)s: %(error)s"
 msgstr "%(file)s: %(error)s täsmäävien tiedostojen jäsennys epäonnitui"
 
-#: weblate/trans/models/translation.py:924
+#: weblate/trans/models/translation.py:925
 #, fuzzy
 #| msgid "Strings marked for review"
 msgid "Strings marked as needing edit"
@@ -7903,10 +8228,8 @@ msgid "Not translated"
 msgstr "Kääntämättä"
 
 #: weblate/trans/templatetags/translations.py:551
-#, fuzzy
-#| msgid "Message needs review"
 msgid "Message needs edit"
-msgstr "Tarkistettava"
+msgstr "Viesti vaatii muokkausta"
 
 #: weblate/trans/templatetags/translations.py:556
 msgid "Message is not translated"
@@ -7917,10 +8240,8 @@ msgid "Message has failing checks"
 msgstr "Viestillä on epäonnistuvia tarkistuksia"
 
 #: weblate/trans/templatetags/translations.py:566
-#, fuzzy
-#| msgid "Message is translated"
 msgid "Message is approved"
-msgstr "Viesti on käännetty"
+msgstr "Viesti on hyväksytty"
 
 #: weblate/trans/templatetags/translations.py:571
 msgid "Message is translated"
@@ -8007,27 +8328,27 @@ msgstr ""
 msgid "Invalid check flag: \"%s\""
 msgstr "Automaattitarkistusvirhe: \"%s\""
 
-#: weblate/trans/views/acl.py:82
+#: weblate/trans/views/acl.py:83
 msgid "Invalid parameters!"
 msgstr "Virheellisiä parametrejä!"
 
-#: weblate/trans/views/acl.py:88 weblate/trans/views/acl.py:142
+#: weblate/trans/views/acl.py:89 weblate/trans/views/acl.py:143
 msgid "You can not remove last owner!"
 msgstr "Et voi poistaa edellistä omistajaa!"
 
-#: weblate/trans/views/acl.py:119
+#: weblate/trans/views/acl.py:120
 msgid "User has been added to this project."
 msgstr "Käyttäjä on lisätty tähän projektiin."
 
-#: weblate/trans/views/acl.py:123
+#: weblate/trans/views/acl.py:124
 msgid "Failed to find group to add a user!"
 msgstr "Etsimääsi ryhmää käyttäjän lisäämiseksi ei löytynyt!"
 
-#: weblate/trans/views/acl.py:146
+#: weblate/trans/views/acl.py:147
 msgid "User has been removed from this project."
 msgstr "Käyttäjä on poistettu tästä projektista."
 
-#: weblate/trans/views/acl.py:172
+#: weblate/trans/views/acl.py:173
 msgid "Project access control has been changed."
 msgstr "Projektin pääsynhallinta-asetuksia on muutettu."
 
@@ -8081,11 +8402,11 @@ msgstr ""
 "<a href=\"%(url)s\">Käännösprojekti %(project)s</a> Suomeksi sisältää tällä "
 "hetkellä %(total)s tekstiä käännettäviksi, ja on %(percent)s%% valmis."
 
-#: weblate/trans/views/basic.py:532
+#: weblate/trans/views/basic.py:533
 msgid "Weblate statistics"
 msgstr "Weblaten tilastot"
 
-#: weblate/trans/views/basic.py:615
+#: weblate/trans/views/basic.py:616
 msgid ""
 "A request for a new translation has been sent to the project's maintainers."
 msgstr "Uuden kielen lisäämisen pyyntö on lähetetty projektin ylläpitäjille."
@@ -8277,6 +8598,18 @@ msgstr "Käännösksen kommentti on poistettu."
 #: weblate/trans/views/edit.py:788
 msgid "Failed to save translation!"
 msgstr "Käännöksen tallennus epäonnistui!"
+
+#: weblate/trans/views/edit.py:821
+#, fuzzy
+#| msgid "Translation file already exists!"
+msgid "Translation with this key seem to already exist!"
+msgstr "Käännöstiedosto on jo olemassa!"
+
+#: weblate/trans/views/edit.py:826
+#, fuzzy
+#| msgid "Translation comment has been deleted."
+msgid "New translation unit has been added."
+msgstr "Käännösksen kommentti on poistettu."
 
 #: weblate/trans/views/files.py:64
 msgid "Access denied."
@@ -8712,6 +9045,62 @@ msgstr "Välimuistimallineiden lataaja"
 msgid "Admin static files"
 msgstr "Ylläpitäjän staattiset tiedostot"
 
+#~ msgid "Strings to translate"
+#~ msgstr "Käännettävät tekstit"
+
+#~ msgid "Units to translate"
+#~ msgstr "Käännettävät yksiköt"
+
+#~ msgid "Words to translate"
+#~ msgstr "Sanat käännettäväksi"
+
+#~ msgid "Login to Weblate"
+#~ msgstr "Kirjaudu Weblateen"
+
+#~ msgid "Donate to Weblate!"
+#~ msgstr "Lahjoita Weblatelle!"
+
+#~ msgid ""
+#~ "Please note that the confirmation link has limited validity. In case it "
+#~ "does not work, please register again."
+#~ msgstr ""
+#~ "Ole hyvä ja huomioi että varmistuslinkillä on rajallinen voimassaolo. Jos "
+#~ "se ei toimi, ole hyvä ja rekisteröi uudelleen."
+
+#~ msgid "Contact us"
+#~ msgstr "Ota meihin yhteyttä"
+
+#~ msgid ""
+#~ "Hold down \"Control\", or \"Command\" on a Mac, to select more than one."
+#~ msgstr ""
+#~ "Paina \"Control\" tai \"Command\" näppäintä Macilla, valitaksesi "
+#~ "useamman, kuin yhden."
+
+#~ msgid "Languages summary"
+#~ msgstr "Kielten yhteenveto"
+
+#~ msgid ""
+#~ "Choose your languages in preferences and you will get an overview here of "
+#~ "available translations for those languages in all projects."
+#~ msgstr ""
+#~ "Valitse kielesi asetuksista ja saat tänne katsauksen saatavilla olevista "
+#~ "käännöksistä niille kielille."
+
+#~ msgid "Good translations"
+#~ msgstr "Valmiit käännökset"
+
+#~ msgid "Translations with failing checks"
+#~ msgstr "Virheelliset käännökset"
+
+#~ msgid "Fuzzy translations"
+#~ msgstr "Epätarkat käännökset"
+
+#~ msgid "You don't have privileges to save translations!"
+#~ msgstr "Sinulla ei ole oikeuksia tallentaa käännöstä!"
+
+#~ msgid "You have reached end of translating."
+#~ msgstr "Olet saavuttanut viimeiseen käännöksen."
+
 #~ msgid "Download for using within an application."
 #~ msgstr "Lataa käytettäväksi ohjelmassa."
 
@@ -8797,9 +9186,6 @@ msgstr "Ylläpitäjän staattiset tiedostot"
 
 #~ msgid "Enable ACL"
 #~ msgstr "Ota käyttöön ACL"
-
-#~ msgid "Download translation as XLIFF"
-#~ msgstr "Lataa käännöstiedosto (XLIFF)"
 
 #~ msgid "Review of translations since %s"
 #~ msgstr "Katsaus käännöksiä vuodesta %s"
@@ -8898,13 +9284,6 @@ msgstr "Ylläpitäjän staattiset tiedostot"
 #~ msgstr ""
 #~ "Tule mukaan %(project)s!, joka on parhaillaan käännetty %(languages)s "
 #~ "kielellä käyttäen Weblate."
-
-#~ msgid ""
-#~ "Choose your languages in preferences and you will get an overview here of "
-#~ "available translations for those languages."
-#~ msgstr ""
-#~ "Valitse kielesi asetuksista ja saat tänne katsauksen saatavilla olevista "
-#~ "käännöksistä niille kielille."
 
 #~ msgid "Owner"
 #~ msgstr "Omistaja"
@@ -9032,11 +9411,6 @@ msgstr "Ylläpitäjän staattiset tiedostot"
 
 #~ msgid "Fuzzy strings"
 #~ msgstr "Epäselvät merkkijonot"
-
-#, fuzzy
-#~| msgid "Untranslated strings"
-#~ msgid "Untranslated words"
-#~ msgstr "Kääntämättömät merkkijonot"
 
 #~ msgid "Message is fuzzy"
 #~ msgstr "Viesti on epäselvä"
@@ -9381,9 +9755,6 @@ msgstr "Ylläpitäjän staattiset tiedostot"
 
 #~ msgid "Your password has been set. You may go ahead and log in now."
 #~ msgstr "Salasanasi on asetettu Voit jatkaa ja kirjautua sisään nyt."
-
-#~ msgid "Log in"
-#~ msgstr "Kirjaudu sisään"
 
 #~ msgid ""
 #~ "The password reset link is invalid, possibly because it has already been "

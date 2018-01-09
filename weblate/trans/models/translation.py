@@ -747,7 +747,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             # This has be done prior setting tatget as some formats
             # generate content based on target language.
             if add:
-                self.store.add_unit(pounit)
+                self.store.add_unit(pounit.unit)
 
             # Store translations
             if unit.is_plural():
@@ -883,13 +883,14 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
         )
 
         # To approve
-        result.add_if(
-            'unapproved',
-            _('Strings waiting for review'),
-            self.translated - self.approved,
-            'warning',
-            self.translated_words - self.approved_words,
-        )
+        if self.subproject.project.enable_review:
+            result.add_if(
+                'unapproved',
+                _('Strings waiting for review'),
+                self.translated - self.approved,
+                'warning',
+                self.translated_words - self.approved_words,
+            )
 
         # Approved with suggestions
         result.add_if(
@@ -1176,3 +1177,15 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             user=user,
             author=user
         )
+
+    def new_unit(self, request, key, value):
+        self.commit_pending(request)
+        Change.objects.create(
+            translation=self,
+            action=Change.ACTION_NEW_UNIT,
+            target=value,
+            user=request.user,
+            author=request.user
+        )
+        self.store.new_unit(key, value)
+        self.subproject.create_translations(request=request)

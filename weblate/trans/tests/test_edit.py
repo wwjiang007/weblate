@@ -338,6 +338,36 @@ class EditPoMonoTest(EditTest):
     def create_subproject(self):
         return self.create_po_mono()
 
+    def test_new_unit(self):
+        def add(key):
+            return self.client.post(
+                reverse(
+                    'new-unit',
+                    kwargs={
+                        'project': 'test',
+                        'subproject': 'test',
+                        'lang': 'en',
+                    }
+                ),
+                {'key': key, 'value': 'Source string'},
+                follow=True,
+            )
+        response = add('key')
+        self.assertEqual(response.status_code, 403)
+        self.make_manager()
+        response = add('key')
+        self.assertContains(
+            response, 'New translation unit has been added'
+        )
+        response = add('key')
+        self.assertContains(
+            response, 'Translation with this key seem to already exist'
+        )
+        response = add('')
+        self.assertContains(
+            response, 'Error in parameter key'
+        )
+
 
 class EditIphoneTest(EditTest):
     has_plurals = False
@@ -453,7 +483,7 @@ class ZenViewTest(ViewTestCase):
         )
         self.assertContains(
             response,
-            'You have reached end of translating.'
+            'The translation has come to an end.'
         )
 
     def test_zen_invalid(self):
@@ -478,7 +508,7 @@ class ZenViewTest(ViewTestCase):
         )
         self.assertContains(
             response,
-            'You have reached end of translating.'
+            'The translation has come to an end.'
         )
 
     def test_load_zen_offset(self):
@@ -538,8 +568,7 @@ class ZenViewTest(ViewTestCase):
             params
         )
         self.assertContains(
-            response,
-            'You don&#39;t have privileges to save translations!',
+            response, 'Insufficient privileges for saving translations.'
         )
 
 
@@ -736,7 +765,7 @@ class EditComplexTest(ViewTestCase):
         # We should get to second message
         self.assertContains(
             response,
-            'This translation is currently locked for updates!'
+            'This translation is currently locked for updates.'
         )
         self.assert_backend(0)
 
@@ -767,3 +796,17 @@ class EditComplexTest(ViewTestCase):
             'Translation of the message has been changed meanwhile'
         )
         self.assert_backend(0)
+
+    def test_edit_view(self):
+        url = self.get_unit('Hello, world!\n').get_absolute_url()
+        response = self.client.get(url)
+        form = response.context['form']
+        params = {}
+        for field in form.fields.keys():
+            params[field] = form[field].value()
+        params['target_0'] = 'Nazdar svete!\n'
+        response = self.client.post(url, params)
+        unit = self.get_unit()
+        self.assertEqual(unit.target, 'Nazdar svete!\n')
+        self.assertEqual(unit.state, STATE_TRANSLATED)
+        self.assert_backend(1)

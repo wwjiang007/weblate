@@ -176,7 +176,17 @@ def can_suggest(user, translation):
 @cache_permission
 def can_review(user, translation):
     """Check whether user can review given translation."""
+    if not translation.subproject.project.enable_review:
+        return False
     return can_edit(user, translation, 'trans.review_translation')
+
+
+@cache_permission
+def can_add_unit(user, translation):
+    """Check whether user can add new unit for given translation."""
+    if not translation.is_template():
+        return False
+    return can_edit(user, translation, 'trans.add_unit')
 
 
 @cache_permission

@@ -467,9 +467,6 @@ function zenEditor(e) {
                 });
             };
             $row.removeClass('translation-modified').addClass('translation-saved');
-
-            // Start locking
-            jsLockUpdate = window.setInterval(updateLock, 19000);
         }
     );
 }
@@ -499,29 +496,6 @@ function insertEditor(text, element)
 
     editor.insertAtCaret($.trim(text));
     autosize.update(editor);
-}
-
-function updateLock() {
-    /* No locking for idle users */
-    if (idleTime >= 120) {
-        return;
-    }
-    $.ajax({
-        type: 'POST',
-        url: $('#js-lock').attr('href'),
-        data: {
-            csrfmiddlewaretoken: $('#link-post').find('input').val()
-        },
-        success: function(data) {
-            if (! data.status) {
-                $('.lock-error').remove();
-                var message = $('<div class="alert lock-error alert-danger"></div>');
-                message.text(data.message);
-                $('.content').prepend(message);
-            }
-        },
-        dataType: 'json'
-    });
 }
 
 /* Thin wrappers for django to avoid problems when i18n js can not be loaded */
@@ -753,10 +727,10 @@ $(function () {
         initEditor();
         translationEditor.get(0).focus();
         if ($('#button-first').length > 0) {
-            Mousetrap.bindGlobal(['ctrl+end', 'command+end'], function(e) {window.location = $('#button-end').attr('href'); return false;});
-            Mousetrap.bindGlobal(['ctrl+pagedown', 'command+pagedown'], function(e) {window.location = $('#button-next').attr('href'); return false;});
-            Mousetrap.bindGlobal(['ctrl+pageup', 'command+pageup'], function(e) {window.location = $('#button-prev').attr('href'); return false;});
-            Mousetrap.bindGlobal(['ctrl+home', 'command+home'], function(e) {window.location = $('#button-first').attr('href'); return false;});
+            Mousetrap.bindGlobal('alt+end', function(e) {window.location = $('#button-end').attr('href'); return false;});
+            Mousetrap.bindGlobal('alt+pagedown', function(e) {window.location = $('#button-next').attr('href'); return false;});
+            Mousetrap.bindGlobal('alt+pageup', function(e) {window.location = $('#button-prev').attr('href'); return false;});
+            Mousetrap.bindGlobal('alt+home', function(e) {window.location = $('#button-first').attr('href'); return false;});
             Mousetrap.bindGlobal(['ctrl+o', 'command+o'], function(e) {$('.translation-item .copy-text').click(); return false;});
             Mousetrap.bindGlobal(['ctrl+t', 'command+t'], function(e) {$('input[name="fuzzy"]').click(); return false;});
             Mousetrap.bindGlobal(
@@ -773,7 +747,7 @@ $(function () {
             Mousetrap.bindGlobal(
                 ['ctrl+s', 'command+s'],
                 function(e) {
-                    $('.nav [href="#search"]').click();
+                    $('#search-dropdown').click();
                     $('input[name="q"]').focus();
                     return false;
                 }
@@ -787,7 +761,7 @@ $(function () {
                 }
             );
             Mousetrap.bindGlobal(
-                ['ctrl+n', 'command+n'],
+                ['ctrl+j', 'command+j'],
                 function(e) {
                     $('.nav [href="#nearby"]').click();
                     return false;

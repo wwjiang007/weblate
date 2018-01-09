@@ -21,14 +21,15 @@
 
 from __future__ import unicode_literals
 
+import csv
+import importlib
+import inspect
 from io import BytesIO
 import os
-import inspect
 import re
-import csv
+import sys
 import tempfile
 import traceback
-import importlib
 
 
 from django.utils.translation import ugettext_lazy as _
@@ -60,6 +61,25 @@ FILE_FORMATS = {}
 FILE_DETECT = []
 FLAGS_RE = re.compile(r'\b[-\w:]+\b')
 LOCATIONS_RE = re.compile(r'^([+-]|.*, [+-]|.*:[+-])')
+
+
+def move_atomic(source, target):
+    """Tries to perform atomic move.
+
+    This is tricky on Windows as until Python 3.3 there is no
+    function for that. And even on Python 3.3 the MoveFileEx
+    is not guarateed to be atomic, so it might fail in some cases.
+    Anyway we try to choose best available method.
+    """
+    # Use os.replace if available
+    if sys.version_info >= (3, 3):
+        os.replace(source, target)
+    else:
+        # Remove target on Windows if exists
+        if sys.platform == 'win32' and os.path.exists(target):
+            os.unlink(target)
+        # Use os.rename
+        os.rename(source, target)
 
 
 class ParseError(Exception):
@@ -197,21 +217,21 @@ class FileUnit(object):
 
         return comment
 
-    def is_unit_key_value(self):
+    def is_unit_key_value(self, unit):
         """Check whether unit is key = value based rather than translation.
 
         These are some files like PHP or properties, which for some
         reason do not correctly set source/target attributes.
         """
         return (
-            hasattr(self.mainunit, 'name') and
-            hasattr(self.mainunit, 'value') and
-            hasattr(self.mainunit, 'translation')
+            hasattr(unit, 'name') and
+            hasattr(unit, 'value') and
+            hasattr(unit, 'translation')
         )
 
     def get_source(self):
         """Return source string from a ttkit unit."""
-        if self.is_unit_key_value():
+        if self.is_unit_key_value(self.mainunit):
             # Need to decode property encoded string
             if isinstance(self.mainunit, propunit):
                 if self.template is not None:
@@ -232,7 +252,7 @@ class FileUnit(object):
         """Return target string from a ttkit unit."""
         if self.unit is None:
             return ''
-        if self.is_unit_key_value():
+        if self.is_unit_key_value(self.unit):
             # Need to decode property encoded string
             if isinstance(self.unit, propunit):
                 # This is basically stolen from
@@ -255,7 +275,7 @@ class FileUnit(object):
             return self.template.getid()
         else:
             context = self.mainunit.getcontext()
-        if self.is_unit_key_value() and context == '':
+        if self.is_unit_key_value(self.mainunit) and context == '':
             return self.mainunit.getid()
         return context
 
@@ -300,7 +320,7 @@ class FileUnit(object):
             return False
         # The hasattr check here is needed for merged storages
         # where template is different kind than translations
-        if self.is_unit_key_value() and hasattr(self.unit, 'value'):
+        if self.is_unit_key_value(self.unit) and hasattr(self.unit, 'value'):
             return not self.unit.isfuzzy() and self.unit.value != ''
         else:
             return self.unit.istranslated()
@@ -337,7 +357,7 @@ class FileUnit(object):
             target = multistring(target)
         self.unit.settarget(target)
         # Propagate to value so that is_translated works correctly
-        if self.is_unit_key_value():
+        if self.is_unit_key_value(self.unit):
             self.unit.value = self.unit.translation
 
     def mark_fuzzy(self, fuzzy):
@@ -679,9 +699,9 @@ class FileFormat(object):
         """Add new unit to underlaying store."""
         if isinstance(self.store, LISAfile):
             # LISA based stores need to know this
-            self.store.addunit(ttkit_unit.unit, new=True)
+            self.store.addunit(ttkit_unit, new=True)
         else:
-            self.store.addunit(ttkit_unit.unit)
+            self.store.addunit(ttkit_unit)
 
     def update_header(self, **kwargs):
         """Update store header if available."""
@@ -708,9 +728,10 @@ class FileFormat(object):
         try:
             self.store.serialize(temp)
             temp.close()
-            os.rename(temp.name, self.storefile)
-        except Exception:
-            os.unlink(temp.name)
+            move_atomic(temp.name, self.storefile)
+        finally:
+            if os.path.exists(temp.name):
+                os.unlink(temp.name)
 
     def find_matching(self, template_unit):
         """Find matching store unit for template"""
@@ -766,7 +787,7 @@ class FileFormat(object):
         if store is None:
             return False
 
-        if cls.monolingual is False and cls.serialize(store) == b'':
+        if cls.monolingual is False and len(store.units) == 0:
             return False
 
         return True
@@ -865,6 +886,19 @@ class FileFormat(object):
                     unit.settarget([''] * language.nplurals)
                 else:
                     unit.settarget('')
+
+    def create_unit(self, key, source):
+        unit = self.store.UnitClass(source)
+        unit.setid(key)
+        unit.source = key
+        unit.target = source
+        return unit
+
+    def new_unit(self, key, source):
+        """Add new unit to monolingual store."""
+        unit = self.create_unit(key, source)
+        self.add_unit(unit)
+        self.save()
 
 
 @register_fileformat
@@ -989,6 +1023,13 @@ class UnwrappedPoFormat(PoFormat):
 class PoMonoFormat(PoFormat):
     name = _('Gettext PO file (monolingual)')
     format_id = 'po-mono'
+    monolingual = True
+
+
+@register_fileformat
+class UnwrappedPoMonoFormat(UnwrappedPoFormat):
+    name = _('Gettext PO file (monolingual, unwrapped)')
+    format_id = 'po-mono-unwrapped'
     monolingual = True
 
 
@@ -1145,19 +1186,28 @@ class PhpFormat(FileFormat):
         """Return most common file extension for format."""
         return 'php'
 
+    @property
+    def using_phplexer(self):
+        try:
+            # New phply based storage handles save just fine
+            # see https://github.com/translate/translate/pull/3697
+            # pylint: disable=W0612
+            from translate.storage.php import PHPLexer  # noqa
+            return True
+        except ImportError:
+            return False
+
     def save(self):
         """Save underlaying store to disk.
 
         This is workaround for .save() not working as intended in
         translate-toolkit.
         """
-        try:
+        if self.using_phplexer:
             # New phply based storage handles save just fine
             # see https://github.com/translate/translate/pull/3697
-            # pylint: disable=W0612
-            from translate.storage.php import PHPLexer  # noqa
             super(PhpFormat, self).save()
-        except ImportError:
+        else:
             with open(self.store.filename, 'rb') as handle:
                 convertor = po2php.rephp(handle, self.store)
 

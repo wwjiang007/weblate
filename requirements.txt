@@ -1,7 +1,7 @@
 Django>=1.11
 siphashc>=0.8
 Whoosh>=2.7.0
-translate-toolkit>=2.0.0
+translate-toolkit>=2.2.0
 lxml>=3.1.0
 Pillow
 six>=1.7.0
@@ -14,3 +14,4 @@ django_compressor>=2.1.1
 djangorestframework>=3.7
 defusedxml>=0.4
 django-appconf>=1.0
+user-agents>=1.1.0

@@ -509,7 +509,7 @@ class Unit(models.Model, LoggerMixin):
             return STATE_FUZZY
         if not translated:
             return STATE_EMPTY
-        elif approved:
+        elif approved and self.translation.subproject.project.enable_review:
             return STATE_APPROVED
         return STATE_TRANSLATED
 
@@ -589,7 +589,8 @@ class Unit(models.Model, LoggerMixin):
             force_insert=created,
             backend=True,
             same_content=same_content,
-            same_state=same_state
+            same_state=same_state,
+            update_stats=False,
         )
 
         # Create change object for new source string
@@ -820,36 +821,31 @@ class Unit(models.Model, LoggerMixin):
             **kwargs
         )
 
-    def save(self, *args, **kwargs):
+    def save(self, same_content=False, same_state=False, force_insert=False,
+             backend=False, update_stats=True, **kwargs):
         """
         Wrapper around save to warn when save did not come from
         git backend (eg. commit or by parsing file).
         """
         # Warn if request is not coming from backend
-        if 'backend' not in kwargs:
+        if not backend:
             self.log_error(
                 'Unit.save called without backend sync: %s',
                 ''.join(traceback.format_stack())
             )
-        else:
-            del kwargs['backend']
-
-        # Pop parameter indicating that we don't have to process content
-        same_content = kwargs.pop('same_content', False)
-        same_state = kwargs.pop('same_state', False)
-        # Keep the force_insert for parent save
-        force_insert = kwargs.get('force_insert', False)
 
         # Store number of words
         if not same_content or not self.num_words:
             self.num_words = len(self.get_source_plurals()[0].split())
 
         # Actually save the unit
-        super(Unit, self).save(*args, **kwargs)
+        super(Unit, self).save(**kwargs)
 
         # Update checks if content or fuzzy flag has changed
         if not same_content or not same_state:
-            self.run_checks(same_state, same_content, force_insert)
+            self.run_checks(
+                same_state, same_content, force_insert, update_stats
+            )
 
         # Update fulltext index if content has changed or this is a new unit
         if force_insert or not same_content:
@@ -979,7 +975,8 @@ class Unit(models.Model, LoggerMixin):
 
         return checks_to_run, cleanup_checks
 
-    def run_checks(self, same_state=True, same_content=True, is_new=False):
+    def run_checks(self, same_state=True, same_content=True, is_new=False,
+                   update_stats=True):
         """Update checks for this unit."""
         was_change = False
 
@@ -1038,7 +1035,7 @@ class Unit(models.Model, LoggerMixin):
 
         # Update failing checks flag
         if was_change or is_new or not same_content:
-            self.update_has_failing_check(was_change)
+            self.update_has_failing_check(was_change, update_stats)
 
     def update_has_failing_check(self, recurse=False, update_stats=True):
         """Update flag counting failing checks."""
@@ -1050,7 +1047,10 @@ class Unit(models.Model, LoggerMixin):
         # Change attribute if it has changed
         if has_failing_check != self.has_failing_check:
             self.has_failing_check = has_failing_check
-            self.save(backend=True, same_content=True, same_state=True)
+            self.save(
+                backend=True, same_content=True, same_state=True,
+                update_fields=['has_failing_check']
+            )
 
             # Update translation stats
             if update_stats:
@@ -1059,7 +1059,8 @@ class Unit(models.Model, LoggerMixin):
         # Invalidate checks cache if there was any change
         # (above code cares only about whether there is failing check
         # while here we care about any changed in checks)
-        self.translation.invalidate_cache()
+        if update_stats:
+            self.translation.invalidate_cache()
 
         if recurse:
             for unit in Unit.objects.same(self):
@@ -1071,7 +1072,10 @@ class Unit(models.Model, LoggerMixin):
         has_suggestion = len(self.suggestions()) > 0
         if has_suggestion != self.has_suggestion:
             self.has_suggestion = has_suggestion
-            self.save(backend=True, same_content=True, same_state=True)
+            self.save(
+                backend=True, same_content=True, same_state=True,
+                update_fields=['has_suggestion']
+            )
 
             # Update translation stats
             if update_stats:
@@ -1082,7 +1086,10 @@ class Unit(models.Model, LoggerMixin):
         has_comment = len(self.get_comments()) > 0
         if has_comment != self.has_comment:
             self.has_comment = has_comment
-            self.save(backend=True, same_content=True, same_state=True)
+            self.save(
+                backend=True, same_content=True, same_state=True,
+                update_fields=['has_comment']
+            )
 
             # Update translation stats
             if update_stats:
@@ -1169,7 +1176,7 @@ class Unit(models.Model, LoggerMixin):
                 except ValueError:
                     continue
         # Fallback to reasonably big value
-        return 10000
+        return len(self.get_source_plurals()[0]) * 3
 
     def get_target_hash(self):
         return calculate_hash(None, self.target)

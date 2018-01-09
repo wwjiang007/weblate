@@ -21,7 +21,7 @@
 from __future__ import unicode_literals
 
 from io import BytesIO
-import tempfile
+import os.path
 from unittest import TestCase, SkipTest
 
 from django.test import SimpleTestCase
@@ -29,6 +29,7 @@ from django.utils.encoding import force_text
 
 import six
 
+import translate.__version__
 from translate.storage.po import pofile
 
 from weblate.lang.models import Language
@@ -38,7 +39,7 @@ from weblate.trans.formats import (
     YAMLFormat, RubyYAMLFormat, DTDFormat, FILE_FORMATS, detect_filename,
     WebExtensionJSONFormat, UnwrappedPoFormat,
 )
-from weblate.trans.tests.utils import get_test_file
+from weblate.trans.tests.utils import get_test_file, TempDirMixin
 
 
 TEST_PO = get_test_file('cs.po')
@@ -118,7 +119,7 @@ class AutoLoadTest(TestCase):
         self.assertIsInstance(store.store, pofile)
 
 
-class AutoFormatTest(SimpleTestCase):
+class AutoFormatTest(SimpleTestCase, TempDirMixin):
     FORMAT = AutoFormat
     FILE = TEST_PO
     BASE = TEST_POT
@@ -130,15 +131,21 @@ class AutoFormatTest(SimpleTestCase):
     EXPECTED_PATH = 'po/cs_CZ.po'
     FIND = 'Hello, world!\n'
     FIND_MATCH = 'Ahoj světe!\n'
+    NEW_UNIT_MATCH = b'\nmsgid "key"\nmsgstr "Source string"\n'
 
     def setUp(self):
         super(AutoFormatTest, self).setUp()
+        self.create_temp()
         if self.FORMAT.format_id not in FILE_FORMATS:
             raise SkipTest(
                 'File format {0} is not supported!'.format(
                     self.FORMAT.format_id
                 )
             )
+
+    def tearDown(self):
+        super(AutoFormatTest, self).tearDown()
+        self.remove_temp()
 
     def test_parse(self):
         storage = self.FORMAT(self.FILE)
@@ -152,32 +159,27 @@ class AutoFormatTest(SimpleTestCase):
             testdata = handle.read()
 
         # Create test file
-        testfile = tempfile.NamedTemporaryFile(
-            suffix='.{0}'.format(self.EXT),
-            mode='wb+'
+        testfile = os.path.join(self.tempdir, 'test.{0}'.format(self.EXT))
+
+        # Write test data to file
+        with open(testfile, 'wb') as handle:
+            handle.write(testdata)
+
+        # Parse test file
+        storage = self.FORMAT(testfile)
+
+        # Save test file
+        storage.save()
+
+        # Read new content
+        with open(testfile, 'rb') as handle:
+            newdata = handle.read()
+
+        # Check if content matches
+        self.assert_same(
+            force_text(newdata),
+            force_text(testdata)
         )
-        try:
-            # Write test data to file
-            testfile.write(testdata)
-            testfile.flush()
-
-            # Parse test file
-            storage = self.FORMAT(testfile.name)
-
-            # Save test file
-            storage.save()
-
-            # Read new content
-            with open(testfile.name, 'rb') as handle:
-                newdata = handle.read()
-
-            # Check if content matches
-            self.assert_same(
-                force_text(newdata),
-                force_text(testdata)
-            )
-        finally:
-            testfile.close()
 
     def assert_same(self, newdata, testdata):
         """Content aware comparison.
@@ -198,18 +200,15 @@ class AutoFormatTest(SimpleTestCase):
 
     def test_add(self):
         self.assertTrue(self.FORMAT.is_valid_base_for_new(self.BASE))
-        out = tempfile.NamedTemporaryFile(
-            suffix='.{0}'.format(self.EXT),
-            mode='w+'
-        )
+        out = os.path.join(self.tempdir, 'test.{0}'.format(self.EXT))
         self.FORMAT.add_language(
-            out.name,
+            out,
             Language(code='cs', nplurals=2),
             self.BASE
         )
-        data = out.read()
+        with open(out, 'r') as handle:
+            data = handle.read()
         self.assertTrue(self.MATCH in data)
-        out.close()
 
     def test_get_language_filename(self):
         self.assertEqual(
@@ -218,6 +217,31 @@ class AutoFormatTest(SimpleTestCase):
             ),
             self.EXPECTED_PATH
         )
+
+    def test_new_unit(self):
+        # Read test content
+        with open(self.FILE, 'rb') as handle:
+            testdata = handle.read()
+
+        # Create test file
+        testfile = os.path.join(self.tempdir, 'test.{0}'.format(self.EXT))
+
+        # Write test data to file
+        with open(testfile, 'wb') as handle:
+            handle.write(testdata)
+
+        # Parse test file
+        storage = self.FORMAT(testfile)
+
+        # Add new unit
+        storage.new_unit('key', 'Source string')
+
+        # Read new content
+        with open(testfile, 'rb') as handle:
+            newdata = handle.read()
+
+        # Check if content matches
+        self.assertIn(self.NEW_UNIT_MATCH, newdata)
 
 
 class XMLMixin(object):
@@ -229,15 +253,15 @@ class PoFormatTest(AutoFormatTest):
     FORMAT = PoFormat
 
     def test_add_encoding(self):
-        out = tempfile.NamedTemporaryFile()
+        out = os.path.join(self.tempdir, 'test.po')
         self.FORMAT.add_language(
-            out.name,
+            out,
             Language(code='cs', nplurals=2),
             TEST_POT_UNICODE
         )
-        data = out.read().decode('utf-8')
+        with open(out, 'rb') as handle:
+            data = handle.read().decode('utf-8')
         self.assertTrue('Michal Čihař' in data)
-        out.close()
 
 
 class UnwrappedPoFormatTest(PoFormatTest):
@@ -255,6 +279,7 @@ class PropertiesFormatTest(AutoFormatTest):
     FIND = 'IGNORE'
     FIND_MATCH = 'Ignore'
     MATCH = '\n'
+    NEW_UNIT_MATCH = b'\nkey=Source string\n'
 
     def assert_same(self, newdata, testdata):
         self.assertEqual(
@@ -274,6 +299,7 @@ class JoomlaFormatTest(AutoFormatTest):
     MATCH = '\n'
     FIND = 'HELLO'
     FIND_MATCH = 'Ahoj "světe"!\n'
+    NEW_UNIT_MATCH = b'\nkey=Source string\n'
 
 
 class JSONFormatTest(AutoFormatTest):
@@ -286,6 +312,7 @@ class JSONFormatTest(AutoFormatTest):
     EXPECTED_PATH = 'json/cs_CZ.json'
     MATCH = '{}\n'
     BASE = ''
+    NEW_UNIT_MATCH = b'\n    "key": "Source string"\n'
 
     def assert_same(self, newdata, testdata):
         self.assertJSONEqual(newdata, testdata)
@@ -307,6 +334,14 @@ class WebExtesionJSONFormatTest(JSONFormatTest):
     MASK = 'webextension/_locales/*/messages.json'
     EXPECTED_PATH = 'webextension/_locales/cs_CZ/messages.json'
     FIND = 'hello'
+    NEW_UNIT_MATCH = (
+        b'\n    "key": {\n        "message": "Source string"\n    }\n'
+    )
+
+    def test_new_unit(self):
+        if translate.__version__.ver <= (2, 2, 5):
+            raise SkipTest('Broken WebExtension support in translate-toolkit')
+        super(WebExtesionJSONFormatTest, self).test_new_unit()
 
 
 class PhpFormatTest(AutoFormatTest):
@@ -321,6 +356,17 @@ class PhpFormatTest(AutoFormatTest):
     FIND = '$LANG[\'foo\']'
     FIND_MATCH = 'bar'
     BASE = ''
+    NEW_UNIT_MATCH = b'\nkey = \'Source string\';\n'
+
+    def test_new_unit(self):
+        try:
+            # New phply based storage handles save just fine
+            # see https://github.com/translate/translate/pull/3697
+            # pylint: disable=W0612
+            from translate.storage.php import PHPLexer  # noqa
+            super(PhpFormatTest, self).test_new_unit()
+        except ImportError:
+            raise SkipTest('Broken PHP support in translate-toolkit')
 
 
 class AndroidFormatTest(XMLMixin, AutoFormatTest):
@@ -333,6 +379,7 @@ class AndroidFormatTest(XMLMixin, AutoFormatTest):
     MASK = 'res/values-*/strings.xml'
     EXPECTED_PATH = 'res/values-cs-rCZ/strings.xml'
     BASE = ''
+    NEW_UNIT_MATCH = b'\n<string name="key">Source string</string>\n'
 
 
 class XliffFormatTest(XMLMixin, AutoFormatTest):
@@ -346,6 +393,10 @@ class XliffFormatTest(XMLMixin, AutoFormatTest):
     FIND_MATCH = ''
     MASK = 'loc/*/default.xliff'
     EXPECTED_PATH = 'loc/cs_CZ/default.xliff'
+    NEW_UNIT_MATCH = (
+        b'<trans-unit xml:space="preserve" id="key"><source>key</source>'
+        b'<target>Source string</target></trans-unit>'
+    )
 
 
 class RESXFormatTest(XMLMixin, AutoFormatTest):
@@ -360,6 +411,10 @@ class RESXFormatTest(XMLMixin, AutoFormatTest):
     FIND_MATCH = ''
     MATCH = 'text/microsoft-resx'
     BASE = ''
+    NEW_UNIT_MATCH = (
+        b'\n<data name="key" xml:space="preserve">'
+        b'<value>Source string</value>\n  </data>'
+    )
 
 
 class YAMLFormatTest(AutoFormatTest):
@@ -371,9 +426,18 @@ class YAMLFormatTest(AutoFormatTest):
     COUNT = 4
     MASK = 'yaml/*.yml'
     EXPECTED_PATH = 'yaml/cs_CZ.yml'
-    FIND = 'weblate / hello'
+    FIND = 'weblate->hello'
     FIND_MATCH = ''
     MATCH = 'weblate:'
+    NEW_UNIT_MATCH = b'\nkey: Source string\n'
+
+    def setUp(self):
+        super(YAMLFormatTest, self).setUp()
+        # Compatibility code with transalte-toolkit <= 2.4.5
+        instance = self.FORMAT.get_class()()
+        instance.parse(b'en:\n  weblate:\n    hello: ""')
+        if ' / ' in instance.units[0].getid():
+            self.FIND = self.FIND.replace('->', ' / ')
 
     def assert_same(self, newdata, testdata):
         # Fixup quotes as different translate toolkit versions behave
@@ -388,6 +452,7 @@ class RubyYAMLFormatTest(YAMLFormatTest):
     FORMAT = RubyYAMLFormat
     FILE = TEST_RUBY_YAML
     BASE = TEST_RUBY_YAML
+    NEW_UNIT_MATCH = b'\n  key: Source string\n'
 
 
 class TSFormatTest(XMLMixin, AutoFormatTest):
@@ -400,6 +465,10 @@ class TSFormatTest(XMLMixin, AutoFormatTest):
     MASK = 'ts/*.ts'
     EXPECTED_PATH = 'ts/cs_CZ.ts'
     MATCH = '<TS version="2.0" language="cs">'
+    NEW_UNIT_MATCH = (
+        b'\n<message><source>key</source>'
+        b'<translation>Source string</translation>\n    </message>'
+    )
 
     def assert_same(self, newdata, testdata):
         # Comparing of XML with doctype fails...
@@ -424,3 +493,4 @@ class DTDFormatTest(AutoFormatTest):
     MATCH = '<!ENTITY'
     FIND = 'hello'
     FIND_MATCH = ''
+    NEW_UNIT_MATCH = b'\n<!ENTITY key "Source string">\n'

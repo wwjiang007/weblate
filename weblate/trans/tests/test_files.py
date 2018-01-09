@@ -22,6 +22,8 @@
 
 from __future__ import unicode_literals
 
+from unittest import SkipTest
+
 from django.contrib.messages import ERROR
 from django.urls import reverse
 
@@ -196,6 +198,13 @@ class ImportTest(ImportBaseTest):
             1
         )
 
+    def test_import_xliff(self):
+        response = self.do_import(test_file=TEST_XLIFF, follow=True)
+        self.assertContains(response, 'updated: 1')
+        # Verify stats
+        translation = self.get_translation()
+        self.assertEqual(translation.translated, 1)
+
 
 class ImportErrorTest(ImportBaseTest):
     """Testing import of broken files."""
@@ -277,6 +286,29 @@ class ImportMoPoTest(ImportTest):
         return self.create_po()
 
 
+class ImportJoomlaTest(ImportTest):
+    def create_subproject(self):
+        return self.create_joomla()
+
+    def test_import_fuzzy(self):
+        # Does not make sense here
+        raise SkipTest('Fuzzy flag not supported on Joomla format')
+
+
+class ImportPHPMonoTest(ImportTest):
+    def create_subproject(self):
+        return self.create_php_mono()
+
+    def test_import_fuzzy(self):
+        # Does not make sense here
+        raise SkipTest('Fuzzy flag not supported on PHP format')
+
+    def test_import_xliff(self):
+        if not self.get_translation().store.using_phplexer:
+            raise SkipTest('Not supported on this translate-toolkit version')
+        super(ImportPHPMonoTest, self).test_import_xliff()
+
+
 class StringsImportTest(ImportTest):
     """Testing of mo file imports."""
     test_file = TEST_PO
@@ -286,7 +318,7 @@ class StringsImportTest(ImportTest):
 
     def test_import_fuzzy(self):
         # Does not make sense here
-        pass
+        raise SkipTest('Fuzzy flag not supported on Strings format')
 
 
 class AndroidImportTest(ViewTestCase):
@@ -383,6 +415,12 @@ class ExportTest(ViewTestCase):
         )
         self.assertContains(
             response, '/projects/test/test/cs/'
+        )
+
+    def test_export_tmx(self):
+        response = self.export_format('tmx')
+        self.assertContains(
+            response, 'Orangutan has %d banana'
         )
 
     def test_export_xliff(self):

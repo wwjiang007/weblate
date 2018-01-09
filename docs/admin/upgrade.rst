@@ -545,6 +545,18 @@ Notable configuration or dependencies changes:
   might want to add the following permissions where applicable (see :ref:`extra-privs`
   for their default setup):
   * Can review translation
+* Weblate now needs database to be configured with :setting:`ATOMIC_REQUESTS <django:DATABASE-ATOMIC_REQUESTS>` enabled.
+
+.. seealso:: :ref:`generic-upgrade-instructions`
+
+Upgrade from 2.18 to 2.19
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Follow generic upgrade instructions, there is no special change.
+
+Notable configuration or dependencies changes:
+
+* There is new dependency on the `user_agents` module.
 
 .. seealso:: :ref:`generic-upgrade-instructions`
 

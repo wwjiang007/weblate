@@ -1,18 +1,19 @@
 {% load i18n %}
 <!--
 Fake file to translate messages from Django
--->
 
-<!--
-These are from django core
+Do not edit the messages here, these are copied from other sources
+and should be edited there if needed.
 -->
-{% blocktrans %}Hold down "Control", or "Command" on a Mac, to select more than one.{% endblocktrans %}
 
 <!--
 Additional password validation by django-zxcvbn-password
 
 It supports internationalization, but there are no translations
 shipped with it.
+
+See:
+https://github.com/dwolfhub/zxcvbn-python/blob/master/zxcvbn/feedback.py
 -->
 
 {% blocktrans %}Your password must be stronger.{% endblocktrans %}
@@ -51,6 +52,12 @@ from weblate.lang.models import Language
 for l in Language.objects.exclude(name__contains='generated').values_list('name', flat=True).distinct():
     print '{%% trans "%s" %%}' % l
 
+The language names come from Translate-toolkit and Weblate.
+
+See
+https://github.com/translate/translate/blob/master/translate/lang/data.py
+https://github.com/WeblateOrg/weblate/blob/master/weblate/lang/data.py
+
 -->
 {% trans "Abkhazian" %}
 {% trans "Acholi" %}
@@ -83,6 +90,7 @@ for l in Language.objects.exclude(name__contains='generated').values_list('name'
 {% trans "Bengali (Bangladesh)" %}
 {% trans "Bengali (India)" %}
 {% trans "Bihari languages" %}
+{% trans "Blin" %}
 {% trans "Bislama" %}
 {% trans "Bodo" %}
 {% trans "Bosnian" %}
@@ -143,6 +151,7 @@ for l in Language.objects.exclude(name__contains='generated').values_list('name'
 {% trans "Galician" %}
 {% trans "Ganda" %}
 {% trans "Georgian" %}
+{% trans "Ge'ez" %}
 {% trans "German" %}
 {% trans "Gikuyu" %}
 {% trans "Greek" %}
@@ -283,6 +292,7 @@ for l in Language.objects.exclude(name__contains='generated').values_list('name'
 {% trans "Southern Sami" %}
 {% trans "Spanish" %}
 {% trans "Spanish (American)" %}
+{% trans "Spanish (Ecuador)" %}
 {% trans "Spanish (Argentina)" %}
 {% trans "Spanish (Chile)" %}
 {% trans "Spanish (Mexico)" %}
@@ -320,6 +330,7 @@ for l in Language.objects.exclude(name__contains='generated').values_list('name'
 {% trans "Venetian" %}
 {% trans "Vietnamese" %}
 {% trans "Volapük" %}
+{% trans "Wolaytta" %}
 {% trans "Walloon" %}
 {% trans "Walser German" %}
 {% trans "Welsh" %}
