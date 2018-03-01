@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -27,15 +27,14 @@ from django.urls import reverse
 
 from weblate.trans.tests.test_views import ViewTestCase
 from weblate.trans.models import Change
-from weblate.trans.models.unit import STATE_TRANSLATED, STATE_FUZZY
 from weblate.utils.hash import hash_to_checksum
+from weblate.utils.state import STATE_TRANSLATED, STATE_FUZZY
 
 
 class EditTest(ViewTestCase):
     """Test for manipulating translation."""
     has_plurals = True
     monolingual = False
-    supports_fuzzy = True
 
     def setUp(self):
         super(EditTest, self).setUp()
@@ -142,34 +141,6 @@ class EditTest(ViewTestCase):
         self.assertEqual(unit.state, STATE_FUZZY)
         self.assertEqual(unit.target, 'Nazdar svete!\n')
         self.assertFalse(unit.has_failing_check)
-
-    def test_skip_fuzzy(self):
-        """Test for fuzzy flag handling."""
-        if self.monolingual:
-            return
-        unit = self.get_unit()
-        self.assertNotEqual(unit.state, STATE_FUZZY)
-        self.edit_unit(
-            'Hello, world!\n',
-            'Nazdar svete!\n',
-            fuzzy='yes'
-        )
-        unit = self.get_unit()
-        unit.translation.commit_pending(None)
-        self.assertEqual(unit.state, STATE_FUZZY)
-        self.subproject.check_flags = 'skip-review-flag'
-        self.subproject.save()
-        self.subproject.create_translations(True)
-        unit = self.get_unit()
-        self.assertNotEqual(unit.state, STATE_FUZZY)
-        self.subproject.check_flags = ''
-        self.subproject.save()
-        self.subproject.create_translations(True)
-        unit = self.get_unit()
-        if self.supports_fuzzy:
-            self.assertEqual(unit.state, STATE_FUZZY)
-        else:
-            self.assertEqual(unit.state, STATE_TRANSLATED)
 
 
 class EditValidationTest(ViewTestCase):
@@ -427,7 +398,6 @@ class EditJavaTest(EditTest):
 
 class EditXliffComplexTest(EditTest):
     has_plurals = False
-    supports_fuzzy = False
 
     def create_subproject(self):
         return self.create_xliff('complex')
@@ -435,7 +405,6 @@ class EditXliffComplexTest(EditTest):
 
 class EditXliffTest(EditTest):
     has_plurals = False
-    supports_fuzzy = False
 
     def create_subproject(self):
         return self.create_xliff()
@@ -444,7 +413,6 @@ class EditXliffTest(EditTest):
 class EditXliffMonoTest(EditTest):
     has_plurals = False
     monolingual = True
-    supports_fuzzy = False
 
     def create_subproject(self):
         return self.create_xliff_mono()
@@ -683,7 +651,7 @@ class EditComplexTest(ViewTestCase):
         self.assertFalse(unit.has_failing_check)
         self.assertEqual(len(unit.checks()), 0)
         self.assertEqual(len(unit.active_checks()), 0)
-        self.assertEqual(unit.translation.failing_checks, 0)
+        self.assertEqual(unit.translation.stats.allchecks, 0)
         self.assert_backend(1)
 
     def test_edit_check(self):
@@ -699,7 +667,7 @@ class EditComplexTest(ViewTestCase):
         self.assertTrue(unit.has_failing_check)
         self.assertEqual(len(unit.checks()), 1)
         self.assertEqual(len(unit.active_checks()), 1)
-        self.assertEqual(unit.translation.failing_checks, 1)
+        self.assertEqual(unit.translation.stats.allchecks, 1)
 
         # Ignore check
         check_id = unit.checks()[0].id
@@ -712,7 +680,7 @@ class EditComplexTest(ViewTestCase):
         self.assertFalse(unit.has_failing_check)
         self.assertEqual(len(unit.checks()), 1)
         self.assertEqual(len(unit.active_checks()), 0)
-        self.assertEqual(unit.translation.failing_checks, 0)
+        self.assertEqual(unit.translation.stats.allchecks, 0)
 
         # Save with no failing checks
         response = self.edit_unit(
@@ -725,7 +693,7 @@ class EditComplexTest(ViewTestCase):
         self.assertEqual(unit.target, 'Nazdar svete!\n')
         self.assertFalse(unit.has_failing_check)
         self.assertEqual(len(unit.checks()), 0)
-        self.assertEqual(unit.translation.failing_checks, 0)
+        self.assertEqual(unit.translation.stats.allchecks, 0)
         self.assert_backend(1)
 
     def test_commit_push(self):

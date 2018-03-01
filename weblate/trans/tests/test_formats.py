@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -58,6 +58,10 @@ TEST_TS = get_test_file('cs.ts')
 TEST_YAML = get_test_file('cs.pyml')
 TEST_RUBY_YAML = get_test_file('cs.ryml')
 TEST_DTD = get_test_file('cs.dtd')
+TEST_HE_CLDR = get_test_file('he-cldr.po')
+TEST_HE_CUSTOM = get_test_file('he-custom.po')
+TEST_HE_SIMPLE = get_test_file('he-simple.po')
+TEST_HE_THREE = get_test_file('he-three.po')
 
 
 class AutoLoadTest(TestCase):
@@ -132,6 +136,7 @@ class AutoFormatTest(SimpleTestCase, TempDirMixin):
     FIND = 'Hello, world!\n'
     FIND_MATCH = 'Ahoj světe!\n'
     NEW_UNIT_MATCH = b'\nmsgid "key"\nmsgstr "Source string"\n'
+    allow_database_queries = True
 
     def setUp(self):
         super(AutoFormatTest, self).setUp()
@@ -203,7 +208,7 @@ class AutoFormatTest(SimpleTestCase, TempDirMixin):
         out = os.path.join(self.tempdir, 'test.{0}'.format(self.EXT))
         self.FORMAT.add_language(
             out,
-            Language(code='cs', nplurals=2),
+            Language.objects.get(code='cs'),
             self.BASE
         )
         with open(out, 'r') as handle:
@@ -256,12 +261,35 @@ class PoFormatTest(AutoFormatTest):
         out = os.path.join(self.tempdir, 'test.po')
         self.FORMAT.add_language(
             out,
-            Language(code='cs', nplurals=2),
+            Language.objects.get(code='cs'),
             TEST_POT_UNICODE
         )
         with open(out, 'rb') as handle:
             data = handle.read().decode('utf-8')
         self.assertTrue('Michal Čihař' in data)
+
+    def load_plural(self, filename):
+        with open(filename, 'rb') as handle:
+            store = self.FORMAT(handle)
+            return store.get_plural(Language.objects.get(code='he'))
+
+    def test_plurals(self):
+        self.assertEqual(
+            self.load_plural(TEST_HE_CLDR).equation,
+            '(n == 1) ? 0 : ((n == 2) ? 1 : ((n > 10 && n % 10 == 0) ? 2 : 3))'
+        )
+        self.assertEqual(
+            self.load_plural(TEST_HE_CUSTOM).equation,
+            '(n == 1) ? 0 : ((n == 2) ? 1 : ((n == 10) ? 2 : 3))'
+        )
+        self.assertEqual(
+            self.load_plural(TEST_HE_SIMPLE).equation,
+            '(n != 1)'
+        )
+        self.assertEqual(
+            self.load_plural(TEST_HE_THREE).equation,
+            'n==1 ? 0 : n==2 ? 2 : 1'
+        )
 
 
 class UnwrappedPoFormatTest(PoFormatTest):
@@ -362,7 +390,7 @@ class PhpFormatTest(AutoFormatTest):
         try:
             # New phply based storage handles save just fine
             # see https://github.com/translate/translate/pull/3697
-            # pylint: disable=W0612
+            # pylint: disable=unused-import,unused-variable
             from translate.storage.php import PHPLexer  # noqa
             super(PhpFormatTest, self).test_new_unit()
         except ImportError:
@@ -437,6 +465,7 @@ class YAMLFormatTest(AutoFormatTest):
         instance = self.FORMAT.get_class()()
         instance.parse(b'en:\n  weblate:\n    hello: ""')
         if ' / ' in instance.units[0].getid():
+            # pylint: disable=invalid-name
             self.FIND = self.FIND.replace('->', ' / ')
 
     def assert_same(self, newdata, testdata):

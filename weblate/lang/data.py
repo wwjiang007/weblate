@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,938 +17,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+# pylint: disable=line-too-long
 
 from __future__ import unicode_literals
-from django.utils.translation import pgettext_lazy, ugettext_noop as _
+from django.utils.translation import pgettext_lazy
 
-
-# Extra languages not included in ttkit
-EXTRALANGS = (
-    (
-        'li',
-        _('Limburgish'),
-        2,
-        'n != 1',
-    ),
-    (
-        'tl',
-        _('Tagalog'),
-        1,
-        '0',
-    ),
-    (
-        'ur',
-        _('Urdu'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ur_PK',
-        _('Urdu (Pakistan)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'uz_Latn',
-        _('Uzbek (latin)'),
-        1,
-        '0',
-    ),
-    (
-        'uz',
-        _('Uzbek'),
-        1,
-        '0',
-    ),
-    (
-        'bs_Latn',
-        _('Bosnian (latin)'),
-        3,
-        'n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && '
-        '(n%100<10 || n%100>=20) ? 1 : 2',
-    ),
-    (
-        'bs_Cyrl',
-        _('Bosnian (cyrillic)'),
-        3,
-        'n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && '
-        '(n%100<10 || n%100>=20) ? 1 : 2',
-    ),
-    (
-        'sr_Latn',
-        _('Serbian (latin)'),
-        3,
-        'n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && '
-        '(n%100<10 || n%100>=20) ? 1 : 2',
-    ),
-    (
-        'sr_Cyrl',
-        _('Serbian (cyrillic)'),
-        3,
-        'n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && '
-        '(n%100<10 || n%100>=20) ? 1 : 2',
-    ),
-    (
-        'be_Latn',
-        _('Belarusian (latin)'),
-        3,
-        'n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && '
-        '(n%100<10 || n%100>=20) ? 1 : 2',
-    ),
-    (
-        'en_US',
-        _('English (United States)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'en_CA',
-        _('English (Canada)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'en_AU',
-        _('English (Australia)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'en_IE',
-        _('English (Ireland)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'en_PH',
-        _('English (Philippines)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'nb_NO',
-        _('Norwegian Bokmål'),
-        2,
-        'n != 1',
-    ),
-    (
-        'pt_PT',
-        _('Portuguese (Portugal)'),
-        2,
-        'n > 1',
-    ),
-    (
-        'ckb',
-        _('Sorani'),
-        2,
-        'n != 1',
-    ),
-    (
-        'vls',
-        _('West Flemish'),
-        2,
-        'n != 1',
-    ),
-    (
-        'zh',
-        _('Chinese'),
-        1,
-        '0',
-    ),
-    (
-        'tlh',
-        _('Klingon'),
-        1,
-        '0',
-    ),
-    (
-        'tlh-qaak',
-        _('Klingon (pIqaD)'),
-        1,
-        '0',
-    ),
-    (
-        'ksh',
-        _('Colognian'),
-        3,
-        'n==0 ? 0 : n==1 ? 1 : 2',
-    ),
-    (
-        'sc',
-        _('Sardinian'),
-        2,
-        'n != 1',
-    ),
-    (
-        'tr',
-        _('Turkish'),
-        2,
-        'n > 1',
-    ),
-    (
-        'ach',
-        _('Acholi'),
-        2,
-        'n > 1',
-    ),
-    (
-        'anp',
-        _('Angika'),
-        2,
-        'n != 1',
-    ),
-    (
-        'as',
-        _('Assamese'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ay',
-        _('Aymará'),
-        1,
-        '0',
-    ),
-    (
-        'brx',
-        _('Bodo'),
-        2,
-        'n != 1',
-    ),
-    (
-        'cgg',
-        _('Chiga'),
-        1,
-        '0',
-    ),
-    (
-        'doi',
-        _('Dogri'),
-        2,
-        'n != 1',
-    ),
-    (
-        'es_AR',
-        _('Spanish (Argentina)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'es_EC',
-        _('Spanish (Ecuador)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'es_CL',
-        _('Spanish (Chile)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'es_MX',
-        _('Spanish (Mexico)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'es_PR',
-        _('Spanish (Puerto Rico)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'es_US',
-        _('Spanish (American)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'hne',
-        _('Chhattisgarhi'),
-        2,
-        'n != 1',
-    ),
-    (
-        'jbo',
-        _('Lojban'),
-        1,
-        '0',
-    ),
-    (
-        'kl',
-        _('Greenlandic'),
-        2,
-        'n != 1',
-    ),
-    (
-        'mni',
-        _('Manipuri'),
-        2,
-        'n != 1',
-    ),
-    (
-        'mnk',
-        _('Mandinka'),
-        3,
-        'n==0 ? 0 : n==1 ? 1 : 2',
-    ),
-    (
-        'my',
-        _('Burmese'),
-        1,
-        '0',
-    ),
-    (
-        'se',
-        _('Northern Sami'),
-        2,
-        'n != 1',
-    ),
-    (
-        'no',
-        _('Norwegian (old code)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'rw',
-        _('Kinyarwanda'),
-        2,
-        'n != 1',
-    ),
-    (
-        'sat',
-        _('Santali'),
-        2,
-        'n != 1',
-    ),
-    (
-        'sd',
-        _('Sindhi'),
-        2,
-        'n != 1',
-    ),
-    (
-        'cy',
-        _('Welsh'),
-        6,
-        '(n==0) ? 0 : (n==1) ? 1 : (n==2) ? 2 : (n==3) ? 3 :(n==6) ? 4 : 5',
-    ),
-    (
-        'hy',
-        _('Armenian'),
-        2,
-        'n != 1',
-    ),
-    (
-        'uz',
-        _('Uzbek'),
-        2,
-        'n > 1',
-    ),
-    (
-        'os',
-        _('Ossetian'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ts',
-        _('Tsonga'),
-        2,
-        'n != 1',
-    ),
-    (
-        'frp',
-        _('Franco-Provençal'),
-        2,
-        'n > 1',
-    ),
-    (
-        'zh_Hant',
-        _('Chinese (Traditional)'),
-        1,
-        '0',
-    ),
-    (
-        'zh_Hant_HK',
-        _('Chinese (Hong Kong)'),
-        1,
-        '0',
-    ),
-    (
-        'zh_Hans',
-        _('Chinese (Simplified)'),
-        1,
-        '0',
-    ),
-    (
-        'sh',
-        _('Serbo-Croatian'),
-        3,
-        'n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 &&'
-        ' (n%100<10 || n%100>=20) ? 1 : 2',
-    ),
-    (
-        'nl_BE',
-        _('Dutch (Belgium)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ba',
-        _('Bashkir'),
-        2,
-        'n != 1',
-    ),
-    (
-        'yi',
-        _('Yiddish'),
-        2,
-        'n != 1',
-    ),
-    (
-        'de_AT',
-        _('Austrian German'),
-        2,
-        'n != 1',
-    ),
-    (
-        'de_CH',
-        _('Swiss High German'),
-        2,
-        'n != 1',
-    ),
-    (
-        'nds',
-        _('Low German'),
-        2,
-        'n != 1',
-    ),
-    (
-        'haw',
-        _('Hawaiian'),
-        2,
-        'n != 1',
-    ),
-    (
-        'vec',
-        _('Venetian'),
-        2,
-        'n != 1',
-    ),
-    (
-        'oj',
-        _('Ojibwe'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ch',
-        _('Chamorro'),
-        2,
-        'n != 1',
-    ),
-    (
-        'chr',
-        _('Cherokee'),
-        2,
-        'n != 1',
-    ),
-    (
-        'cr',
-        _('Cree'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ny',
-        _('Nyanja'),
-        2,
-        'n != 1',
-    ),
-    (
-        'la',
-        _('Latin'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ar_DZ',
-        _('Arabic (Algeria)'),
-        6,
-        'n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ?'
-        ' 3 : n%100>=11 ? 4 : 5'
-    ),
-    (
-        'ar_MA',
-        _('Arabic (Morocco)'),
-        6,
-        'n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ?'
-        ' 3 : n%100>=11 ? 4 : 5'
-    ),
-    (
-        'fr_CA',
-        _('French (Canada)'),
-        2,
-        'n > 1',
-    ),
-    (
-        'kab',
-        _('Kabyle'),
-        2,
-        'n != 1',
-    ),
-    (
-        'pr',
-        _('Pirate'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ig',
-        _('Igbo'),
-        2,
-        'n != 1',
-    ),
-    (
-        'hsb',
-        _('Upper Sorbian'),
-        3,
-        'n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && '
-        '(n%100<10 || n%100>=20) ? 1 : 2',
-    ),
-    (
-        'dsb',
-        _('Lower Sorbian'),
-        3,
-        'n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && '
-        '(n%100<10 || n%100>=20) ? 1 : 2',
-    ),
-    (
-        'wen',
-        _('Sorbian'),
-        3,
-        'n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && '
-        '(n%100<10 || n%100>=20) ? 1 : 2',
-    ),
-    (
-        'sn',
-        _('Shona'),
-        2,
-        'n != 1',
-    ),
-    (
-        'bar',
-        _('Bavarian'),
-        2,
-        'n != 1',
-    ),
-    (
-        'dv',
-        _('Dhivehi'),
-        2,
-        'n != 1',
-    ),
-    (
-        'aa',
-        _('Afar'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ab',
-        _('Abkhazian'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ae',
-        _('Avestan'),
-        2,
-        'n != 1',
-    ),
-    (
-        'av',
-        _('Avaric'),
-        2,
-        'n != 1',
-    ),
-    (
-        'bh',
-        _('Bihari languages'),
-        2,
-        'n != 1',
-    ),
-    (
-        'bi',
-        _('Bislama'),
-        2,
-        'n != 1',
-    ),
-    (
-        'bm',
-        _('Bambara'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ce',
-        _('Chechen'),
-        2,
-        'n != 1',
-    ),
-    (
-        'co',
-        _('Corsican'),
-        2,
-        'n != 1',
-    ),
-    (
-        'cu',
-        _('Old Church Slavonic'),
-        2,
-        'n != 1',
-    ),
-    (
-        'cv',
-        _('Chuvash'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ee',
-        _('Ewe'),
-        2,
-        'n != 1',
-    ),
-    (
-        'fj',
-        _('Fijian'),
-        2,
-        'n != 1',
-    ),
-    (
-        'gn',
-        _('Guarani'),
-        2,
-        'n != 1',
-    ),
-    (
-        'gv',
-        _('Manx'),
-        4,
-        '(n % 10 == 1) ? 0 : ((n % 10 == 2) ? 1 : ((n % 100 == 0 || n % 100 '
-        '== 20 || n % 100 == 40 || n % 100 == 60 || n % 100 == 80) ? 2 : 3))',
-    ),
-    (
-        'ho',
-        _('Hiri Motu'),
-        2,
-        'n != 1',
-    ),
-    (
-        'hz',
-        _('Herero'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ie',
-        _('Occidental'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ii',
-        _('Nuosu'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ik',
-        _('Inupiaq'),
-        2,
-        'n != 1',
-    ),
-    (
-        'io',
-        _('Ido'),
-        2,
-        'n != 1',
-    ),
-    (
-        'iu',
-        _('Inuktitut'),
-        2,
-        'n != 1',
-    ),
-    (
-        'kg',
-        _('Kongo'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ki',
-        _('Gikuyu'),
-        2,
-        'n != 1',
-    ),
-    (
-        'kj',
-        _('Kwanyama'),
-        2,
-        'n != 1',
-    ),
-    (
-        'kr',
-        _('Kanuri'),
-        2,
-        'n != 1',
-    ),
-    (
-        'kv',
-        _('Komi'),
-        2,
-        'n != 1',
-    ),
-    (
-        'lg',
-        _('Ganda'),
-        2,
-        'n != 1',
-    ),
-    (
-        'lu',
-        _('Luba-Katanga'),
-        2,
-        'n != 1',
-    ),
-    (
-        'mh',
-        _('Marshallese'),
-        2,
-        'n != 1',
-    ),
-    (
-        'mo',
-        _('Moldovan'),
-        2,
-        'n != 1',
-    ),
-    (
-        'na',
-        _('Nauru'),
-        2,
-        'n != 1',
-    ),
-    (
-        'nd',
-        _('North Ndebele'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ng',
-        _('Ndonga'),
-        2,
-        'n != 1',
-    ),
-    (
-        'nr',
-        _('South Ndebele'),
-        2,
-        'n != 1',
-    ),
-    (
-        'nv',
-        _('Navaho'),
-        2,
-        'n != 1',
-    ),
-    (
-        'om',
-        _('Oromo'),
-        2,
-        'n != 1',
-    ),
-    (
-        'pi',
-        _('Pali'),
-        2,
-        'n != 1',
-    ),
-    (
-        'qu',
-        _('Quechua'),
-        2,
-        'n != 1',
-    ),
-    (
-        'rn',
-        _('Rundi'),
-        2,
-        'n != 1',
-    ),
-    (
-        'rue',
-        _('Rusyn'),
-        2,
-        'n != 1',
-    ),
-    (
-        'sg',
-        _('Sango'),
-        2,
-        'n != 1',
-    ),
-    (
-        'sm',
-        _('Samoan'),
-        2,
-        'n != 1',
-    ),
-    (
-        'sma',
-        _('Southern Sami'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ss',
-        _('Swati'),
-        2,
-        'n != 1',
-    ),
-    (
-        'tn',
-        _('Tswana'),
-        2,
-        'n != 1',
-    ),
-    (
-        'to',
-        _('Tonga (Tonga Islands)'),
-        2,
-        'n != 1',
-    ),
-    (
-        'tw',
-        _('Twi'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ty',
-        _('Tahitian'),
-        2,
-        'n != 1',
-    ),
-    (
-        'vo',
-        _('Volapük'),
-        2,
-        'n != 1',
-    ),
-    (
-        'xh',
-        _('Xhosa'),
-        2,
-        'n != 1',
-    ),
-    (
-        'za',
-        _('Zhuang'),
-        2,
-        'n != 1',
-    ),
-    (
-        'kmr',
-        _('Kurmanji'),
-        2,
-        'n != 1',
-    ),
-    (
-        'bem',
-        _('Bemba'),
-        2,
-        'n != 1',
-    ),
-    (
-        'crh',
-        _('Crimean Tatar'),
-        1,
-        '0',
-    ),
-    (
-        'shn',
-        _('Shan'),
-        2,
-        'n != 1',
-    ),
-    (
-        'wae',
-        _('Walser German'),
-        2,
-        'n != 1',
-    ),
-    (
-        'chm',
-        _('Mari'),
-        2,
-        'n != 1',
-    ),
-    (
-        'mhr',
-        _('Meadow Mari'),
-        2,
-        'n != 1',
-    ),
-    (
-        'hil',
-        _('Hiligaynon'),
-        2,
-        'n != 1',
-    ),
-    (
-        'tig',
-        _('Tigre'),
-        2,
-        'n != 1',
-    ),
-    (
-        'jam',
-        _('Jamaican Patois'),
-        2,
-        'n != 1',
-    ),
-    (
-        'byn',
-        _('Blin'),
-        2,
-        'n != 1',
-    ),
-    (
-        'gez',
-        _('Ge\'ez'),
-        2,
-        'n != 1',
-    ),
-    (
-        'wal',
-        _('Wolaytta'),
-        2,
-        'n != 1',
-    ),
-    (
-        'ace',
-        _('Acehnese'),
-        1,
-        '0',
-    ),
-)
 
 NO_CODE_LANGUAGES = frozenset((
     'zh_TW', 'zh_CN',
@@ -1087,28 +160,19 @@ RTL_LANGS = set((
     'yi',
 ))
 
-# Fixups (mostly shortening) of langauge names
-LANGUAGE_NAME_FIXUPS = {
-    'ia': 'Interlingua',
-    'el': 'Greek',
-    'st': 'Sotho',
-    'oc': 'Occitan',
-    'nb': 'Norwegian Bokmål',
-    'pa': 'Punjabi',
-    'ca@valencia': 'Valencian',
-    'ky': 'Kyrgyz',
-    'me': 'Montenegrin',
-}
-
-
 # Following variables are used to map Gettext plural equations
 # to one/few/may/other like rules
 
 ONE_OTHER_PLURALS = (
     'n==1 || n%10==1 ? 0 : 1',
     'n != 1',
+    '(n != 1)',
     'n > 1',
-    'n > 1',
+    '(n > 1)',
+    'n >= 2 && (n < 11 || n > 99)',
+    'n % 10 != 1 || n % 100 == 11',
+    'n != 1 && n != 2 && n != 3 && '
+    '(n % 10 == 4 || n % 10 == 6 || n % 10 == 9)',
 )
 
 TWO_OTHER_PLURALS = (
@@ -1122,14 +186,28 @@ ONE_FEW_OTHER_PLURALS = (
     'n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2',
     'n%10==1 && n%100!=11 ? 0 : n%10>=2 && (n%100<10 || n%100>=20) ? 1 : 2',
     'n==1 ? 0 : (n==0 || (n%100 > 0 && n%100 < 20)) ? 1 : 2',
+    '(n == 1) ? 0 : ((n == 0 || n != 1 && n % 100 >= 1 && n % 100 <= 19) ? '
+    '1 : 2)',
+    '(n == 0 || n == 1) ? 0 : ((n >= 2 && n <= 10) ? 1 : 2)',
+    '(n % 10 == 1 && (n % 100 < 11 || n % 100 > 19)) ? 0 : '
+    '((n % 10 >= 2 && n % 10 <= 9 && (n % 100 < 11 || n % 100 > 19)) ? 1 : 2)',
+    '(n%10==1 && n%100!=11 ? 0 : n%10>=2 && (n%100<10 || n%100>=20) ? 1 : 2)',
 )
 
 ZERO_ONE_OTHER_PLURALS = (
     'n==0 ? 0 : n==1 ? 1 : 2',
+    '(n == 0) ? 0 : ((n == 1) ? 1 : 2)',
+    '(n % 10 == 0 || n % 100 >= 11 && n % 100 <= 19) ? 0 : '
+    '((n % 10 == 1 && n % 100 != 11) ? 1 : 2)',
 )
 
 ONE_TWO_OTHER_PLURALS = (
     'n==1 ? 0 : n==2 ? 1 : 2',
+    '(n == 1) ? 0 : ((n == 2) ? 1 : 2)',
+)
+
+ONE_OTHER_TWO_PLURALS = (
+    'n==1 ? 0 : n==2 ? 2 : 1',
 )
 
 ONE_TWO_THREE_OTHER_PLURALS = (
@@ -1141,11 +219,25 @@ ONE_TWO_FEW_OTHER_PLURALS = (
     'n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || n%100==4 ? 2 : 3',
     '(n % 10 == 1) ? 0 : ((n % 10 == 2) ? 1 : ((n % 100 == 0 || n % 100 == 20'
     ' || n % 100 == 40 || n % 100 == 60 || n % 100 == 80) ? 2 : 3))',
+    '(n % 100 == 1) ? 0 : ((n % 100 == 2) ? 1 : '
+    '((n % 100 == 3 || n % 100 == 4) ? 2 : 3))',
+    '(n == 1) ? 0 : ((n == 2) ? 1 : ((n > 10 && n % 10 == 0) ? 2 : 3))',
+    '(n==1) ? 0 : (n==2) ? 1 : (n != 8 && n != 11) ? 2 : 3',
+)
+
+OTHER_ONE_TWO_FEW_PLURALS = (
+    '(n%100==1 ? 1 : n%100==2 ? 2 : n%100==3 || n%100==4 ? 3 : 0)',
 )
 
 ONE_TWO_FEW_MANY_OTHER_PLURALS = (
     'n==1 ? 0 : n==2 ? 1 : n<7 ? 2 : n<11 ? 3 : 4',
     'n==1 ? 0 : n==2 ? 1 : (n>2 && n<7) ? 2 :(n>6 && n<11) ? 3 : 4',
+    '(n % 10 == 1 && n % 100 != 11 && n % 100 != 71 && n % 100 != 91) ? 0 : '
+    '((n % 10 == 2 && n % 100 != 12 && n % 100 != 72 && n % 100 != 92) ? 1 : '
+    '((((n % 10 == 3 || n % 10 == 4) || n % 10 == 9) && '
+    '(n % 100 < 10 || n % 100 > 19) && (n % 100 < 70 || n % 100 > 79) && '
+    '(n % 100 < 90 || n % 100 > 99)) ? 2 : '
+    '((n != 0 && n % 1000000 == 0) ? 3 : 4)))',
 )
 
 ONE_FEW_MANY_OTHER_PLURALS = (
@@ -1156,11 +248,14 @@ ONE_FEW_MANY_OTHER_PLURALS = (
 )
 
 ONE_OTHER_ZERO_PLURALS = (
-    'n%10==1 && n%100!=11 ? 0 : n != 0 ? 1 : 2'
+    'n%10==1 && n%100!=11 ? 0 : n != 0 ? 1 : 2',
 )
 
 ZERO_ONE_TWO_THREE_SIX_OTHER = (
     '(n==0) ? 0 : (n==1) ? 1 : (n==2) ? 2 : (n==3) ? 3 :(n==6) ? 4 : 5',
+    '(n == 0) ? 0 : ((n == 1) ? 1 : ((n == 2) ? 2 : '
+    '((n % 100 >= 3 && n % 100 <= 10) ? 3 : '
+    '((n % 100 >= 11 && n % 100 <= 99) ? 4 : 5))))',
 )
 
 # Plural types definition
@@ -1177,6 +272,8 @@ PLURAL_TWO_OTHER = 9
 PLURAL_ONE_TWO_FEW_MANY_OTHER = 10
 PLURAL_ZERO_ONE_OTHER = 11
 PLURAL_ZERO_ONE_TWO_THREE_SIX_OTHER = 12
+PLURAL_OTHER_ONE_TWO_FEW = 13
+PLURAL_ONE_OTHER_TWO = 14
 PLURAL_UNKNOWN = 666
 
 # Plural equation - type mappings
@@ -1184,8 +281,10 @@ PLURAL_MAPPINGS = (
     (ONE_OTHER_PLURALS, PLURAL_ONE_OTHER),
     (ONE_FEW_OTHER_PLURALS, PLURAL_ONE_FEW_OTHER),
     (ONE_TWO_OTHER_PLURALS, PLURAL_ONE_TWO_OTHER),
+    (ONE_OTHER_TWO_PLURALS, PLURAL_ONE_OTHER_TWO),
     (ZERO_ONE_OTHER_PLURALS, PLURAL_ZERO_ONE_OTHER),
     (ONE_TWO_FEW_OTHER_PLURALS, PLURAL_ONE_TWO_FEW_OTHER),
+    (OTHER_ONE_TWO_FEW_PLURALS, PLURAL_OTHER_ONE_TWO_FEW),
     (ONE_TWO_THREE_OTHER_PLURALS, PLURAL_ONE_TWO_THREE_OTHER),
     (ONE_OTHER_ZERO_PLURALS, PLURAL_ONE_OTHER_ZERO),
     (ONE_FEW_MANY_OTHER_PLURALS, PLURAL_ONE_FEW_MANY_OTHER),
@@ -1224,6 +323,11 @@ PLURAL_NAMES = {
         pgettext_lazy('Plural form description', 'Two'),
         pgettext_lazy('Plural form description', 'Other'),
     ),
+    PLURAL_ONE_OTHER_TWO: (
+        pgettext_lazy('Plural form description', 'One'),
+        pgettext_lazy('Plural form description', 'Other'),
+        pgettext_lazy('Plural form description', 'Two'),
+    ),
     PLURAL_ONE_TWO_THREE_OTHER: (
         pgettext_lazy('Plural form description', 'One'),
         pgettext_lazy('Plural form description', 'Two'),
@@ -1235,6 +339,12 @@ PLURAL_NAMES = {
         pgettext_lazy('Plural form description', 'Two'),
         pgettext_lazy('Plural form description', 'Few'),
         pgettext_lazy('Plural form description', 'Other'),
+    ),
+    PLURAL_OTHER_ONE_TWO_FEW: (
+        pgettext_lazy('Plural form description', 'Other'),
+        pgettext_lazy('Plural form description', 'One'),
+        pgettext_lazy('Plural form description', 'Two'),
+        pgettext_lazy('Plural form description', 'Few'),
     ),
     PLURAL_ONE_OTHER_ZERO: (
         pgettext_lazy('Plural form description', 'One'),
@@ -1278,13 +388,14 @@ LOCALE_ALIASES = {
     'schinese': 'zh_Hans',
     'chinese_zh': 'zh_Hant',
     'tchinese': 'zh_Hant',
+    'korean': 'ko',
     'dutch_be': 'nl_BE',
     'english': 'en',
     'english-uk': 'en_GB',
     'portuguese_br': 'pt_BR',
     'portuguese_portugal': 'pt_PT',
     'russian': 'ru',
-    'serbo-croatian': 'sh',
+    'serbo-croatian': 'sr_Latn',
     'serbian': 'sr',
     'indonesian': 'id',
     'norwegian': 'nb',
@@ -1296,7 +407,7 @@ LOCALE_ALIASES = {
     'be-rby': 'be_Latn',
     # Misc invalid codes
     'val_es': 'ca@valencia',
-    'no_nb': 'no',
+    'no_nb': 'nb',
     'ru_r': 'ru',
     'ru_rr': 'ru',
     'ar_ar': 'ar',
@@ -1305,11 +416,17 @@ LOCALE_ALIASES = {
     'ca_ps': 'ca',
     'by': 'be',
     'ua': 'uk',
-    # Old locale codes
-    'iw': 'he',
-    'ji': 'yi',
-    'in': 'id',
-    'sr_cs': 'sr',
+    'en_en': 'en',
+    # Old locale iso codes
+    'in': 'id',  # Indonesian
+    'iw': 'he',  # Hebrew
+    'ji': 'yi',  # Yiddish
+    'jw': 'jv',  # Javanese
+    'mo': 'ro_MD',  # Moldovan
+    'scc': 'sr',  # Serbian
+    'scr': 'hr',  # Croatian
+    'sh': 'sr_Latn',  # Serbo-Croatian
+    'no': 'nb',  # Norwegian
     # Strip not needed country
     'sr_latn_rs': 'sr_Latn',
     'bs_latn_ba': 'bs_Latn',
@@ -1333,8 +450,3 @@ LOCALE_ALIASES = {
     'gr': 'el',
     'rs': 'sr',
 }
-
-# List of languages we do not want to import from translate-toolkit
-SKIP_TRANSLATE_TOOLKIT = frozenset((
-    'zh_CN', 'zh_TW', 'zh_HK',
-))

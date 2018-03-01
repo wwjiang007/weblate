@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,7 +21,7 @@
 from __future__ import unicode_literals
 
 from django.contrib.auth.models import User
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Count
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext as _
@@ -32,12 +32,14 @@ from weblate.permissions.helpers import (
     can_accept_suggestion, can_vote_suggestion
 )
 from weblate.trans.models.change import Change
+from weblate.trans.models.unitdata import UnitData
 from weblate.trans.mixins import UserDisplayMixin
 from weblate.utils import messages
+from weblate.utils.state import STATE_TRANSLATED
 
 
 class SuggestionManager(models.Manager):
-    # pylint: disable=W0232
+    # pylint: disable=no-init
 
     def add(self, unit, target, request, vote=False):
         """Create new suggestion for this unit."""
@@ -63,9 +65,7 @@ class SuggestionManager(models.Manager):
         )
 
         # Record in change
-        from weblate.trans.models import get_related_units
-        allunits = get_related_units(suggestion)
-        for aunit in allunits:
+        for aunit in suggestion.related_units:
             Change.objects.create(
                 unit=aunit,
                 action=Change.ACTION_SUGGESTION,
@@ -112,14 +112,10 @@ class SuggestionManager(models.Manager):
 
 
 @python_2_unicode_compatible
-class Suggestion(models.Model, UserDisplayMixin):
-    content_hash = models.BigIntegerField(db_index=True)
+class Suggestion(UnitData, UserDisplayMixin):
     target = models.TextField()
     user = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.deletion.CASCADE
-    )
-    project = models.ForeignKey(
-        'Project', on_delete=models.deletion.CASCADE
     )
     language = models.ForeignKey(
         Language, on_delete=models.deletion.CASCADE
@@ -142,6 +138,9 @@ class Suggestion(models.Model, UserDisplayMixin):
         )
         app_label = 'trans'
         ordering = ['-timestamp']
+        index_together = [
+            ('project', 'language', 'content_hash'),
+        ]
 
     def __str__(self):
         return 'suggestion for {0} by {1}'.format(
@@ -149,9 +148,9 @@ class Suggestion(models.Model, UserDisplayMixin):
             self.user.username if self.user else 'unknown',
         )
 
+    @transaction.atomic
     def accept(self, translation, request, check=can_accept_suggestion):
-        from weblate.trans.models.unit import STATE_TRANSLATED
-        allunits = translation.unit_set.filter(
+        allunits = translation.unit_set.select_for_update().filter(
             content_hash=self.content_hash,
         )
         failure = False
@@ -159,6 +158,10 @@ class Suggestion(models.Model, UserDisplayMixin):
             if not check(request.user, unit):
                 failure = True
                 messages.error(request, _('Failed to accept suggestion!'))
+                continue
+
+            # Skip if there is no change
+            if unit.target == self.target and unit.state >= STATE_TRANSLATED:
                 continue
 
             unit.target = self.target
@@ -172,9 +175,7 @@ class Suggestion(models.Model, UserDisplayMixin):
 
     def delete_log(self, user, change=Change.ACTION_SUGGESTION_DELETE):
         """Delete with logging change"""
-        from weblate.trans.models import get_related_units
-        allunits = get_related_units(self)
-        for unit in allunits:
+        for unit in self.related_units:
             Change.objects.create(
                 unit=unit,
                 action=change,

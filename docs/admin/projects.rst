@@ -118,8 +118,10 @@ Translation instructions
 Set Translation-Team header
     Whether Weblate should manage Translation-Team header (this is
     :ref:`gettext` only feature right now).
-Enable ACL
-    Enable per project access control, see :ref:`acl` for more details.
+Access control
+    Configure per project access control, see :ref:`acl` for more details.
+Enable reviews
+    Enable review workflow, see :ref:`reviews`.
 Enable hooks
     Whether unauthenticated :ref:`hooks` will be enabled for this repository.
 Source language
@@ -148,6 +150,8 @@ Component configuration
 Component is real component for translating. You enter VCS repository location
 and file mask for which files to translate and Weblate automatically fetches from the VCS
 and finds all matching translatable files.
+
+You can find some examples of typical configurations in the :ref:`formats`.
 
 .. note::
 

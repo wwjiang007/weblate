@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -33,6 +33,7 @@ from django.urls import reverse
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.core.management import call_command
 from django.core import mail
+from django.core.cache import cache
 
 from weblate.lang.models import Language
 from weblate.trans.models import (
@@ -65,6 +66,12 @@ class RegistrationTestMixin(object):
         # Return confirmation URL
         return line[18:]
 
+    def assert_notify_mailbox(self, sent_mail):
+        self.assertEqual(
+            sent_mail.subject,
+            '[Weblate] Activity on your account at Weblate'
+        )
+
 
 class ViewTestCase(RepoTestCase):
     def setUp(self):
@@ -78,6 +85,8 @@ class ViewTestCase(RepoTestCase):
         # Create project to have some test base
         self.subproject = self.create_subproject()
         self.project = self.subproject.project
+        # Invalidate caches
+        cache.clear()
         # Login
         self.client.login(username='testuser', password='testpassword')
         # Prepopulate kwargs
@@ -156,7 +165,7 @@ class ViewTestCase(RepoTestCase):
         self.assertEqual(response.status_code, 302)
 
         # We don't use all variables
-        # pylint: disable=W0612
+        # pylint: disable=unused-variable
         scheme, netloc, path, query, fragment = urlsplit(response['Location'])
 
         self.assertEqual(path, exp_path)
@@ -301,13 +310,8 @@ class TranslationManipulationTest(ViewTestCase):
 
 
 class NewLangTest(ViewTestCase):
-    def setUp(self):
-        super(NewLangTest, self).setUp()
-        self.subproject.new_lang = 'add'
-        self.subproject.save()
-
     def create_subproject(self):
-        return self.create_po_new_base()
+        return self.create_po_new_base(new_lang='add')
 
     def test_no_permission(self):
         # Remove permission to add translations
@@ -355,6 +359,8 @@ class NewLangTest(ViewTestCase):
         self.assertContains(response, 'http://example.com/instructions')
 
     def test_contact(self):
+        # Add manager to receive notifications
+        self.make_manager()
         self.subproject.new_lang = 'contact'
         self.subproject.save()
 
@@ -480,7 +486,7 @@ class NewLangTest(ViewTestCase):
 
 class AndroidNewLangTest(NewLangTest):
     def create_subproject(self):
-        return self.create_android()
+        return self.create_android(new_lang='add')
 
 
 class BasicViewTest(ViewTestCase):
@@ -625,6 +631,13 @@ class HomeViewTest(ViewTestCase):
         self.user.profile.subscriptions.add(self.project)
         response = self.client.get(reverse('home'))
         self.assertEqual(len(response.context['usersubscriptions']), 1)
+
+    def test_user_hide_completed(self):
+        self.user.profile.hide_completed = True
+        self.user.profile.save()
+
+        response = self.client.get(reverse('home'))
+        self.assertContains(response, 'Test/Test')
 
 
 class SourceStringsTest(ViewTestCase):

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -47,7 +47,6 @@ from weblate.trans.models.search import IndexUpdate
 from weblate.trans.models.change import Change
 from weblate.trans.models.dictionary import Dictionary
 from weblate.trans.models.source import Source
-from weblate.trans.models.advertisement import Advertisement
 from weblate.trans.models.whiteboard import WhiteboardMessage
 from weblate.trans.models.componentlist import (
     ComponentList, AutoComponentList,
@@ -65,7 +64,7 @@ from weblate.utils.decorators import disable_for_loaddata
 __all__ = [
     'Project', 'SubProject', 'Translation', 'Unit', 'Check', 'Suggestion',
     'Comment', 'Vote', 'IndexUpdate', 'Change', 'Dictionary', 'Source',
-    'Advertisement', 'WhiteboardMessage', 'ComponentList',
+    'WhiteboardMessage', 'ComponentList',
     'WeblateConf',
 ]
 
@@ -78,7 +77,7 @@ def delete_object_dir(sender, instance, **kwargs):
     if hasattr(instance, 'is_repo_link') and instance.is_repo_link:
         return
 
-    project_path = instance.get_path()
+    project_path = instance.full_path
 
     # Remove path if it exists
     if os.path.exists(project_path):
@@ -102,23 +101,7 @@ def update_source(sender, instance, **kwargs):
     if instance.check_flags_modified:
         for unit in related_units:
             unit.run_checks()
-
-
-def get_related_units(unitdata):
-    """Return queryset with related units."""
-    related_units = Unit.objects.filter(
-        content_hash=unitdata.content_hash,
-        translation__subproject__project=unitdata.project,
-    )
-    if unitdata.language is not None:
-        related_units = related_units.filter(
-            translation__language=unitdata.language
-        )
-
-    return related_units.select_related(
-        'translation__subproject__project',
-        'translation__language'
-    )
+            unit.translation.invalidate_cache()
 
 
 @receiver(post_save, sender=Check)
@@ -127,11 +110,12 @@ def update_failed_check_flag(sender, instance, **kwargs):
     """Update related unit failed check flag."""
     if instance.language is None:
         return
-    related = get_related_units(instance)
+    related = instance.related_units
     if instance.for_unit is not None:
         related = related.exclude(pk=instance.for_unit)
     for unit in related:
         unit.update_has_failing_check(False)
+        unit.translation.invalidate_cache()
 
 
 @receiver(post_delete, sender=Comment)
@@ -139,13 +123,10 @@ def update_failed_check_flag(sender, instance, **kwargs):
 @disable_for_loaddata
 def update_comment_flag(sender, instance, **kwargs):
     """Update related unit comment flags"""
-    for unit in get_related_units(instance):
+    for unit in instance.related_units:
         # Update unit stats
         unit.update_has_comment()
-
-        # Invalidate counts cache
-        if instance.language is None:
-            unit.translation.invalidate_cache('sourcecomments')
+        unit.translation.invalidate_cache()
 
 
 @receiver(post_delete, sender=Suggestion)
@@ -153,9 +134,10 @@ def update_comment_flag(sender, instance, **kwargs):
 @disable_for_loaddata
 def update_suggestion_flag(sender, instance, **kwargs):
     """Update related unit suggestion flags"""
-    for unit in get_related_units(instance):
+    for unit in instance.related_units:
         # Update unit stats
         unit.update_has_suggestion()
+        unit.translation.invalidate_cache()
 
 
 @receiver(vcs_post_push)

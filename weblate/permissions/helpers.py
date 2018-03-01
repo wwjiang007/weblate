@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -103,7 +103,9 @@ def cache_permission(func):
         if target_object is None:
             obj_key = None
         else:
-            obj_key = target_object.get_full_slug()
+            obj_key = '{}-{}'.format(
+                target_object.__class__.__name__, target_object.pk
+            )
 
         if not hasattr(user, 'acl_permissions_cache'):
             user.acl_permissions_cache = {}
@@ -126,7 +128,7 @@ def can_edit(user, translation, permission):
         return False
     if not has_group_perm(user, permission, translation):
         return False
-    if translation.is_template() \
+    if translation.is_template \
             and not has_group_perm(user, 'trans.save_template', translation):
         return False
     if (not has_group_perm(user, 'trans.override_suggestion', translation) and
@@ -184,7 +186,7 @@ def can_review(user, translation):
 @cache_permission
 def can_add_unit(user, translation):
     """Check whether user can add new unit for given translation."""
-    if not translation.is_template():
+    if not translation.is_template:
         return False
     return can_edit(user, translation, 'trans.add_unit')
 
@@ -225,7 +227,7 @@ def can_vote_suggestion(user, unit=None, translation=None):
         return False
     if not has_group_perm(user, 'trans.vote_suggestion', translation):
         return False
-    if translation.is_template() \
+    if translation.is_template \
             and not has_group_perm(user, 'trans.save_template', translation):
         return False
     return True

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -81,7 +81,8 @@ class AutoTranslationTest(ViewTestCase):
         self.assertRedirects(response, reverse('translation', kwargs=params))
         # Check we've translated something
         translation = self.subproject2.translation_set.get(language_code='cs')
-        self.assertEqual(translation.translated, expected)
+        translation.invalidate_cache()
+        self.assertEqual(translation.stats.translated, expected)
 
     def test_different(self):
         """Test for automatic translation with different content."""

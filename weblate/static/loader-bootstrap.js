@@ -176,11 +176,13 @@ function screenshotResultSet(results) {
     $.each(results, function (idx, value) {
         var row = $(
             '<tr><td class="text"></td>' +
+            '<td class="context"></td>' +
             '<td><a class="add-string btn btn-success"><i class="fa fa-plus"></i> ' +
             gettext('Add to screenshot') +
             '</a><i class="fa fa-spinner fa-spin"></i></tr>'
         );
         row.find('.text').text(value.text);
+        row.find('.context').text(value.context);
         row.find('.add-string').data('pk', value.pk);
         row.find('.fa-spin').hide().attr('id', 'adding-' + value.pk);
         $('#search-results').append(row);
@@ -254,6 +256,17 @@ function processMachineTranslation(data) {
             newRow.append($('<td/>').attr('class', 'target').attr('lang', data.lang).attr('dir', data.dir).text(el.text));
             newRow.append($('<td/>').text(el.source));
             newRow.append($('<td/>').text(el.service));
+            /* Quality score as bar with the text */
+            newRow.append($(
+                '<td>' +
+                '<div class="progress" title="' + el.quality + ' / 100">' +
+                '<div class="progress-bar ' +
+                ( el.quality >= 70 ? 'progress-bar-success' : el.quality >= 50 ? 'progress-bar-warning' : 'progress-bar-danger' ) + '"' +
+                ' role="progressbar" aria-valuenow="' + el.quality + '"' +
+                ' aria-valuemin="0" aria-valuemax="100" style="width: ' + el.quality + '%;"></div>' +
+                '</div>' +
+                '</td>'
+            ));
             /* Translators: Verb for copy operation */
             newRow.append($(
                 '<td>' +
@@ -262,6 +275,8 @@ function processMachineTranslation(data) {
                 gettext('Copy') +
                 '<span class="mt-number text-info"></span>' +
                 '</a>' +
+                '</td>' +
+                '<td>' +
                 '<a class="copymt-save btn btn-xs btn-success">' +
                 '<i class="fa fa-save"></i> ' +
                 gettext('Copy and save') +
@@ -405,16 +420,12 @@ function loadTableSorting() {
                 // Click handler
                 th.click(function () {
 
-                    tbody.find('td,th').filter(function () {
-                        return $(this).index() === myIndex;
-                    }).sortElements(function (a, b) {
-                        return inverse * compareCells($.text([a]), $.text([b]));
-                    }, function () {
-
-                        // parentNode is the element we want to move
-                        return this.parentNode;
-
-                    });
+                    tbody.find('tr').sort(function(a, b) {
+                        return inverse * compareCells(
+                            $.text($(a).find('td,th')[myIndex]),
+                            $.text($(b).find('td,th')[myIndex])
+                        );
+                    }).appendTo(tbody);
                     thead.find('i.sort-button').removeClass('fa-chevron-down fa-chevron-up').addClass('fa-chevron-down sort-none');
                     if (inverse === 1) {
                         $(this).find('i.sort-button').addClass('fa-chevron-down').removeClass('fa-chevron-up sort-none');
@@ -443,32 +454,37 @@ function zenEditor(e) {
     var form = $row.find('form');
     var statusdiv = $('#status-' + checksum).hide();
     var loadingdiv = $('#loading-' + checksum).show();
-    $.post(
-        form.attr('action'),
-        form.serialize(),
-        function (data) {
-            var messages = $('<div>' + data + '</div>');
+    $.ajax({
+        type: 'POST',
+        url: form.attr('action'),
+        data: form.serialize(),
+        dataType: 'json',
+        error: screenshotFailure,
+        success: function (data) {
             loadingdiv.hide();
             statusdiv.show();
-            if (messages.find('.alert-danger').length > 0) {
+            if (data.state == 'danger') {
                 statusdiv.attr('class', 'fa-times-circle text-danger');
-            } else if (messages.find('.alert-warning').length > 0) {
+            } else if (data.state == 'warning') {
                 statusdiv.attr('class', 'fa-exclamation-circle text-warning');
-            } else if (messages.find('.alert-info').length > 0) {
+            } else if (data.state == 'info') {
                 statusdiv.attr('class', 'fa-check-circle text-warning');
             } else {
                 statusdiv.attr('class', 'fa-check-circle text-success');
             }
             statusdiv.addClass('fa').tooltip('destroy');
-            if (data.trim() !== '') {
+            if (data.messages !== '') {
                 statusdiv.tooltip({
                     'html': true,
-                    'title': data
+                    'title': data.messages
                 });
             };
             $row.removeClass('translation-modified').addClass('translation-saved');
+            if (data.translationsum !== '') {
+                $row.find('input[name=translationsum]').val(data.translationsum);
+            }
         }
-    );
+    });
 }
 
 
@@ -1035,16 +1051,11 @@ $(function () {
     };
 
     /* Override all multiple selects, use font awesome for exchange icon */
-    $('select[multiple]').each(function () {
-        $(this).multiSelect({
-            afterInit: function (target) {
-                this.$selectableContainer.prepend(gettext('Available:'));
-                this.$selectionContainer.prepend(gettext('Selected:'));
-                $(target.children()[0]).after(
-                    '<div class="fa-multiselect"><i class="fa fa-exchange"></i></div>'
-                );
-            }
-        });
+    $('select[multiple]').multi({
+        'enable_search': true,
+        'search_placeholder': gettext('Search…'),
+        'non_selected_header': gettext('Available:'),
+        'selected_header': gettext('Selected:')
     });
 
     /* Check dismiss shortcuts */
@@ -1248,7 +1259,7 @@ $(function () {
         // Backup current text
         var backup = $trigger.attr('data-original-title');
         // Change text to copied
-        $trigger.attr('data-original-title', gettext('Copied!')).tooltip('show');
+        $trigger.attr('data-original-title', gettext('Copied')).tooltip('show');
         // Restore original
         $trigger.attr('data-original-title', backup);
     });

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -46,12 +46,12 @@ from django.contrib.auth.models import User
 
 from weblate.lang.data import LOCALE_ALIASES
 from weblate.lang.models import Language
+from weblate.trans.filter import get_filter_choice
 from weblate.trans.models import SubProject, Unit, Project, Change
 from weblate.trans.models.source import PRIORITY_CHOICES
 from weblate.trans.models.unit import (
     STATE_TRANSLATED, STATE_FUZZY, STATE_APPROVED, STATE_EMPTY,
 )
-from weblate.trans.checks import CHECKS
 from weblate.permissions.helpers import (
     can_author_translation, can_overwrite_translation, can_translate,
     can_suggest, can_add_translation, can_mass_add_translation, can_review,
@@ -141,7 +141,7 @@ class ChecksumField(forms.CharField):
     def clean(self, value):
         super(ChecksumField, self).clean(value)
         if not value:
-            return
+            return None
         try:
             return checksum_to_hash(value)
         except ValueError:
@@ -151,7 +151,7 @@ class ChecksumField(forms.CharField):
 class UserField(forms.CharField):
     def clean(self, value):
         if not value:
-            return
+            return None
         try:
             return User.objects.get(Q(username=value) | Q(email=value))
         except User.DoesNotExist:
@@ -269,11 +269,12 @@ class PluralTextarea(forms.Textarea):
 
         return result
 
-    def render(self, name, value, attrs=None, **kwargs):
+    def render(self, name, value, attrs=None, renderer=None, **kwargs):
         """Render all textareas with correct plural labels."""
         unit = value
         values = unit.get_target_plurals()
         lang = unit.translation.language
+        plural = unit.translation.plural
         tabindex = self.attrs['tabindex']
 
         # Need to add extra class
@@ -299,16 +300,17 @@ class PluralTextarea(forms.Textarea):
                 fieldname,
                 val,
                 attrs,
+                renderer,
                 **kwargs
             )
             # Label for plural
             if len(values) == 1:
-                if unit.translation.is_template():
+                if unit.translation.is_template:
                     label = ugettext('Source')
                 else:
                     label = ugettext('Translation')
             else:
-                label = lang.get_plural_label(idx)
+                label = plural.get_plural_label(idx)
             ret.append(
                 EDITOR_TEMPLATE.format(
                     self.get_toolbar(lang, fieldid, unit, idx),
@@ -330,7 +332,7 @@ class PluralTextarea(forms.Textarea):
                             'will be used based on given count (n).'
                         ),
                         ugettext('Plural equation'),
-                        lang.pluralequation
+                        plural.equation
                     )
                 )
             )
@@ -356,10 +358,9 @@ class PluralField(forms.CharField):
     The only difference from CharField is that it does not force value to
     be string.
     """
-    def __init__(self, max_length=None, min_length=None, *args, **kwargs):
+    def __init__(self, max_length=None, min_length=None, **kwargs):
         kwargs['label'] = ''
         super(PluralField, self).__init__(
-            *args,
             widget=PluralTextarea,
             **kwargs
         )
@@ -370,7 +371,7 @@ class PluralField(forms.CharField):
 
     def clean(self, value):
         value = super(PluralField, self).clean(value)
-        if len(value) == 0:
+        if not value:
             raise ValidationError(
                 _('Missing translated string!')
             )
@@ -569,7 +570,7 @@ class SimpleUploadForm(forms.Form):
         """Remove add as translation choice."""
         choices = self.fields['method'].choices
         self.fields['method'].choices = [
-            choice for choice in choices if choice[0] == value
+            choice for choice in choices if choice[0] != value
         ]
 
 
@@ -622,25 +623,7 @@ class FilterField(forms.ChoiceField):
     def __init__(self, *args, **kwargs):
         kwargs['label'] = _('Search filter')
         kwargs['required'] = False
-        kwargs['choices'] = [
-            ('all', _('All strings')),
-            ('nottranslated', _('Not translated strings')),
-            ('todo', _('Strings needing action')),
-            ('translated', _('Translated strings')),
-            ('fuzzy', _('Strings marked for edit')),
-            ('suggestions', _('Strings with suggestions')),
-            ('comments', _('Strings with comments')),
-            ('allchecks', _('Strings with any failing checks')),
-            ('approved', _('Approved strings')),
-            (
-                'approved_suggestions',
-                _('Approved strings with suggestions')
-            ),
-            ('unapproved', _('Strings waiting for review')),
-        ] + [
-            (CHECKS[check].url_id, CHECKS[check].description)
-            for check in CHECKS if CHECKS[check].target
-        ]
+        kwargs['choices'] = get_filter_choice()
         kwargs['error_messages'] = {
             'invalid_choice': _('Please select a valid filter type.'),
         }
@@ -714,7 +697,7 @@ class BaseSearchForm(forms.Form):
 
 class SearchForm(BaseSearchForm):
     """Text searching form."""
-    # pylint: disable=C0103
+    # pylint: disable=invalid-name
     q = forms.CharField(
         label=_('Query'),
         min_length=1,
@@ -834,8 +817,7 @@ class SearchForm(BaseSearchForm):
             )
         elif search_name:
             return search_name
-        else:
-            return filter_name
+        return filter_name
 
     def get_search_query(self):
         return self.cleaned_data['q']
@@ -866,7 +848,7 @@ class MergeForm(ChecksumForm):
     def clean(self):
         super(MergeForm, self).clean()
         if 'unit' not in self.cleaned_data or 'merge' not in self.cleaned_data:
-            return
+            return None
         try:
             project = self.translation.subproject.project
             self.cleaned_data['merge_unit'] = merge_unit = Unit.objects.get(
@@ -892,7 +874,7 @@ class RevertForm(ChecksumForm):
         super(RevertForm, self).clean()
         if ('unit' not in self.cleaned_data or
                 'revert' not in self.cleaned_data):
-            return
+            return None
         try:
             self.cleaned_data['revert_change'] = Change.objects.get(
                 pk=self.cleaned_data['revert'],
@@ -1187,7 +1169,7 @@ class UserManageForm(forms.Form):
     user = UserField(
         label=_('User to add'),
         help_text=_(
-            'Please provide username or e-mail. '
+            'Please provide username or email. '
             'User needs to already have an active account in Weblate.'
         ),
     )

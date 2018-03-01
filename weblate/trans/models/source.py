@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,10 +18,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from django.apps import apps
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.urls import reverse
 from django.utils.encoding import python_2_unicode_compatible
+from django.utils.functional import cached_property
 
 from weblate.trans.validators import validate_check_flags
 from weblate.trans.util import PRIORITY_CHOICES
@@ -29,7 +31,7 @@ from weblate.trans.util import PRIORITY_CHOICES
 
 @python_2_unicode_compatible
 class Source(models.Model):
-    id_hash = models.BigIntegerField(db_index=True)
+    id_hash = models.BigIntegerField()
     subproject = models.ForeignKey(
         'SubProject', on_delete=models.deletion.CASCADE
     )
@@ -52,6 +54,12 @@ class Source(models.Model):
         app_label = 'trans'
         unique_together = ('id_hash', 'subproject')
         ordering = ('id', )
+
+    @cached_property
+    def units_model(self):
+        # Can't cache this property until all the models are loaded.
+        apps.check_models_ready()
+        return apps.get_model('trans', 'Unit')
 
     def __init__(self, *args, **kwargs):
         super(Source, self).__init__(*args, **kwargs)
@@ -87,8 +95,7 @@ class Source(models.Model):
             return None
 
     def units(self):
-        from weblate.trans.models import Unit
-        return Unit.objects.filter(
+        return self.units_model.objects.filter(
             id_hash=self.id_hash,
             translation__subproject=self.subproject
         )

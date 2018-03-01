@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -31,6 +31,7 @@ from weblate.trans.feeds import (
 )
 from weblate.trans.views.changes import ChangesView, ChangesCSVView
 import weblate.accounts.views
+import weblate.addons.views
 import weblate.lang.views
 import weblate.screenshots.views
 import weblate.trans.views.acl
@@ -249,6 +250,16 @@ urlpatterns = [
         r'^new-lang/' + SUBPROJECT + '$',
         weblate.trans.views.basic.new_language,
         name='new-language',
+    ),
+    url(
+        r'^addons/' + SUBPROJECT + '$',
+        weblate.addons.views.AddonList.as_view(),
+        name='addons',
+    ),
+    url(
+        r'^addons/' + SUBPROJECT + '(?P<pk>[0-9]+)/$',
+        weblate.addons.views.AddonDetail.as_view(),
+        name='addon-detail',
     ),
     url(
         r'^access/' + PROJECT + '$',
@@ -956,7 +967,7 @@ urlpatterns = [
 ]
 
 if 'weblate.billing' in settings.INSTALLED_APPS:
-    # pylint: disable=C0413
+    # pylint: disable=wrong-import-position
     import weblate.billing.views
     urlpatterns += [
         url(
@@ -972,7 +983,7 @@ if 'weblate.billing' in settings.INSTALLED_APPS:
     ]
 
 if 'weblate.gitexport' in settings.INSTALLED_APPS:
-    # pylint: disable=C0413
+    # pylint: disable=wrong-import-position
     import weblate.gitexport.views
     urlpatterns += [
         # Redirect clone from the Weblate project URL
@@ -1011,7 +1022,7 @@ if 'weblate.gitexport' in settings.INSTALLED_APPS:
     ]
 
 if 'weblate.legal' in settings.INSTALLED_APPS:
-    # pylint: disable=C0413
+    # pylint: disable=wrong-import-position
     import weblate.legal.views
     urlpatterns += [
         url(
@@ -1030,7 +1041,7 @@ if settings.DEBUG:
     ]
 
 if settings.DEBUG and 'debug_toolbar' in settings.INSTALLED_APPS:
-    # pylint: disable=C0413
+    # pylint: disable=wrong-import-position
     import debug_toolbar
     urlpatterns += [
         url(r'^__debug__/', include(debug_toolbar.urls)),

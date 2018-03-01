@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,8 +22,8 @@
 Tests for review workflow.
 """
 
-from weblate.trans.models.unit import STATE_APPROVED
 from weblate.trans.tests.test_views import ViewTestCase
+from weblate.utils.state import STATE_APPROVED
 
 
 class ReviewTest(ViewTestCase):
@@ -78,7 +78,7 @@ class ReviewTest(ViewTestCase):
         )
 
         # Get ids of created suggestions
-        suggestion = self.get_unit().suggestions()[0].pk
+        suggestion = self.get_unit().suggestions[0].pk
 
         # Accept one of suggestions
         self.edit_unit(

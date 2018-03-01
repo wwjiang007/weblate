@@ -2,7 +2,7 @@
 {% load i18n %}
 <footer class="flip pull-left">
  <ul>
-  <li>{% blocktrans %}Powered by <a href="{{ weblate_url }}">Weblate {{ version }}</a>{% endblocktrans %}</li>
+  <li>{% blocktrans %}Powered by {{ weblate_version_link }}{% endblocktrans %}</li>
   <li><a href="{% url 'about' %}">{% blocktrans %}About Weblate{% endblocktrans %}</a></li>
   {% if legal %}<li><a href="{% url 'legal:index' %}">{% trans "Legal" %}</a></li>{% endif %}
   {% if status_url %}<li><a href="{{ status_url }}">{% trans "Service status" %}</a></li>{% endif %}
@@ -13,7 +13,7 @@
 </footer>
 
 {% if piwik_site_id and piwik_url %}
-<!-- Piwik -->
+<!-- Matomo -->
 <script type="text/javascript">
   var _paq = _paq || [];
   _paq.push(['setCustomVariable', 1, 'Language', '{{ LANGUAGE_CODE }}', 'page']);
@@ -31,7 +31,7 @@
   })();
 </script>
 <noscript><p><img src="//{{ piwik_url }}/piwik.php?idsite={{ piwik_site_id }}" style="border:0;" alt="" /></p></noscript>
-<!-- End Piwik Code -->
+<!-- End Matomo Code -->
 {% endif %}
 
 {% if google_analytics_id %}

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -29,9 +29,9 @@ from weblate.trans.formats import ParseError
 from weblate.trans.models import (
     Project, SubProject, Unit, Suggestion,
 )
-from weblate.trans.models.unit import STATE_TRANSLATED
 from weblate.trans.tests.test_models import RepoTestCase
 from weblate.trans.tests.test_views import ViewTestCase
+from weblate.utils.state import STATE_TRANSLATED
 
 
 class SubProjectTest(RepoTestCase):
@@ -47,7 +47,7 @@ class SubProjectTest(RepoTestCase):
         else:
             project.full_clean()
         # Correct path
-        self.assertTrue(os.path.exists(project.get_path()))
+        self.assertTrue(os.path.exists(project.full_path))
         # Count translations
         self.assertEqual(
             project.translation_set.count(), translations
@@ -63,7 +63,7 @@ class SubProjectTest(RepoTestCase):
     def test_create(self):
         project = self.create_subproject()
         self.verify_subproject(project, 3, 'cs', 4)
-        self.assertTrue(os.path.exists(project.get_path()))
+        self.assertTrue(os.path.exists(project.full_path))
 
     def test_create_dot(self):
         project = self._create_subproject(
@@ -71,7 +71,7 @@ class SubProjectTest(RepoTestCase):
             './po/*.po',
         )
         self.verify_subproject(project, 3, 'cs', 4)
-        self.assertTrue(os.path.exists(project.get_path()))
+        self.assertTrue(os.path.exists(project.full_path))
         self.assertEqual('po/*.po', project.filemask)
 
     def test_create_iphone(self):
@@ -176,7 +176,7 @@ class SubProjectTest(RepoTestCase):
         self.verify_subproject(project, 2, 'cs', 4)
 
     def test_create_json_nested(self):
-        project = self.create_json_nested()
+        project = self.create_json_mono(suffix='nested')
         self.verify_subproject(project, 2, 'cs', 4)
 
     def test_create_json_webextension(self):
@@ -322,35 +322,35 @@ class SubProjectDeleteTest(RepoTestCase):
     """SubProject object deleting testing."""
     def test_delete(self):
         project = self.create_subproject()
-        self.assertTrue(os.path.exists(project.get_path()))
+        self.assertTrue(os.path.exists(project.full_path))
         project.delete()
-        self.assertFalse(os.path.exists(project.get_path()))
+        self.assertFalse(os.path.exists(project.full_path))
         self.assertEqual(0, SubProject.objects.count())
 
     def test_delete_link(self):
         project = self.create_link()
         main_project = SubProject.objects.get(slug='test')
-        self.assertTrue(os.path.exists(main_project.get_path()))
+        self.assertTrue(os.path.exists(main_project.full_path))
         project.delete()
-        self.assertTrue(os.path.exists(main_project.get_path()))
+        self.assertTrue(os.path.exists(main_project.full_path))
 
     def test_delete_all(self):
         project = self.create_subproject()
-        self.assertTrue(os.path.exists(project.get_path()))
+        self.assertTrue(os.path.exists(project.full_path))
         SubProject.objects.all().delete()
-        self.assertFalse(os.path.exists(project.get_path()))
+        self.assertFalse(os.path.exists(project.full_path))
 
 
 class SubProjectChangeTest(RepoTestCase):
     """SubProject object change testing."""
     def test_rename(self):
         subproject = self.create_subproject()
-        old_path = subproject.get_path()
+        old_path = subproject.full_path
         self.assertTrue(os.path.exists(old_path))
         subproject.slug = 'changed'
         subproject.save()
         self.assertFalse(os.path.exists(old_path))
-        self.assertTrue(os.path.exists(subproject.get_path()))
+        self.assertTrue(os.path.exists(subproject.full_path))
 
     def test_change_project(self):
         subproject = self.create_subproject()
@@ -364,7 +364,7 @@ class SubProjectChangeTest(RepoTestCase):
         self.assertEqual(subproject.project.suggestion_set.count(), 1)
 
         # Check current path exists
-        old_path = subproject.get_path()
+        old_path = subproject.full_path
         self.assertTrue(os.path.exists(old_path))
 
         # Crete target project
@@ -379,7 +379,7 @@ class SubProjectChangeTest(RepoTestCase):
         subproject.save()
 
         # Check new path exists
-        new_path = subproject.get_path()
+        new_path = subproject.full_path
         self.assertTrue(os.path.exists(new_path))
 
         # Check paths differ
@@ -529,8 +529,8 @@ class SubProjectValidationTest(RepoTestCase):
         self.component.file_format = 'po'
         self.component.save()
 
-        # Clean class cache, pylint: disable=W0212
-        self.component._file_format = None
+        # Clean class cache, pylint: disable=protected-access
+        del self.component.__dict__['file_format']
 
         # With correct format it should validate
         self.component.full_clean()
@@ -604,7 +604,7 @@ class SubProjectErrorTest(RepoTestCase):
         )
 
     def test_failed_push(self):
-        testfile = os.path.join(self.component.get_path(), 'README.md')
+        testfile = os.path.join(self.component.full_path, 'README.md')
         with open(testfile, 'a') as handle:
             handle.write('CHANGE')
         with self.component.repository.lock:
@@ -616,7 +616,7 @@ class SubProjectErrorTest(RepoTestCase):
     def test_failed_reset(self):
         # Corrupt Git database so that reset fails
         shutil.rmtree(
-            os.path.join(self.component.get_path(), '.git', 'objects', 'pack')
+            os.path.join(self.component.full_path, '.git', 'objects', 'pack')
         )
         self.assertFalse(
             self.component.do_reset(None)
@@ -624,8 +624,8 @@ class SubProjectErrorTest(RepoTestCase):
 
     def test_invalid_templatename(self):
         self.component.template = 'foo.bar'
-        # Clean class cache, pylint: disable=W0212
-        self.component._template_store = None
+        # Clean class cache, pylint: disable=protected-access
+        del self.component.__dict__['template_store']
 
         self.assertRaises(
             ParseError,
@@ -649,7 +649,7 @@ class SubProjectErrorTest(RepoTestCase):
         )
 
     def test_invalid_storage(self):
-        testfile = os.path.join(self.component.get_path(), 'ts-mono', 'cs.ts')
+        testfile = os.path.join(self.component.full_path, 'ts-mono', 'cs.ts')
         with open(testfile, 'a') as handle:
             handle.write('CHANGE')
         translation = self.component.translation_set.get(language_code='cs')
@@ -663,12 +663,12 @@ class SubProjectErrorTest(RepoTestCase):
         )
 
     def test_invalid_template_storage(self):
-        testfile = os.path.join(self.component.get_path(), 'ts-mono', 'en.ts')
+        testfile = os.path.join(self.component.full_path, 'ts-mono', 'en.ts')
         with open(testfile, 'a') as handle:
             handle.write('CHANGE')
 
-        # Clean class cache, pylint: disable=W0212
-        self.component._template_store = None
+        # Clean class cache, pylint: disable=protected-access
+        del self.component.__dict__['template_store']
 
         self.assertRaises(
             ParseError,
@@ -694,9 +694,9 @@ class SubProjectEditTest(ViewTestCase):
             self.remove_units(self.subproject.template_store.store)
         self.remove_units(translation.store.store)
 
-        # Clean class cache, pylint: disable=W0212
-        self.subproject._template_store = None
-        translation._store = None
+        # Clean class cache, pylint: disable=protected-access
+        del self.subproject.__dict__['template_store']
+        del translation.__dict__['store']
 
         unit = translation.unit_set.all()[0]
         request = self.get_request('/')
@@ -721,8 +721,8 @@ class SubProjectEditMonoTest(SubProjectEditTest):
 
         self.remove_units(translation.store.store)
 
-        # Clean class cache, pylint: disable=W0212
-        translation._store = None
+        # Clean class cache, pylint: disable=protected-access
+        del translation.__dict__['store']
 
         unit = translation.unit_set.all()[0]
         request = self.get_request('/')

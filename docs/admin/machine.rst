@@ -128,6 +128,24 @@ To enable this service, add ``weblate.trans.machine.microsoft.MicrosoftCognitive
     `Cognitive Services - Text Translation API <http://docs.microsofttranslator.com/text-translate.html>`_,
     `Microsoft Azure Portal <https://portal.azure.com/>`_
 
+.. _ms-terminology:
+
+Microsoft Terminology Service
+-----------------------------
+
+.. versionadded:: 2.19
+
+The Microsoft Terminology Service API allows you to programmatically access the
+terminology, definitions and user interface (UI) strings available on the
+Language Portal through a web service.
+
+To enable this service, add ``weblate.trans.machine.microsoft.MicrosoftTerminologyService`` to
+:setting:`MACHINE_TRANSLATION_SERVICES`.
+
+.. seealso::
+
+    `Microsoft Terminology Service API <https://www.microsoft.com/en-us/language/Microsoft-Terminology-API>`_
+
 .. _mymemory:
 
 MyMemory
@@ -203,7 +221,8 @@ To enable this service, add ``weblate.trans.machine.yandex.YandexTranslation`` t
 .. seealso::
 
     :setting:`MT_YANDEX_KEY`,
-    `Yandex Translate API <https://tech.yandex.com/translate/>`_
+    `Yandex Translate API <https://tech.yandex.com/translate/>`_,
+    `Powered by Yandex.Translate <http://translate.yandex.com/>`_
 
 Weblate
 -------
@@ -224,6 +243,36 @@ string matching) to :setting:`MACHINE_TRANSLATION_SERVICES`.
 
     For similarity matching, it is recommended to have Whoosh 2.5.2 or later;
     earlier versions can cause infinite looks under some conditions.
+
+.. _saptranslationhub:
+
+SAP Translation Hub
+-------------------
+
+Machine translation service provided by SAP.
+
+You need to have a SAP account (and enabled the SAP Translation Hub in the SAP Cloud 
+Platform) to use this service.
+
+To enable this service, add ``weblate.trans.machine.saptranslationhub.SAPTranslationHub`` to
+:setting:`MACHINE_TRANSLATION_SERVICES`.
+
+... note::
+
+    To access the Sandbox API, you need to set :setting:`MT_SAP_BASE_URL`
+    and :setting:`MT_SAP_SANDBOX_APIKEY`.
+    
+    To access the productive API, you need to set :setting:`MT_SAP_BASE_URL`,
+    :setting:`MT_SAP_USERNAME` and :setting:`MT_SAP_PASSWORD`.
+
+.. seealso::
+
+    :setting:`MT_SAP_BASE_URL`,
+    :setting:`MT_SAP_SANDBOX_APIKEY`,
+    :setting:`MT_SAP_USERNAME`,
+    :setting:`MT_SAP_PASSWORD`,
+    :setting:`MT_SAP_USE_MT`
+    `SAP Translation Hub API <https://api.sap.com/shell/discover/contentpackage/SAPTranslationHub/api/translationhub>`_
 
 Custom machine translation
 --------------------------

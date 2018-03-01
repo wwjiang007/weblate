@@ -146,6 +146,17 @@ form submission (:mimetype:`application/x-www-form-urlencoded`) or as JSON
         -H "Authorization: Token TOKEN" \
         http://example.com/api/components/hello/weblate/repository/
 
+Rate limiting
+~~~~~~~~~~~~~
+
+The API requests are rate limited, the default configuration limits it to 100
+requests per day for anonymous user and 1000 requests per day for authenticated
+users.
+
+Rate limiting can be adjusted in the :file:`settings.py`, see 
+`Throttling in Django REST framework documentation <http://www.django-rest-framework.org/api-guide/throttling/>`_
+for more details how to configure it.
+
 API Entry Point
 +++++++++++++++
 
@@ -203,8 +214,6 @@ Languages
     :type language: string
     :>json string code: Language code
     :>json string direction: Text direction
-    :>json int nplurals: Number of plurals
-    :>json string pluralequation: Gettext plural equation
 
     .. seealso::
 
@@ -218,8 +227,6 @@ Languages
             "code": "en",
             "direction": "ltr",
             "name": "English",
-            "nplurals": 2,
-            "pluralequation": "n != 1",
             "url": "http://example.com/api/languages/en/",
             "web_url": "http://example.com/languages/en/"
         }
@@ -267,8 +274,6 @@ Projects
                 "code": "en",
                 "direction": "ltr",
                 "name": "English",
-                "nplurals": 2,
-                "pluralequation": "n != 1",
                 "url": "http://example.com/api/languages/en/",
                 "web_url": "http://example.com/languages/en/"
             },
@@ -463,8 +468,6 @@ Components
                     "code": "en",
                     "direction": "ltr",
                     "name": "English",
-                    "nplurals": 2,
-                    "pluralequation": "n != 1",
                     "url": "http://example.com/api/languages/en/",
                     "web_url": "http://example.com/languages/en/"
                 },
@@ -701,8 +704,6 @@ Translations
                         "code": "en",
                         "direction": "ltr",
                         "name": "English",
-                        "nplurals": 2,
-                        "pluralequation": "n != 1",
                         "url": "http://example.com/api/languages/en/",
                         "web_url": "http://example.com/languages/en/"
                     },
@@ -731,8 +732,6 @@ Translations
                 "code": "cs",
                 "direction": "ltr",
                 "name": "Czech",
-                "nplurals": 3,
-                "pluralequation": "(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2",
                 "url": "http://example.com/api/languages/cs/",
                 "web_url": "http://example.com/languages/cs/"
             },

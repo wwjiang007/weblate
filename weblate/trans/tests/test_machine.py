@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -37,10 +37,13 @@ from weblate.trans.machine.apertium import (
 )
 from weblate.trans.machine.tmserver import AmagamaTranslation
 from weblate.trans.machine.microsoft import (
-    MicrosoftTranslation, MicrosoftCognitiveTranslation,
+    MicrosoftTranslation,
+    MicrosoftCognitiveTranslation,
+    MicrosoftTerminologyService
 )
 from weblate.trans.machine.google import GoogleTranslation, GOOGLE_API_ROOT
 from weblate.trans.machine.yandex import YandexTranslation
+from weblate.trans.machine.saptranslationhub import SAPTranslationHub
 from weblate.trans.machine.weblatetm import (
     WeblateSimilarTranslation, WeblateTranslation
 )
@@ -96,6 +99,131 @@ MYMEMORY_JSON = '''
 AMAGAMA_JSON = '''
 [{"source": "World", "quality": 80.0, "target": "Svět", "rank": 100.0}]
 '''.encode('utf-8')
+SAPTRANSLATIONHUB_JSON = '''
+{
+    "units": [
+        {
+            "textType": "XFLD",
+            "domain": "BC",
+            "key": "LOGIN_USERNAME_FIELD",
+            "value": "User Name",
+            "translations": [
+                {
+                    "language": "es",
+                    "value": "Usuario",
+                    "translationProvider": 0,
+                    "qualityIndex": 100
+                }
+            ]
+        }
+    ]
+}
+'''.encode('utf-8')
+
+TERMINOLOGY_LANGUAGES = '''
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+  <s:Body>
+    <GetLanguagesResponse xmlns="http://api.terminology.microsoft.com/terminology">
+      <GetLanguagesResult xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+        <Language>
+          <Code>af-za</Code>
+        </Language>
+        <Language>
+          <Code>am-et</Code>
+        </Language>
+        <Language>
+          <Code>ar-dz</Code>
+        </Language>
+        <Language>
+          <Code>ar-eg</Code>
+        </Language>
+        <Language>
+          <Code>ar-sa</Code>
+        </Language>
+        <Language>
+          <Code>as-in</Code>
+        </Language>
+        <Language>
+          <Code>az-latn-az</Code>
+        </Language>
+        <Language>
+          <Code>be-by</Code>
+        </Language>
+        <Language>
+          <Code>bg-bg</Code>
+        </Language>
+        <Language>
+          <Code>bn-bd</Code>
+        </Language>
+        <Language>
+          <Code>bn-in</Code>
+        </Language>
+        <Language>
+          <Code>bs-cyrl-ba</Code>
+        </Language>
+        <Language>
+          <Code>bs-latn-ba</Code>
+        </Language>
+        <Language>
+          <Code>ca-es</Code>
+        </Language>
+        <Language>
+          <Code>ca-es-valencia</Code>
+        </Language>
+        <Language>
+          <Code>chr-cher-us</Code>
+        </Language>
+        <Language>
+          <Code>cs-cz</Code>
+        </Language>
+        <Language>
+          <Code>en-us</Code>
+        </Language>
+      </GetLanguagesResult>
+    </GetLanguagesResponse>
+  </s:Body>
+</s:Envelope>
+'''.encode('utf-8')
+TERMINOLOGY_TRANSLATE = '''
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+  <s:Body>
+    <GetTranslationsResponse xmlns="http://api.terminology.microsoft.com/terminology">
+      <GetTranslationsResult xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+        <Match>
+          <ConfidenceLevel>100</ConfidenceLevel>
+          <Count>8</Count>
+          <Definition i:nil="true"/>
+          <OriginalText>Hello World</OriginalText>
+          <Product i:nil="true"/>
+          <ProductVersion i:nil="true"/>
+          <Source i:nil="true"/>
+          <Translations>
+            <Translation>
+              <Language>cs-cz</Language>
+              <TranslatedText>Hello World</TranslatedText>
+            </Translation>
+          </Translations>
+        </Match>
+        <Match>
+          <ConfidenceLevel>100</ConfidenceLevel>
+          <Count>1</Count>
+          <Definition i:nil="true"/>
+          <OriginalText>Hello world.</OriginalText>
+          <Product i:nil="true"/>
+          <ProductVersion i:nil="true"/>
+          <Source i:nil="true"/>
+          <Translations>
+            <Translation>
+              <Language>cs-cz</Language>
+              <TranslatedText>Ahoj sv&#x11B;te.</TranslatedText>
+            </Translation>
+          </Translations>
+        </Match>
+      </GetTranslationsResult>
+    </GetTranslationsResponse>
+  </s:Body>
+</s:Envelope>
+'''.encode('utf-8')
 
 
 class MachineTranslationTest(TestCase):
@@ -144,7 +272,7 @@ class MachineTranslationTest(TestCase):
         translation = machine.translate(lang, word, MockUnit(), None)
         self.assertIsInstance(translation, list)
         if not empty:
-            self.assertTrue(len(translation) > 0)
+            self.assertTrue(translation)
 
     @httpretty.activate
     def test_glosbe(self):
@@ -155,6 +283,7 @@ class MachineTranslationTest(TestCase):
         )
         machine = GlosbeTranslation()
         self.assert_translate(machine)
+        self.assert_translate(machine, word='Zkouška')
 
     @override_settings(MT_MYMEMORY_EMAIL='test@weblate.org')
     @httpretty.activate
@@ -166,6 +295,7 @@ class MachineTranslationTest(TestCase):
         )
         machine = MyMemoryTranslation()
         self.assert_translate(machine)
+        self.assert_translate(machine, word='Zkouška')
 
     @httpretty.activate
     def test_apertium(self):
@@ -183,6 +313,7 @@ class MachineTranslationTest(TestCase):
         )
         machine = ApertiumTranslation()
         self.assert_translate(machine, 'es')
+        self.assert_translate(machine, 'es', word='Zkouška')
 
     @override_settings(MT_APERTIUM_APY='http://apertium.example.com/')
     @httpretty.activate
@@ -201,6 +332,7 @@ class MachineTranslationTest(TestCase):
         )
         machine = ApertiumAPYTranslation()
         self.assert_translate(machine, 'es')
+        self.assert_translate(machine, 'es', word='Zkouška')
 
     @override_settings(MT_MICROSOFT_ID='ID', MT_MICROSOFT_SECRET='SECRET')
     @httpretty.activate
@@ -224,6 +356,7 @@ class MachineTranslationTest(TestCase):
 
         machine = MicrosoftTranslation()
         self.assert_translate(machine)
+        self.assert_translate(machine, word='Zkouška')
 
     @override_settings(MT_MICROSOFT_COGNITIVE_KEY='KEY')
     @httpretty.activate
@@ -248,6 +381,43 @@ class MachineTranslationTest(TestCase):
 
         machine = MicrosoftCognitiveTranslation()
         self.assert_translate(machine)
+        self.assert_translate(machine, word='Zkouška')
+
+    @httpretty.activate
+    def test_microsoft_terminology(self):
+        def request_callback(request, uri, headers):
+            if b'GetLanguages' in request.body:
+                return (200, headers, TERMINOLOGY_LANGUAGES)
+            return (200, headers, TERMINOLOGY_TRANSLATE)
+
+        cache.delete(
+            '{0}-languages'.format(MicrosoftTerminologyService().mtid)
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            'http://api.terminology.microsoft.com/Terminology.svc',
+            body=request_callback,
+            content_type='text/xml',
+        )
+        machine = MicrosoftTerminologyService()
+        self.assert_translate(machine)
+        self.assert_translate(machine, lang='cs_CZ')
+
+    @httpretty.activate
+    def test_microsoft_terminology_error(self):
+        cache.delete(
+            '{0}-languages'.format(MicrosoftTerminologyService().mtid)
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            'http://api.terminology.microsoft.com/Terminology.svc',
+            body='',
+            content_type='text/xml',
+            status=500,
+        )
+        machine = MicrosoftTerminologyService()
+        self.assertEqual(machine.supported_languages, [])
+        self.assert_translate(machine, empty=True)
 
     @override_settings(MT_GOOGLE_KEY='KEY')
     @httpretty.activate
@@ -276,6 +446,7 @@ class MachineTranslationTest(TestCase):
         machine = GoogleTranslation()
         self.assert_translate(machine)
         self.assert_translate(machine, lang='he')
+        self.assert_translate(machine, word='Zkouška')
 
     @override_settings(MT_GOOGLE_KEY='KEY')
     @httpretty.activate
@@ -311,8 +482,14 @@ class MachineTranslationTest(TestCase):
             'https://amagama-live.translatehouse.org/api/v1/en/cs/unit/world',
             body=AMAGAMA_JSON
         )
+        httpretty.register_uri(
+            httpretty.GET,
+            'https://amagama-live.translatehouse.org/api/v1/en/cs/unit/Zkou%C5%A1ka',
+            body=AMAGAMA_JSON
+        )
         machine = AmagamaTranslation()
         self.assert_translate(machine)
+        self.assert_translate(machine, word='Zkouška')
 
     @httpretty.activate
     def test_amagama(self):
@@ -326,8 +503,14 @@ class MachineTranslationTest(TestCase):
             'https://amagama-live.translatehouse.org/api/v1/en/cs/unit/world',
             body=AMAGAMA_JSON
         )
+        httpretty.register_uri(
+            httpretty.GET,
+            'https://amagama-live.translatehouse.org/api/v1/en/cs/unit/Zkou%C5%A1ka',
+            body=AMAGAMA_JSON
+        )
         machine = AmagamaTranslation()
         self.assert_translate(machine)
+        self.assert_translate(machine, word='Zkouška')
 
     @override_settings(MT_YANDEX_KEY='KEY')
     @httpretty.activate
@@ -345,6 +528,7 @@ class MachineTranslationTest(TestCase):
         )
         machine = YandexTranslation()
         self.assert_translate(machine)
+        self.assert_translate(machine, word='Zkouška')
 
     @override_settings(MT_YANDEX_KEY='KEY')
     @httpretty.activate
@@ -361,6 +545,62 @@ class MachineTranslationTest(TestCase):
             body=b'{"code": 401, "message": "Invalid request"}'
         )
         machine = YandexTranslation()
+        self.assertEqual(machine.supported_languages, [])
+        self.assert_translate(machine, empty=True)
+
+    @override_settings(MT_SAP_BASE_URL='http://sth.example.com/')
+    @httpretty.activate
+    def test_saptranslationhub(self):
+        cache.delete('{0}-languages'.format(SAPTranslationHub().mtid))
+        httpretty.register_uri(
+            httpretty.GET,
+            'http://sth.example.com/languages',
+            body=json.dumps(
+                {
+                    'languages': [
+                        {
+                            'id': 'en',
+                            'name': 'English',
+                            'bcp-47-code': 'en'
+                        },
+                        {
+                            'id': 'cs',
+                            'name': 'Czech',
+                            'bcp-47-code': 'cs'
+                        }
+                    ]
+                }
+            ),
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            'http://sth.example.com/translate',
+            body=SAPTRANSLATIONHUB_JSON,
+            status=200,
+            content_type='text/json'
+        )
+        machine = SAPTranslationHub()
+        self.assert_translate(machine)
+        self.assert_translate(machine, word='Zkouška')
+
+    @override_settings(MT_SAP_BASE_URL='http://sth.example.com/')
+    @httpretty.activate
+    def test_saptranslationhub_invalid(self):
+        cache.delete('{0}-languages'.format(SAPTranslationHub().mtid))
+        httpretty.register_uri(
+            httpretty.GET,
+            'http://sth.example.com/languages',
+            body='',
+            status=500
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            'http://sth.example.com/translate',
+            body='',
+            status=500
+        )
+        machine = SAPTranslationHub()
         self.assertEqual(machine.supported_languages, [])
         self.assert_translate(machine, empty=True)
 

@@ -252,10 +252,15 @@ can install it by usual means:
 .. code-block:: sh
 
     # Using PyPI
-    pip install django-auth-ldap
+    pip install django-auth-ldap>=1.3.0
 
     # Using apt-get
     apt-get install python-django-auth-ldap
+
+.. warning::
+
+    With django-auth-ldap older than 1.3.0 the :ref:`autogroup` will not work
+    properly for newly created users.
 
 Once you have the package installed, you can hook it to Django authentication:
 
@@ -281,6 +286,10 @@ Once you have the package installed, you can hook it to Django authentication:
     # Weblate stores full user name in the first_name attribute
     AUTH_LDAP_USER_ATTR_MAP = {
         'first_name': 'name',
+        # Use following if your LDAP server does not have full name
+        # Weblate will merge them later
+        # 'first_name': 'givenName',
+        # 'last_name': 'sn',
         'email': 'mail',
     }
 
@@ -296,7 +305,7 @@ Once you have the package installed, you can hook it to Django authentication:
 
 .. seealso::
 
-    `Django Authentication Using LDAP <https://pythonhosted.org/django-auth-ldap/>`_
+    :doc:`ldap:index`
 
 
 CAS authentication

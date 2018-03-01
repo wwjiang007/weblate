@@ -36,21 +36,21 @@
 {% if item.unit.previous_source and item.unit.fuzzy %}
 <div class="form-group">
 <label>{% trans "Source change" %}</label>
-{% format_translation item.unit.source item.unit.translation.subproject.project.source_language diff=item.unit.previous_source num_plurals=item.unit.translation.language.nplurals %}
+{% format_translation item.unit.source item.unit.translation.subproject.project.source_language diff=item.unit.previous_source num_plurals=item.unit.translation.plural.number %}
 </div>
-{% endif %}
-
-{% if not user.profile.hide_source_secondary or not item.secondary %}
-{% format_translation item.unit.source item.unit.translation.subproject.project.source_language search_match=search_query num_plurals=item.unit.translation.language.nplurals unit=item.unit %}
 {% endif %}
 
 {% if item.secondary %}
 {% for unit in item.secondary %}
 <div class="form-group">
 <label>{{ unit.translation.language }}</label>
-{% format_translation unit.target unit.translation.language %}
+{% format_translation unit.target unit.translation.language unit.translation.plural %}
 </div>
 {% endfor %}
+{% endif %}
+
+{% if not user.profile.hide_source_secondary or not item.secondary %}
+{% format_translation item.unit.source item.unit.translation.subproject.project.source_language search_match=search_query num_plurals=item.unit.translation.plural.number unit=item.unit %}
 {% endif %}
 
 </td>
@@ -70,7 +70,8 @@
 {% if last_section %}
 <tbody>
 <tr><td colspan="3" id="last-section">
-{% show_message 'info' _('The translation has come to an end.') %}
+{% trans 'The translation has come to an end.' as msg %}
+{% show_message 'info' msg %}
 </td></tr>
 </tbody>
 {% endif %}

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -136,7 +136,10 @@ class WidgetsRenderTest(FixtureTestCase):
 class WidgetsPercentRenderTest(WidgetsRenderTest):
     def perform_test(self, widget, color):
         for translated in (0, 3, 4):
-            Translation.objects.update(translated=translated)
+            # Fake translated stats
+            for translation in Translation.objects.all():
+                translation.stats.store('translated', translated)
+                translation.stats.save()
             response = self.client.get(
                 reverse(
                     'widget-image',

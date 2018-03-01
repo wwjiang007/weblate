@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,14 +22,13 @@ from __future__ import unicode_literals
 
 from django.utils.encoding import force_text
 
-from weblate.permissions.helpers import can_access_project
 from weblate.trans.machine.base import MachineTranslation
-from weblate.trans.models.unit import Unit
+from weblate.trans.models import Unit, Project
 
 
 class WeblateBase(MachineTranslation):
-    """Base class for Weblate based MT"""
-    # pylint: disable=W0223
+    """Base abstract class for Weblate based MT"""
+    # pylint: disable=abstract-method
 
     def is_supported(self, source, language):
         """Any language is supported."""
@@ -54,13 +53,14 @@ class WeblateTranslation(WeblateBase):
 
     def download_translations(self, source, language, text, unit, user):
         """Download list of possible translations from a service."""
-        matching_units = Unit.objects.same_source(unit)
+        matching_units = Unit.objects.prefetch().filter(
+            translation__subproject__project__in=Project.objects.all_acl(user)
+        ).same_source(unit)
 
-        return [
+        return list(set((
             self.format_unit_match(munit, 100)
             for munit in matching_units
-            if can_access_project(user, munit.translation.subproject.project)
-        ]
+        )))
 
 
 class WeblateSimilarTranslation(WeblateBase):
@@ -69,10 +69,11 @@ class WeblateSimilarTranslation(WeblateBase):
 
     def download_translations(self, source, language, text, unit, user):
         """Download list of possible translations from a service."""
-        matching_units = Unit.objects.more_like_this(unit)
+        matching_units = Unit.objects.prefetch().filter(
+            translation__subproject__project__in=Project.objects.all_acl(user)
+        ).more_like_this(unit, 1000)
 
-        return [
-            self.format_unit_match(munit, 50)
+        return list(set((
+            self.format_unit_match(munit, munit.score)
             for munit in matching_units
-            if can_access_project(user, munit.translation.subproject.project)
-        ]
+        )))

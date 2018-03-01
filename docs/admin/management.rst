@@ -177,8 +177,8 @@ You can either define which project or component to update (eg.
 
 .. django-admin-option:: --age HOURS
 
-    Age in hours for committing. If not specified value configured
-    in :ref:`component` is used.
+    Age in hours for committing. If not specified value configured in
+    :ref:`component` is used.
 
 This is most useful if executed periodically from cron or similar tool:
 
@@ -507,6 +507,12 @@ repository).
 You can either define which project or component to update (eg.
 ``weblate/master``) or use ``--all`` to update all existing components.
 
+.. note::
+
+    You seldom need to invoke this, Weblate will automatically load changed
+    files on VCS update. This is needed in case you manually change underlying
+    Weblate VCS repository or in some special cases after upgrade.
+
 lock_translation
 ----------------
 
@@ -535,6 +541,11 @@ Pushes committed changes to upstream VCS repository.
 
 You can either define which project or component to update (eg.
 ``weblate/master``) or use ``--all`` to update all existing components.
+
+.. note::
+
+    Weblate does push changes automatically if :guilabel:`Push on commit` in
+    :ref:`component` is enabled, what is default.
 
 rebuild_index
 -------------
@@ -642,3 +653,8 @@ Fetches remote VCS repositories and updates internal cache.
 
 You can either define which project or component to update (eg.
 ``weblate/master``) or use ``--all`` to update all existing components.
+
+.. note::
+
+    Usually it is better to configure hooks in the repository to trigger
+    :ref:`hooks` instead of regular polling by :djadmin:`updategit`.

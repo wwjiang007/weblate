@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -26,11 +26,13 @@ import traceback
 import multiprocessing
 
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils.encoding import python_2_unicode_compatible
+from django.utils.functional import cached_property
 from django.utils.translation import ugettext as _
-from django.core.cache import cache
+
+import six
 
 from weblate.accounts.models import get_author_name
 from weblate.permissions.helpers import can_translate
@@ -41,6 +43,7 @@ from weblate.trans.models.comment import Comment
 from weblate.trans.models.suggestion import Suggestion
 from weblate.trans.models.change import Change
 from weblate.trans.search import update_index_unit, fulltext_search, more_like
+from weblate.trans.signals import unit_pre_create
 from weblate.accounts.notifications import (
     notify_new_contributor, notify_new_translation
 )
@@ -49,11 +52,9 @@ from weblate.trans.util import (
     is_plural, split_plural, join_plural, get_distinct_translations,
 )
 from weblate.utils.hash import calculate_hash, hash_to_checksum
-
-STATE_EMPTY = 0
-STATE_FUZZY = 10
-STATE_TRANSLATED = 20
-STATE_APPROVED = 30
+from weblate.utils.state import (
+    STATE_TRANSLATED, STATE_FUZZY, STATE_APPROVED, STATE_EMPTY,
+)
 
 SIMPLE_FILTERS = {
     'fuzzy': {'state': STATE_FUZZY},
@@ -67,6 +68,7 @@ SIMPLE_FILTERS = {
     'nottranslated': {'state': STATE_EMPTY},
     'translated': {'state__gte': STATE_TRANSLATED},
     'suggestions': {'has_suggestion': True},
+    'nosuggestions': {'has_suggestion': False},
     'comments': {'has_comment': True},
 }
 
@@ -124,7 +126,8 @@ class UnitManager(models.Manager):
 
 
 class UnitQuerySet(models.QuerySet):
-    def filter_checks(self, rqtype, project, language, ignored=False):
+    def filter_checks(self, rqtype, project, language, ignored=False,
+                      strict=False):
         """Filtering for checks."""
 
         # Filter checks for current project
@@ -143,6 +146,8 @@ class UnitQuerySet(models.QuerySet):
         elif rqtype.startswith('check:'):
             check_id = rqtype[6:]
             if check_id not in CHECKS:
+                if strict:
+                    raise ValueError('Unknown check: {}'.format(check_id))
                 return self.all()
             if CHECKS[check_id].source:
                 checks = checks.filter(language=None)
@@ -154,7 +159,8 @@ class UnitQuerySet(models.QuerySet):
         checks = checks.values_list('content_hash', flat=True)
         return self.filter(content_hash__in=checks)
 
-    def filter_type(self, rqtype, project, language, ignored=False):
+    def filter_type(self, rqtype, project, language, ignored=False,
+                    strict=False):
         """Basic filtering based on unit state or failed checks."""
         if rqtype in SIMPLE_FILTERS:
             return self.filter(**SIMPLE_FILTERS[rqtype])
@@ -172,34 +178,16 @@ class UnitQuerySet(models.QuerySet):
                 rqtype,
                 project,
                 language,
-                ignored
+                ignored,
+                strict=strict
             )
-        else:
-            # Catch anything not matching including 'all'
+        elif rqtype == 'all':
             return self.all()
-
-    def count_type(self, rqtype, translation):
-        """Cached counting of failing checks (and other stats)."""
-        # Try to get value from cache
-        cache_key = 'counts-{0}-{1}-{2}'.format(
-            translation.subproject.get_full_slug(),
-            translation.language.code,
-            rqtype
-        )
-        ret = cache.get(cache_key)
-        if ret is not None:
-            return ret
-
-        # Actually count units
-        ret = self.filter_type(
-            rqtype,
-            translation.subproject.project,
-            translation.language,
-        ).count()
-
-        # Update cache
-        cache.set(cache_key, ret)
-        return ret
+        elif strict:
+            raise ValueError('Unknown filter: {}'.format(rqtype))
+        else:
+            # Catch anything not matching
+            return self.all()
 
     def review(self, date, exclude_user, only_user,
                project=None, subproject=None, language=None, translation=None):
@@ -228,6 +216,7 @@ class UnitQuerySet(models.QuerySet):
         return self.prefetch_related(
             'translation',
             'translation__language',
+            'translation__plural',
             'translation__subproject',
             'translation__subproject__project',
             'translation__subproject__project__source_language',
@@ -301,14 +290,11 @@ class UnitQuerySet(models.QuerySet):
 
     def same_source(self, unit):
         """Find units with same source."""
-        pks = fulltext_search(
-            unit.get_source_plurals()[0],
-            [unit.translation.language.code],
-            {'source': True}
-        )
+        source = unit.get_source_plurals()[0]
 
         return self.filter(
-            pk__in=pks,
+            Q(source__iexact=source) |
+            Q(source__istartswith=join_plural([source, ''])),
             translation__language=unit.translation.language,
             state__gte=STATE_TRANSLATED,
         ).exclude(
@@ -317,6 +303,7 @@ class UnitQuerySet(models.QuerySet):
 
     def more_like_this(self, unit, top=5):
         """Find closely similar units."""
+        source = unit.get_source_plurals()[0]
         if settings.MT_WEBLATE_LIMIT >= 0:
             queue = multiprocessing.Queue()
             proc = multiprocessing.Process(
@@ -333,23 +320,23 @@ class UnitQuerySet(models.QuerySet):
                     'Request for more like {0} timed out.'.format(unit.pk)
                 )
 
-            more_results = queue.get()
+            more_results, scores = queue.get()
         else:
-            more_results = more_like(unit.pk, unit.source, top)
+            more_results, scores = more_like(unit.pk, unit.source, top)
 
-        same_results = fulltext_search(
-            unit.get_source_plurals()[0],
-            [unit.translation.language.code],
-            {'source': True}
-        )
-
-        return self.filter(
-            pk__in=more_results - same_results,
+        result = self.filter(
+            pk__in=more_results,
             translation__language=unit.translation.language,
             state__gte=STATE_TRANSLATED,
         ).exclude(
-            pk=unit.id
+            # These are covered by same_result
+            Q(source__iexact=source) |
+            Q(source__istartswith=join_plural([source, ''])) |
+            Q(pk=unit.id)
         )
+        for item in result:
+            item.score = scores[item.pk]
+        return result
 
     def same(self, unit, exclude=True):
         """Unit with same source within same project."""
@@ -392,7 +379,7 @@ class Unit(models.Model, LoggerMixin):
     translation = models.ForeignKey(
         'Translation', on_delete=models.deletion.CASCADE
     )
-    id_hash = models.BigIntegerField(db_index=True)
+    id_hash = models.BigIntegerField()
     content_hash = models.BigIntegerField(db_index=True)
     location = models.TextField(default='', blank=True)
     context = models.TextField(default='', blank=True)
@@ -412,7 +399,7 @@ class Unit(models.Model, LoggerMixin):
         )
     )
 
-    position = models.IntegerField(db_index=True)
+    position = models.IntegerField()
 
     has_suggestion = models.BooleanField(default=False, db_index=True)
     has_comment = models.BooleanField(default=False, db_index=True)
@@ -420,9 +407,9 @@ class Unit(models.Model, LoggerMixin):
 
     num_words = models.IntegerField(default=0)
 
-    priority = models.IntegerField(default=100, db_index=True)
+    priority = models.IntegerField(default=100)
 
-    pending = models.BooleanField(default=False, db_index=True)
+    pending = models.BooleanField(default=False)
 
     objects = UnitManager.from_queryset(UnitQuerySet)()
 
@@ -435,22 +422,15 @@ class Unit(models.Model, LoggerMixin):
         ordering = ['priority', 'position']
         app_label = 'trans'
         unique_together = ('translation', 'id_hash')
+        index_together = [
+            ('translation', 'pending'),
+            ('priority', 'position'),
+        ]
 
     def __init__(self, *args, **kwargs):
         """Constructor to initialize some cache properties."""
         super(Unit, self).__init__(*args, **kwargs)
-        self._all_flags = None
-        self._source_info = None
-        self._suggestions = None
         self.old_unit = copy(self)
-
-    def get_full_slug(self):
-        return '__'.join((
-            self.translation.subproject.project.slug,
-            self.translation.subproject.slug,
-            self.translation.language.code,
-            self.checksum,
-        ))
 
     def __str__(self):
         return _('{translation}, translation unit {position}').format(
@@ -470,7 +450,7 @@ class Unit(models.Model, LoggerMixin):
     def fuzzy(self):
         return self.state == STATE_FUZZY
 
-    @property
+    @cached_property
     def log_prefix(self):
         return '/'.join((
             self.translation.subproject.project.slug,
@@ -486,24 +466,11 @@ class Unit(models.Model, LoggerMixin):
 
     def get_unit_state(self, unit, created):
         """Calculate translated and fuzzy status"""
-        all_flags = self.translation.subproject.all_flags
-
         translated = unit.is_translated()
         # We need to keep approved/fuzzy state for formats which do not
         # support saving it
         fuzzy = unit.is_fuzzy(self.fuzzy)
         approved = unit.is_approved(self.approved)
-
-        if 'skip-review-flag' in all_flags:
-            approved = False
-            fuzzy = False
-
-        if translated and created:
-            is_template = self.translation.is_template()
-            if is_template and 'add-source-review' in all_flags:
-                fuzzy = True
-            elif not is_template and 'add-review' in all_flags:
-                fuzzy = True
 
         if fuzzy:
             return STATE_FUZZY
@@ -550,7 +517,7 @@ class Unit(models.Model, LoggerMixin):
         same_state = (state == self.state and not created)
 
         # Check if we actually need to change anything
-        # pylint: disable=R0916
+        # pylint: disable=too-many-boolean-expressions
         if (not created and
                 location == self.location and
                 flags == self.flags and
@@ -584,13 +551,15 @@ class Unit(models.Model, LoggerMixin):
         if self.is_plural():
             self.target = join_plural(self.get_target_plurals())
 
+        if created:
+            unit_pre_create.send(sender=self.__class__, unit=self)
+
         # Save into database
         self.save(
             force_insert=created,
             backend=True,
             same_content=same_content,
             same_state=same_state,
-            update_stats=False,
         )
 
         # Create change object for new source string
@@ -601,9 +570,9 @@ class Unit(models.Model, LoggerMixin):
                 unit=self,
             )
         if contentsum_changed:
-            self.update_has_failing_check(recurse=False, update_stats=False)
-            self.update_has_comment(update_stats=False)
-            self.update_has_suggestion(update_stats=False)
+            self.update_has_failing_check(recurse=False)
+            self.update_has_comment()
+            self.update_has_suggestion()
 
     def is_plural(self):
         """Check whether message is plural."""
@@ -623,7 +592,7 @@ class Unit(models.Model, LoggerMixin):
         ret = split_plural(self.target)
 
         # Check if we have expected number of them
-        plurals = self.translation.language.nplurals
+        plurals = self.translation.plural.number
         if len(ret) == plurals:
             return ret
 
@@ -655,6 +624,9 @@ class Unit(models.Model, LoggerMixin):
         Stores unit to backend.
 
         Optional user parameters defines authorship of a change.
+
+        This should be always called in a trasaction with updated unit
+        locked for update.
         """
         # For case when authorship specified, use user from request
         if user is None or user.is_anonymous:
@@ -662,9 +634,6 @@ class Unit(models.Model, LoggerMixin):
 
         # Commit possible previous changes by other author
         self.translation.commit_pending(request, get_author_name(user))
-
-        # Fetch current copy from database and lock it for update
-        self.old_unit = Unit.objects.select_for_update().get(pk=self.pk)
 
         # Return if there was no change
         # We have to explicitly check for fuzzy flag change on monolingual
@@ -681,7 +650,7 @@ class Unit(models.Model, LoggerMixin):
         if propagate:
             self.propagate(request, change_action)
 
-        if self.translation.is_template():
+        if self.translation.is_template:
             self.source = self.target
             self.content_hash = calculate_hash(self.source, self.context)
 
@@ -698,9 +667,9 @@ class Unit(models.Model, LoggerMixin):
         self.save(backend=True)
 
         # Update translation stats
-        old_translated = self.translation.translated
+        old_translated = self.translation.stats.translated
         if change_action != Change.ACTION_UPLOAD:
-            self.translation.update_stats()
+            self.translation.invalidate_cache()
             self.translation.store_hash()
 
         # Notify subscribed users about new translation
@@ -715,18 +684,19 @@ class Unit(models.Model, LoggerMixin):
             self.generate_change(request, user, change_action)
 
         # Force commiting on completing translation
-        if (old_translated < self.translation.translated and
-                self.translation.translated == self.translation.total):
-            self.translation.commit_pending(request)
+        translated = self.translation.stats.translated
+        if (old_translated < translated and
+                translated == self.translation.stats.all):
             Change.objects.create(
                 translation=self.translation,
                 action=Change.ACTION_COMPLETE,
                 user=user,
                 author=user
             )
+            self.translation.commit_pending(request)
 
         # Update related source strings if working on a template
-        if self.translation.is_template():
+        if self.translation.is_template:
             self.update_source_units(self.old_unit.source, user)
 
         return True
@@ -771,8 +741,8 @@ class Unit(models.Model, LoggerMixin):
         )
         # Update source index and stats
         for unit in same_source.iterator():
-            unit.update_has_comment(update_stats=False)
-            unit.update_has_suggestion(update_stats=False)
+            unit.update_has_comment()
+            unit.update_has_suggestion()
             unit.run_checks(False, False)
             update_index_unit(unit)
             Change.objects.create(
@@ -784,7 +754,7 @@ class Unit(models.Model, LoggerMixin):
                 old=previous_source,
                 target=self.source,
             )
-            unit.translation.update_stats()
+            unit.translation.invalidate_cache()
 
     def generate_change(self, request, author, change_action):
         """Create Change entry for saving unit."""
@@ -822,7 +792,7 @@ class Unit(models.Model, LoggerMixin):
         )
 
     def save(self, same_content=False, same_state=False, force_insert=False,
-             backend=False, update_stats=True, **kwargs):
+             backend=False, **kwargs):
         """
         Wrapper around save to warn when save did not come from
         git backend (eg. commit or by parsing file).
@@ -843,28 +813,25 @@ class Unit(models.Model, LoggerMixin):
 
         # Update checks if content or fuzzy flag has changed
         if not same_content or not same_state:
-            self.run_checks(
-                same_state, same_content, force_insert, update_stats
-            )
+            self.run_checks(same_state, same_content, force_insert)
 
         # Update fulltext index if content has changed or this is a new unit
         if force_insert or not same_content:
             update_index_unit(self)
 
+    @cached_property
     def suggestions(self):
         """Return all suggestions for this unit."""
-        if self._suggestions is None:
-            self._suggestions = Suggestion.objects.filter(
-                content_hash=self.content_hash,
-                project=self.translation.subproject.project,
-                language=self.translation.language
-            )
-        return self._suggestions
+        return Suggestion.objects.filter(
+            content_hash=self.content_hash,
+            project=self.translation.subproject.project,
+            language=self.translation.language
+        )
 
     def cleanup_checks(self, source, target):
         """Cleanup listed source and target checks."""
         # Short circuit if there is nothing to cleanup
-        if len(source) == 0 and len(target) == 0:
+        if not source and not target:
             return False
         todelete = Check.objects.filter(
             content_hash=self.content_hash,
@@ -934,7 +901,7 @@ class Unit(models.Model, LoggerMixin):
         Returns tuple of checks to run and whether to do cleanup.
         """
         # Run only source checks on template
-        if self.translation.is_template():
+        if self.translation.is_template:
             return {x: y for x, y in CHECKS.data.items() if y.source}, True
 
         checks_to_run = CHECKS.data
@@ -975,8 +942,7 @@ class Unit(models.Model, LoggerMixin):
 
         return checks_to_run, cleanup_checks
 
-    def run_checks(self, same_state=True, same_content=True, is_new=False,
-                   update_stats=True):
+    def run_checks(self, same_state=True, same_content=True, is_new=False):
         """Update checks for this unit."""
         was_change = False
 
@@ -1035,9 +1001,9 @@ class Unit(models.Model, LoggerMixin):
 
         # Update failing checks flag
         if was_change or is_new or not same_content:
-            self.update_has_failing_check(was_change, update_stats)
+            self.update_has_failing_check(was_change)
 
-    def update_has_failing_check(self, recurse=False, update_stats=True):
+    def update_has_failing_check(self, recurse=False):
         """Update flag counting failing checks."""
         has_failing_check = (
             self.state >= STATE_TRANSLATED and
@@ -1052,24 +1018,15 @@ class Unit(models.Model, LoggerMixin):
                 update_fields=['has_failing_check']
             )
 
-            # Update translation stats
-            if update_stats:
-                self.translation.update_stats()
-
-        # Invalidate checks cache if there was any change
-        # (above code cares only about whether there is failing check
-        # while here we care about any changed in checks)
-        if update_stats:
-            self.translation.invalidate_cache()
-
         if recurse:
             for unit in Unit.objects.same(self):
                 unit.update_has_failing_check(False)
 
-    def update_has_suggestion(self, update_stats=True):
+    def update_has_suggestion(self):
         """Update flag counting suggestions."""
-        self._suggestions = None
-        has_suggestion = len(self.suggestions()) > 0
+        if 'suggestions' in self.__dict__:
+            del self.__dict__['suggestions']
+        has_suggestion = len(self.suggestions) > 0
         if has_suggestion != self.has_suggestion:
             self.has_suggestion = has_suggestion
             self.save(
@@ -1077,11 +1034,7 @@ class Unit(models.Model, LoggerMixin):
                 update_fields=['has_suggestion']
             )
 
-            # Update translation stats
-            if update_stats:
-                self.translation.update_stats()
-
-    def update_has_comment(self, update_stats=True):
+    def update_has_comment(self):
         """Update flag counting comments."""
         has_comment = len(self.get_comments()) > 0
         if has_comment != self.has_comment:
@@ -1091,10 +1044,6 @@ class Unit(models.Model, LoggerMixin):
                 update_fields=['has_comment']
             )
 
-            # Update translation stats
-            if update_stats:
-                self.translation.update_stats()
-
     def nearby(self):
         """Return list of nearby messages based on location."""
         return Unit.objects.prefetch().filter(
@@ -1103,11 +1052,18 @@ class Unit(models.Model, LoggerMixin):
             position__lte=self.position + settings.NEARBY_MESSAGES,
         )
 
+    @transaction.atomic
     def translate(self, request, new_target, new_state, change_action=None,
                   propagate=True):
         """Store new translation of a unit."""
+        # Fetch current copy from database and lock it for update
+        self.old_unit = Unit.objects.select_for_update().get(pk=self.pk)
+
         # Update unit and save it
-        self.target = join_plural(new_target)
+        if isinstance(new_target, six.string_types):
+            self.target = new_target
+        else:
+            self.target = join_plural(new_target)
         if bool(max(new_target)):
             self.state = new_state
         else:
@@ -1120,27 +1076,24 @@ class Unit(models.Model, LoggerMixin):
 
         return saved
 
-    @property
+    @cached_property
     def all_flags(self):
         """Return union of own and subproject flags."""
-        if self._all_flags is None:
-            self._all_flags = set(
-                self.flags.split(',') +
-                self.source_info.check_flags.split(',') +
-                self.translation.subproject.all_flags
-            )
-            self._all_flags.discard('')
-        return self._all_flags
+        flags = set(
+            self.flags.split(',') +
+            self.source_info.check_flags.split(',') +
+            self.translation.subproject.all_flags
+        )
+        flags.discard('')
+        return flags
 
     @property
     def source_info(self):
         """Return related source string object."""
-        if self._source_info is None:
-            self._source_info = Source.objects.get(
-                id_hash=self.id_hash,
-                subproject=self.translation.subproject
-            )
-        return self._source_info
+        return Source.objects.get(
+            id_hash=self.id_hash,
+            subproject=self.translation.subproject
+        )
 
     def get_secondary_units(self, user):
         """Return list of secondary units."""
@@ -1176,7 +1129,7 @@ class Unit(models.Model, LoggerMixin):
                 except ValueError:
                     continue
         # Fallback to reasonably big value
-        return len(self.get_source_plurals()[0]) * 3
+        return len(self.get_source_plurals()[0]) * 10
 
     def get_target_hash(self):
         return calculate_hash(None, self.target)

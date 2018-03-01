@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -27,7 +27,7 @@ from setuptools import setup
 # allow setup.py to be run from any path
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
-with io.open(os.path.join(os.path.dirname(__file__), 'README.rst'), encoding='utf-8') as readme:
+with io.open('README.rst', encoding='utf-8') as readme:
     README = readme.read()
 
 with open('requirements.txt') as requirements:
@@ -40,7 +40,7 @@ DATA_FILES = [
 
 setup(
     name='Weblate',
-    version='2.19',
+    version='2.20',
     packages=[
         'weblate',
     ],

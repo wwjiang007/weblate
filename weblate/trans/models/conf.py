@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -67,6 +67,13 @@ class WeblateConf(AppConf):
 
     # tmserver URL
     MT_TMSERVER = None
+
+    # SAP Translation Hub
+    MT_SAP_BASE_URL = None
+    MT_SAP_SANDBOX_APIKEY = None
+    MT_SAP_USERNAME = None
+    MT_SAP_PASSWORD = None
+    MT_SAP_USE_MT = True
 
     # Limit (in seconds) for Weblate machine translation
     MT_WEBLATE_LIMIT = 15
@@ -179,7 +186,7 @@ class WeblateConf(AppConf):
     # Captcha for registrations
     REGISTRATION_CAPTCHA = True
 
-    # Piwik
+    # Matomo
     PIWIK_SITE_ID = None
     PIWIK_URL = None
 
@@ -188,9 +195,6 @@ class WeblateConf(AppConf):
 
     # URL with status monitoring
     STATUS_URL = None
-
-    # Self advertisement
-    SELF_ADVERTISEMENT = False
 
     # Use simple language codes for default language/country combinations
     SIMPLIFY_LANGUAGES = True

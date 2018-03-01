@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -150,21 +150,6 @@ def notify_new_language(subproject, language, user):
                 owner.profile, subproject, language, user
             )
         )
-
-    # Notify admins
-    mails.append(
-        get_notification_email(
-            'en',
-            'ADMINS',
-            'new_language',
-            subproject,
-            {
-                'language': language,
-                'user': user,
-            },
-            user=user,
-        )
-    )
 
     send_mails(mails)
 
@@ -370,7 +355,7 @@ def is_new_login(user, address):
 
     This is currently based purely in IP address.
     """
-    logins = AuditLog.objects.filter(user=user, activity='login')
+    logins = AuditLog.objects.filter(user=user, activity='login-new')
 
     # First login
     if not logins.exists():
@@ -444,6 +429,7 @@ def send_user(profile, notification, subproject, display_obj,
             headers,
             user=user
         )
+    return None
 
 
 def send_any_translation(profile, unit, oldunit):

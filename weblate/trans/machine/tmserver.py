@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,9 +22,9 @@ from __future__ import unicode_literals
 
 from django.conf import settings
 
-from weblate.trans.machine.base import MachineTranslation, MissingConfiguration
-
 from six.moves.urllib.parse import quote
+
+from weblate.trans.machine.base import MachineTranslation, MissingConfiguration
 
 
 class TMServerTranslation(MachineTranslation):
@@ -60,7 +60,7 @@ class TMServerTranslation(MachineTranslation):
 
     def is_supported(self, source, language):
         """Check whether given language combination is supported."""
-        if len(self.supported_languages) == 0:
+        if not self.supported_languages:
             # Fallback for old tmserver which does not export list of
             # supported languages
             return True
@@ -76,8 +76,10 @@ class TMServerTranslation(MachineTranslation):
         )
         response = self.json_req(url)
 
-        return [(line['target'], line['quality'], self.name, line['source'])
-                for line in response]
+        return [
+            (line['target'], int(line['quality']), self.name, line['source'])
+            for line in response
+        ]
 
 
 class AmagamaTranslation(TMServerTranslation):

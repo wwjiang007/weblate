@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -63,9 +63,8 @@ from weblate.accounts.forms import (
 from weblate.accounts.ratelimit import check_rate_limit
 from weblate.logger import LOGGER
 from weblate.accounts.avatar import get_avatar_image, get_fallback_avatar_url
-from weblate.accounts.models import (
-    set_lang, remove_user, Profile, DEMO_ACCOUNTS
-)
+from weblate.accounts.models import set_lang, Profile, DEMO_ACCOUNTS
+from weblate.accounts.utils import remove_user
 from weblate.utils import messages
 from weblate.trans.models import Change, Project, SubProject, Suggestion
 from weblate.trans.views.helper import get_project
@@ -233,7 +232,7 @@ def user_profile(request):
 
     if not profile.language:
         profile.language = get_language()
-        profile.save()
+        profile.save(update_fields=['language'])
 
     form_classes = [
         ProfileForm,
@@ -553,6 +552,10 @@ class WeblateLoginView(LoginView):
         context['login_backends'] = [x for x in auth_backends if x != 'email']
         context['can_reset'] = 'email' in auth_backends
         context['title'] = _('Login')
+        context['demo_users'] = (
+            ('demo', 'demo', _('Standard user')),
+            ('review', 'review', _('User with reviewer permissions')),
+        )
         return context
 
     @method_decorator(never_cache)
@@ -886,6 +889,7 @@ def social_complete(request, backend):
     - blocks access for demo user
     - gracefuly handle backend errors
     """
+    # pylint: disable=too-many-branches,too-many-return-statements
     def fail(message):
         messages.error(request, message)
         return redirect(reverse('login'))

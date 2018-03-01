@@ -79,6 +79,7 @@
       <li><a href="{% url 'manage-access' project=object.project.slug %}">{% trans "Manage users" %}</a></li>
       {% endif %}
       {% if user_can_edit_subproject %}
+      <li><a href="{% url 'addons' project=object.project.slug subproject=object.slug %}">{% trans "Addons" %}</a></li>
       <li><a href="{% url 'settings' project=object.project.slug subproject=object.slug %}">{% trans "Settings" %}</a></li>
       {% endif %}
     </ul>
@@ -176,8 +177,7 @@
 <div class="panel panel-primary">
 <div class="panel-heading">
 <h4 class="panel-title">
-{% doc_url 'devel/reporting' 'credits' as settings_doc_url %}
-<a class="pull-right flip" href="{{ settings_doc_url }}"><i class="fa fa-question-circle" aria-hidden="true"></i></a>
+{% documentation_icon 'devel/reporting' 'credits' right=True %}
 {% trans "Credits" %}
 </h4>
 </div>
@@ -196,8 +196,7 @@
 <div class="panel panel-primary">
 <div class="panel-heading">
 <h4 class="panel-title">
-{% doc_url 'devel/reporting' 'stats' as settings_doc_url %}
-<a class="pull-right flip" href="{{ settings_doc_url }}"><i class="fa fa-question-circle" aria-hidden="true"></i></a>
+{% documentation_icon 'devel/reporting' 'stats' right=True %}
 {% trans "Contributor stats" %}
 </h4>
 </div>

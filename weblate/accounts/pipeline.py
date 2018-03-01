@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -82,9 +82,9 @@ def reauthenticate(strategy, backend, user, social, uid, weblate_action,
                    **kwargs):
     """Force authentication when adding new association."""
     if strategy.request.session.pop('reauthenticate_done', False):
-        return
+        return None
     if weblate_action != 'activation':
-        return
+        return None
     if user and not social and user.has_usable_password():
         strategy.request.session['reauthenticate'] = {
             'backend': backend.name,
@@ -93,6 +93,7 @@ def reauthenticate(strategy, backend, user, social, uid, weblate_action,
             'user_pk': user.pk,
         }
         return redirect('confirm')
+    return None
 
 
 @partial
@@ -123,10 +124,11 @@ def require_email(backend, details, weblate_action, user=None, is_new=False,
         if backend.name == 'email':
             return {'is_new': True}
 
-        return
+        return None
 
     elif is_new and not details.get('email'):
         return redirect('register')
+    return None
 
 
 def send_validation(strategy, backend, code, partial_token):
@@ -184,6 +186,7 @@ def password_reset(strategy, backend, user, social, details, weblate_action,
         strategy.request.session.set_expiry(90)
         # Redirect to form to change password
         return redirect('password_reset')
+    return None
 
 
 @partial
@@ -200,6 +203,7 @@ def remove_account(strategy, backend, user, social, details, weblate_action,
         strategy.request.session['remove_confirm'] = True
         # Redirect to form to change password
         return redirect('remove')
+    return None
 
 
 def verify_open(strategy, backend, user, weblate_action, **kwargs):
@@ -228,6 +232,7 @@ def cleanup_next(strategy, **kwargs):
         strategy.session_set('next', None)
     if 'next' in kwargs and not is_safe_url(kwargs['next']):
         return {'next': None}
+    return None
 
 
 def store_params(strategy, user, **kwargs):
@@ -260,9 +265,10 @@ def verify_username(strategy, backend, details, user=None, **kwargs):
     taken the username meanwhile.
     """
     if user or 'username' not in details:
-        return
+        return None
     if User.objects.filter(username__iexact=details['username']).exists():
         raise AuthAlreadyAssociated(backend, 'Username exists')
+    return None
 
 
 def revoke_mail_code(strategy, details, **kwargs):
@@ -393,6 +399,12 @@ def user_full_name(strategy, details, user=None, **kwargs):
             else:
                 full_name = last_name
 
+        if not full_name and 'username' in details:
+            full_name = details['username']
+
+        if not full_name and user.username:
+            full_name = user.username
+
         full_name = clean_fullname(full_name)
 
         # The Django User model limit is 30 chars, this should
@@ -400,7 +412,7 @@ def user_full_name(strategy, details, user=None, **kwargs):
         if len(full_name) > 30:
             full_name = full_name[:30]
 
-        if full_name and full_name != user.first_name:
+        if full_name:
             user.first_name = full_name
             strategy.storage.user.changed(user)
 

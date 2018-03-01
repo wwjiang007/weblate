@@ -1,16 +1,44 @@
 Changes
 =======
 
-weblate 2.19
+weblate 2.20
 ------------
 
 Released on ? 2018.
+
+* Improved speed of cloning subversion repositories.
+
+weblate 2.19.1
+--------------
+
+Released on February 20th 2018.
+
+* Fixed migration issue on upgrade from 2.18.
+* Improved file upload API validation.
+
+weblate 2.19
+------------
+
+Released on February 15th 2018.
 
 * Fixed imports across some file formats.
 * Display human friendly browser information in audit log.
 * Added TMX exporter for files.
 * Various performance improvements for loading translation files.
 * Added option to disable access management in Weblate in favor of Django one.
+* Improved glossary lookup speed for large strings.
+* Compatibility with django_auth_ldap 1.3.0.
+* Configuration errors are now stored and reported persistently.
+* Honor ignore flags in whitespace autofixer.
+* Improved compatibility with some Subversion setups.
+* Improved built in machine translation service.
+* Added support for SAP Translation Hub service.
+* Added support for Microsoft Terminology service.
+* Removed support for advertisement in notification mails.
+* Improved translation progress reporting at language level.
+* Improved support for different plural formulas.
+* Added support for Subversion repositories not using stdlayout.
+* Added addons to customize translation workflows.
 
 weblate 2.18
 ------------

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -190,7 +190,7 @@ class RepoTestMixin(object):
             slug='test',
             web='https://weblate.org/'
         )
-        self.addCleanup(shutil.rmtree, project.get_path(), True)
+        self.addCleanup(shutil.rmtree, project.full_path, True)
         return project
 
     def format_local_path(self, path):
@@ -224,7 +224,7 @@ class RepoTestMixin(object):
         if branch is None:
             branch = VCS_REGISTRY[vcs].default_branch
 
-        return SubProject.objects.create(
+        result = SubProject.objects.create(
             name='Test',
             slug='test',
             repo=repo,
@@ -239,6 +239,8 @@ class RepoTestMixin(object):
             vcs=vcs,
             **kwargs
         )
+        result.addons_cache = {}
+        return result
 
     def create_subproject(self):
         """Wrapper method for providing test subproject."""
@@ -289,11 +291,12 @@ class RepoTestMixin(object):
             vcs='subversion'
         )
 
-    def create_po_new_base(self):
+    def create_po_new_base(self, **kwargs):
         return self._create_subproject(
             'po',
             'po/*.po',
-            new_base='po/hello.pot'
+            new_base='po/hello.pot',
+            **kwargs
         )
 
     def create_po_link(self):
@@ -335,11 +338,12 @@ class RepoTestMixin(object):
             'iphone/*.lproj/Localizable.strings',
         )
 
-    def create_android(self):
+    def create_android(self, suffix='', **kwargs):
         return self._create_subproject(
             'aresource',
-            'android/values-*/strings.xml',
-            'android/values/strings.xml',
+            'android{}/values-*/strings.xml'.format(suffix),
+            'android{}/values/strings.xml'.format(suffix),
+            **kwargs
         )
 
     def create_json(self):
@@ -348,18 +352,12 @@ class RepoTestMixin(object):
             'json/*.json',
         )
 
-    def create_json_mono(self):
+    def create_json_mono(self, suffix='mono', **kwargs):
         return self._create_subproject(
             'json',
-            'json-mono/*.json',
-            'json-mono/en.json',
-        )
-
-    def create_json_nested(self):
-        return self._create_subproject(
-            'json',
-            'json-nested/*.json',
-            'json-nested/en.json',
+            'json-{}/*.json'.format(suffix),
+            'json-{}/en.json'.format(suffix),
+            **kwargs
         )
 
     def create_json_webextension(self):

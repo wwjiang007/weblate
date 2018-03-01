@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -217,7 +217,7 @@ class ImportProjectTest(RepoTestCase):
             base_file_template='android/values/strings.xml',
         )
         # We should have loaded one subproject
-        self.assertEqual(project.subproject_set.count(), 1)
+        self.assertEqual(project.subproject_set.count(), 2)
 
     def test_import_aresource_format(self):
         project = self.create_project()
@@ -231,7 +231,7 @@ class ImportProjectTest(RepoTestCase):
             base_file_template='%s/values/strings.xml',
         )
         # We should have loaded one subproject
-        self.assertEqual(project.subproject_set.count(), 1)
+        self.assertEqual(project.subproject_set.count(), 2)
 
     def test_re_import(self):
         project = self.create_project()
@@ -629,7 +629,7 @@ class SuggestionCommandTest(RepoTestCase):
             author=user.email
         )
         translation = self.subproject.translation_set.get(language_code='cs')
-        self.assertEqual(translation.have_suggestion, 1)
+        self.assertEqual(translation.stats.suggestions, 1)
         profile = Profile.objects.get(user__email=user.email)
         self.assertEqual(profile.suggested, 1)
 

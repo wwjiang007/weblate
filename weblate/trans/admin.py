@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -42,6 +42,14 @@ class ProjectAdmin(WeblateModelAdmin):
         )
     list_admins.short_description = _('Administrators')
 
+    def get_total(self, obj):
+        return obj.stats.source_strings
+    get_total.short_description = _('Source strings')
+
+    def get_source_words(self, obj):
+        return obj.stats.source_words
+    get_source_words.short_description = _('Source words')
+
     def num_vcs(self, obj):
         return obj.subproject_set.exclude(repo__startswith='weblate:/').count()
     num_vcs.short_description = _('VCS repositories')
@@ -61,9 +69,15 @@ class ProjectAdmin(WeblateModelAdmin):
         units = Unit.objects.filter(
             translation__subproject__project__in=queryset
         )
+        translations = {}
         for unit in units.iterator():
             unit.run_checks()
+            if unit.translation.id not in translations:
+                translations[unit.translation.id] = unit.translation
             cnt += 1
+
+        for translation in translations.values():
+            translation.invalidate_cache()
         self.message_user(
             request, "Updated checks for {0:d} units.".format(cnt)
         )
@@ -115,6 +129,7 @@ class SubProjectAdmin(WeblateModelAdmin):
         )
         for unit in units.iterator():
             unit.run_checks()
+            unit.translation.invalidate_cache()
             cnt += 1
         self.message_user(
             request,
@@ -207,13 +222,8 @@ class AutoComponentListAdmin(admin.TabularInline):
 class ComponentListAdmin(WeblateModelAdmin):
     list_display = ['name']
     prepopulated_fields = {'slug': ('name',)}
+    filter_horizontal = ('components', )
     inlines = [AutoComponentListAdmin]
-
-
-class AdvertisementAdmin(WeblateModelAdmin):
-    list_display = ['placement', 'date_start', 'date_end', 'text']
-    search_fields = ['text', 'note']
-    date_hierarchy = 'date_end'
 
 
 class SourceAdmin(WeblateModelAdmin):

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -445,6 +445,18 @@ class TranslationAPITest(APIBaseTest):
                 'total': 5
             }
         )
+
+    def test_upload_content(self):
+        self.authenticate()
+        with open(TEST_PO, 'rb') as handle:
+            response = self.client.put(
+                reverse(
+                    'api:translation-file',
+                    kwargs=self.translation_kwargs
+                ),
+                {'file': handle.read()},
+            )
+        self.assertEqual(response.status_code, 400)
 
     def test_upload_overwrite(self):
         self.test_upload()

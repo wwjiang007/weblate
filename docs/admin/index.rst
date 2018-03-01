@@ -15,10 +15,10 @@ Administrators guide
     translating
     checks
     machine
+    addons
     config
     sample
     management
     whiteboard
-    advertisement
     componentlists
     optionals

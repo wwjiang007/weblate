@@ -576,6 +576,7 @@ Some of exceptions you might want to include:
         r'/data/(.*)$',     # Allowing public access to data exports
         r'/hooks/(.*)$',    # Allowing public access to notification hooks
         r'/api/(.*)$',      # Allowing access to API
+        r'/js/i18n/$',      # Javascript localization
     )
 
 .. setting:: MACHINE_TRANSLATION_SERVICES
@@ -601,6 +602,7 @@ List of enabled machine translation services to use.
         'weblate.trans.machine.tmserver.TMServerTranslation',
         'weblate.trans.machine.weblatetm.WeblateSimilarTranslation',
         'weblate.trans.machine.weblatetm.WeblateTranslation',
+        'weblate.trans.machine.saptranslationhub.SAPTranslationHub'
     )
 
 .. seealso::
@@ -739,6 +741,57 @@ API key for Yandex Translate API, you can register at https://tech.yandex.com/tr
 
    :ref:`yandex-translate`, :ref:`machine-translation-setup`, :ref:`machine-translation`
 
+.. setting:: MT_SAP_BASE_URL
+
+MT_SAP_BASE_URL
+---------------
+
+API URL to the SAP Translation Hub service.
+
+.. seealso::
+    :ref:`saptranslationhub`, :ref:`machine-translation-setup`, :ref:`machine-translation`
+
+.. setting:: MT_SAP_SANDBOX_APIKEY
+
+MT_SAP_SANDBOX_APIKEY
+---------------------
+
+API key for sandbox API usage
+
+.. seealso::
+    :ref:`saptranslationhub`, :ref:`machine-translation-setup`, :ref:`machine-translation`
+
+.. setting:: MT_SAP_USERNAME
+
+MT_SAP_USERNAME
+---------------
+
+Your SAP username
+
+.. seealso::
+    :ref:`saptranslationhub`, :ref:`machine-translation-setup`, :ref:`machine-translation`
+
+.. setting:: MT_SAP_PASSWORD
+
+MT_SAP_PASSWORD
+---------------
+
+Your SAP password
+
+.. seealso::
+    :ref:`saptranslationhub`, :ref:`machine-translation-setup`, :ref:`machine-translation`
+
+.. setting:: MT_SAP_USE_MT
+
+MT_SAP_USE_MT
+-------------
+
+Should the machine translation service also be used? (in addition to the term database).
+Possible values: True / False
+
+.. seealso::
+    :ref:`saptranslationhub`, :ref:`machine-translation-setup`, :ref:`machine-translation`
+
 .. setting:: NEARBY_MESSAGES
 
 NEARBY_MESSAGES
@@ -769,7 +822,7 @@ This is the recommended setup for production use.
 PIWIK_SITE_ID
 -------------
 
-ID of a site in Piwik you want to track.
+ID of a site in Matomo you want to track.
 
 .. seealso::
 
@@ -780,8 +833,8 @@ ID of a site in Piwik you want to track.
 PIWIK_URL
 ---------
 
-URL of a Piwik installation you want to use to track Weblate users. For more
-information about Piwik see <https://piwik.org/>.
+URL of a Matomo installation you want to use to track Weblate users. For more
+information about Matomo see <https://matomo.org/>.
 
 .. seealso::
 
@@ -797,11 +850,6 @@ POST_ADD_SCRIPTS
 List of scripts which are allowed as post add scripts. The script needs to be
 later enabled in the :ref:`component`.
 
-Weblate comes with few example hook scripts which you might find useful:
-
-:file:`examples/hook-update-linguas`
-    Updates LINGUAS file or ALL_LINGUAS in confiugure script.
-
 .. seealso::
 
    :ref:`processing`
@@ -815,15 +863,6 @@ POST_UPDATE_SCRIPTS
 
 List of scripts which are allowed as post update scripts. The script needs to be
 later enabled in the :ref:`component`.
-
-Weblate comes with few example hook scripts which you might find useful:
-
-:file:`examples/hook-update-resx`
-    Updates resx file to match template by adding new translations and removing
-    obsolete ones.
-
-:file:`examples/hook-cleanup-android`
-    Removes obsolete units from Android resource strings.
 
 .. seealso::
 
@@ -844,17 +883,6 @@ For example you can allow script which does some cleanup:
     PRE_COMMIT_SCRIPTS = (
         '/usr/local/bin/cleanup-translation',
     )
-
-Weblate comes with few example hook scripts which you might find useful:
-
-:file:`examples/hook-generate-mo`
-    Generates MO file from a PO file
-:file:`examples/hook-unwrap-po`
-    Unwraps lines in a PO file.
-:file:`examples/hook-sort-properties`
-    Sort and cleanups Java properties file.
-:file:`examples/hook-replace-single-quotes`
-    Replaces single quotes in a file.
 
 .. seealso::
 
@@ -930,17 +958,6 @@ A boolean (either ``True`` or ``False``) indicating whether registration of new
 accounts is currently permitted. This setting is optional, and a default of
 True will be assumed if it is not supplied.
 
-.. setting:: SELF_ADVERTISEMENT
-
-SELF_ADVERTISEMENT
-------------------
-
-Enables self advertisement of Weblate in case there are no configured ads.
-
-.. seealso::
-
-   :ref:`advertisement`
-
 .. setting:: SIMPLIFY_LANGUAGES
 
 SIMPLIFY_LANGUAGES
@@ -1007,6 +1024,18 @@ achieved by setting ``WSGIScriptAlias``.
 
     This setting does not work with Django's builtin server, you would have to
     adjust :file:`urls.py` to contain this prefix.
+
+.. setting:: WEBLATE_ADDONS
+
+WEBLATE_ADDONS
+--------------
+
+List of addons available for use. To use them, they have to be enabled for
+given translation component.
+
+.. seealso::
+
+    :ref:`addons`
 
 .. setting:: WHOOSH_INDEX
 

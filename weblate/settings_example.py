@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -52,10 +52,10 @@ DATABASES = {
         # Customizations for databases
         'OPTIONS': {
             # Uncomment for MySQL older than 5.7:
-            # 'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
+            # 'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            # Set emoji capable charset for MySQL:
+            # 'charset': 'utf8mb4',
         },
-        # Wrap each view in a transaction on this database
-        'ATOMIC_REQUESTS': True,
     }
 }
 
@@ -75,6 +75,7 @@ TIME_ZONE = 'UTC'
 LANGUAGE_CODE = 'en-us'
 
 LANGUAGES = (
+    ('ar', 'العربية'),
     ('az', 'Azərbaycan'),
     ('be', 'Беларуская'),
     ('be@latin', 'Biełaruskaja'),
@@ -173,7 +174,7 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            os.path.join(BASE_DIR, 'templates'),
+            os.path.join(BASE_DIR, 'weblate', 'templates'),
         ],
         'OPTIONS': {
             'context_processors': [
@@ -332,6 +333,7 @@ MIDDLEWARE = [
     'social_django.middleware.SocialAuthExceptionMiddleware',
     'weblate.accounts.middleware.RequireLoginMiddleware',
     'weblate.middleware.SecurityMiddleware',
+    'weblate.wladmin.middleware.ConfigurationErrorsMiddleware',
 ]
 
 ROOT_URLCONF = 'weblate.urls'
@@ -352,8 +354,10 @@ INSTALLED_APPS = (
     'compressor',
     'rest_framework',
     'rest_framework.authtoken',
+    'weblate.addons',
     'weblate.trans',
     'weblate.lang',
+    'weblate.langdata',
     'weblate.permissions',
     'weblate.screenshots',
     'weblate.accounts',
@@ -402,7 +406,7 @@ else:
 # more details on how to customize your logging configuration.
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': False,
+    'disable_existing_loggers': True,
     'filters': {
         'require_debug_false': {
             '()': 'django.utils.log.RequireDebugFalse'
@@ -418,6 +422,10 @@ LOGGING = {
         'logfile': {
             'format': '%(asctime)s %(levelname)s %(message)s'
         },
+        'django.server': {
+            '()': 'django.utils.log.ServerFormatter',
+            'format': '[%(server_time)s] %(message)s',
+        }
     },
     'handlers': {
         'mail_admins': {
@@ -430,6 +438,11 @@ LOGGING = {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
             'formatter': 'simple'
+        },
+        'django.server': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'django.server',
         },
         'syslog': {
             'level': 'DEBUG',
@@ -453,6 +466,11 @@ LOGGING = {
             'handlers': ['mail_admins', DEFAULT_LOG],
             'level': 'ERROR',
             'propagate': True,
+        },
+        'django.server': {
+            'handlers': ['django.server'],
+            'level': 'INFO',
+            'propagate': False,
         },
         # Logging database queries
         # 'django.db.backends': {
@@ -497,6 +515,7 @@ if not HAVE_SYSLOG:
 #     'weblate.trans.machine.yandex.YandexTranslation',
 #     'weblate.trans.machine.weblatetm.WeblateSimilarTranslation',
 #     'weblate.trans.machine.weblatetm.WeblateTranslation',
+#     'weblate.trans.machine.saptranslationhub.SAPTranslationHub',
 # )
 
 # Machine translation API keys
@@ -529,6 +548,13 @@ MT_YANDEX_KEY = None
 
 # tmserver URL
 MT_TMSERVER = None
+
+# SAP Translation Hub
+MT_SAP_BASE_URL = None
+MT_SAP_SANDBOX_APIKEY = None
+MT_SAP_USERNAME = None
+MT_SAP_PASSWORD = None
+MT_SAP_USE_MT = True
 
 # Title of site to use
 SITE_TITLE = 'Weblate'
@@ -637,6 +663,19 @@ CRISPY_TEMPLATE_PACK = 'bootstrap3'
 #     'weblate.trans.autofixes.chars.RemoveControlChars',
 # )
 
+# List of enabled addons
+# WEBLATE_ADDONS = (
+#     'weblate.addons.gettext.GenerateMoAddon',
+#     'weblate.addons.gettext.UpdateLinguasAddon',
+#     'weblate.addons.gettext.UpdateConfigureAddon',
+#     'weblate.addons.gettext.MsgmergeAddon',
+#     'weblate.addons.cleanup.CleanupAddon',
+#     'weblate.addons.flags.SourceEditAddon',
+#     'weblate.addons.flags.TargetEditAddon',
+#     'weblate.addons.generate.GenerateFileAddon',
+# )
+
+
 # List of scripts to use in custom processing
 # POST_UPDATE_SCRIPTS = (
 # )
@@ -709,6 +748,7 @@ REST_FRAMEWORK = {
 #    r'/data/(.*)$',     # Allowing public access to data exports
 #    r'/hooks/(.*)$',    # Allowing public access to notification hooks
 #    r'/api/(.*)$',      # Allowing access to API
+#    r'/js/i18n/$',      # Javascript localization
 # )
 
 # Force sane test runner

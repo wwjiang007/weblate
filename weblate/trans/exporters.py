@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -89,10 +89,9 @@ class BaseExporter(object):
     def handle_plurals(self, plurals):
         if len(plurals) == 1:
             return self.string_filter(plurals[0])
-        else:
-            return multistring(
-                [self.string_filter(plural) for plural in plurals]
-            )
+        return multistring(
+            [self.string_filter(plural) for plural in plurals]
+        )
 
     def get_storage(self):
         raise NotImplementedError()
@@ -175,6 +174,7 @@ class PoExporter(BaseExporter):
 
     def get_storage(self):
         store = pofile()
+        plural = self.language.plural
 
         # Set po file header
         store.updateheader(
@@ -184,7 +184,7 @@ class PoExporter(BaseExporter):
             project_id_version='{0} ({1})'.format(
                 self.language.name, self.project.name
             ),
-            plural_forms=self.language.get_plural_form(),
+            plural_forms=plural.plural_form,
             language_team='{0} <{1}>'.format(
                 self.language.name,
                 self.url
@@ -199,8 +199,7 @@ class XMLExporter(BaseExporter):
     def string_filter(self, text):
         if six.PY2 and not isinstance(text, six.text_type):
             return text.translate(None, _CHARMAP2)
-        else:
-            return text.translate(_CHARMAP)
+        return text.translate(_CHARMAP)
 
     def get_storage(self):
         raise NotImplementedError()
@@ -261,6 +260,7 @@ class MoExporter(BaseExporter):
 
     def get_storage(self):
         store = mofile()
+        plural = self.language.plural
 
         # Set po file header
         store.updateheader(
@@ -270,7 +270,7 @@ class MoExporter(BaseExporter):
             project_id_version='{0} ({1})'.format(
                 self.language.name, self.project.name
             ),
-            plural_forms=self.language.get_plural_form(),
+            plural_forms=plural.plural_form,
             language_team='{0} <{1}>'.format(
                 self.language.name,
                 self.url

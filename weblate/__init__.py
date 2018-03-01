@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -34,7 +34,7 @@ def get_root_dir():
 
 
 # Weblate version
-VERSION = '2.19-dev'
+VERSION = '2.20-dev'
 
 # Version string without suffix
 VERSION_BASE = VERSION.replace('-dev', '')

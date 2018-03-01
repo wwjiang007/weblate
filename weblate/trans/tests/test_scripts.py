@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -63,7 +63,7 @@ class ScriptTest(RepoTestCase, TempDirMixin):
         """Check file content and cleans it."""
         with open(self.output, 'r') as handle:
             data = handle.read()
-            self.assertIn(subproject.get_path(), data)
+            self.assertIn(subproject.full_path, data)
 
         with open(self.output, 'w') as handle:
             handle.write('')

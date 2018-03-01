@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,8 +19,6 @@
 #
 """Minimal distributed version control system abstraction for Weblate needs."""
 from __future__ import unicode_literals
-# For some reasons, this fails in PyLint sometimes...
-# pylint: disable=E0611,F0401
 from distutils.version import LooseVersion
 import email.utils
 import hashlib
@@ -33,8 +31,14 @@ import logging
 
 from dateutil import parser
 
+from defusedxml import ElementTree
+
 from django.conf import settings
+from django.core.cache import cache
 from django.utils.encoding import force_text
+from django.utils.functional import cached_property
+
+from filelock import FileLock
 
 import six
 from six.moves.configparser import RawConfigParser
@@ -42,7 +46,6 @@ from six.moves.configparser import RawConfigParser
 from weblate.trans.util import (
     get_clean_env, add_configuration_error, path_separator
 )
-from weblate.utils.filelock import FileLock
 from weblate.trans.ssh import get_wrapper_filename, create_ssh_wrapper
 
 LOGGER = logging.getLogger('weblate-vcs')
@@ -85,8 +88,6 @@ class RepositoryException(Exception):
 
 class Repository(object):
     """Basic repository object."""
-    _last_revision = None
-    _last_remote_revision = None
     _cmd = 'false'
     _cmd_last_revision = None
     _cmd_last_remote_revision = None
@@ -156,11 +157,12 @@ class Repository(object):
         return get_clean_env({'GIT_SSH': get_wrapper_filename()})
 
     @classmethod
-    def _popen(cls, args, cwd=None, err=False):
+    def _popen(cls, args, cwd=None, err=False, fullcmd=False):
         """Execute the command using popen."""
         if args is None:
             raise RepositoryException(0, 'Not supported functionality', '')
-        args = [cls._cmd] + args
+        if not fullcmd:
+            args = [cls._cmd] + args
         process = subprocess.Popen(
             args,
             cwd=cwd,
@@ -187,35 +189,34 @@ class Repository(object):
             return output_err.decode('utf-8')
         return output.decode('utf-8')
 
-    def execute(self, args, needs_lock=True):
+    def execute(self, args, needs_lock=True, fullcmd=False):
         """Execute command and caches its output."""
         if needs_lock and not self.lock.is_locked:
-            raise RuntimeWarning('Repository operation without lock held!')
+            raise RuntimeError('Repository operation without lock held!')
         # On Windows we pass Unicode object, on others UTF-8 encoded bytes
         if sys.platform != "win32":
             args = [arg.encode('utf-8') for arg in args]
-        self.last_output = self._popen(args, self.path)
+        self.last_output = self._popen(args, self.path, fullcmd=fullcmd)
         return self.last_output
 
-    @property
+    def clean_revision_cache(self):
+        if 'last_revision' in self.__dict__:
+            del self.__dict__['last_revision']
+        if 'last_remote_revision' in self.__dict__:
+            del self.__dict__['last_remote_revision']
+
+    @cached_property
     def last_revision(self):
         """Return last local revision."""
-        if self._last_revision is None:
-            self._last_revision = self.execute(
-                self._cmd_last_revision,
-                needs_lock=False
-            )
-        return self._last_revision
+        return self.execute(self._cmd_last_revision, needs_lock=False)
 
-    @property
+    @cached_property
     def last_remote_revision(self):
         """Return last remote revision."""
-        if self._last_remote_revision is None:
-            self._last_remote_revision = self.execute(
-                self._cmd_last_remote_revision,
-                needs_lock=False
-            )
-        return self._last_remote_revision
+        return self.execute(
+            self._cmd_last_remote_revision,
+            needs_lock=False
+        )
 
     @classmethod
     def _clone(cls, source, target, branch=None):
@@ -225,13 +226,14 @@ class Repository(object):
     @classmethod
     def clone(cls, source, target, branch=None):
         """Clone repository and return object for cloned repository."""
+        create_ssh_wrapper()
         cls._clone(source, target, branch)
         return cls(target, branch)
 
     def update_remote(self):
         """Update remote repository."""
         self.execute(self._cmd_update_remote)
-        self._last_remote_revision = None
+        self.clean_revision_cache()
 
     def status(self):
         """Return status of the repository."""
@@ -272,9 +274,19 @@ class Repository(object):
         """
         raise NotImplementedError()
 
-    def get_revision_info(self, revision):
+    def _get_revision_info(self, revision):
         """Return dictionary with detailed revision information."""
         raise NotImplementedError()
+
+    def get_revision_info(self, revision):
+        """Return dictionary with detailed revision information."""
+        key = 'rev-info-{}'.format(revision)
+        result = cache.get(key)
+        if not result:
+            result = self._get_revision_info(revision)
+            # Keep the cache for one day
+            cache.set(key, result, 86400)
+        return result
 
     @classmethod
     def is_supported(cls):
@@ -352,6 +364,10 @@ class Repository(object):
         """Verbosely describes current revision."""
         raise NotImplementedError()
 
+    def get_file(self, path, revision):
+        """Return content of file at given revision."""
+        raise NotImplementedError()
+
     @staticmethod
     def get_merge_driver(file_format):
         merge_driver = None
@@ -421,8 +437,7 @@ class GitRepository(Repository):
     def set_config(self, path, value):
         """Set entry in local configuration."""
         self.execute(
-            ['config', path, value],
-            needs_lock=False
+            ['config', path, value]
         )
 
     def set_committer(self, name, mail):
@@ -433,7 +448,7 @@ class GitRepository(Repository):
     def reset(self):
         """Reset working copy to match remote branch."""
         self.execute(['reset', '--hard', 'origin/{0}'.format(self.branch)])
-        self._last_revision = None
+        self.clean_revision_cache()
 
     def rebase(self, abort=False):
         """Rebase working copy on top of remote branch."""
@@ -458,7 +473,14 @@ class GitRepository(Repository):
         status = self.execute(cmd, needs_lock=False)
         return status != ''
 
-    def get_revision_info(self, revision):
+    def show(self, revision):
+        """Helper method to get content of revision.
+
+        Used in tests.
+        """
+        return self.execute(['show', revision], needs_lock=False)
+
+    def _get_revision_info(self, revision):
         """Return dictionary with detailed revision information."""
         text = self.execute(
             [
@@ -549,7 +571,7 @@ class GitRepository(Repository):
         # Execute it
         self.execute(cmd)
         # Clean cache
-        self._last_revision = None
+        self.clean_revision_cache()
 
     def remove(self, files, message, author=None):
         """Remove files and creates new revision."""
@@ -645,6 +667,13 @@ class GitRepository(Repository):
                 '{0} %O %A %B'.format(merge_driver),
             ])
 
+    def get_file(self, path, revision):
+        """Return content of file at given revision."""
+        return self.execute(
+            ['show', '{0}:{1}'.format(revision, path)],
+            needs_lock=False
+        )
+
 
 @register_vcs
 class GitWithGerritRepository(GitRepository):
@@ -680,29 +709,81 @@ class SubversionRepository(GitRepository):
     _is_supported = None
     _version = None
 
+    _fetch_revision = None
+
     @classmethod
     def _get_version(cls):
         """Return VCS program version."""
         return cls._popen(['svn', '--version']).split()[2]
 
+    @classmethod
+    def is_stdlayout(cls, url):
+        output = cls._popen(['svn', 'ls', url], fullcmd=True).splitlines()
+        return 'trunk/' in output
+
+    @classmethod
+    def get_last_repo_revision(cls, url):
+        output = cls._popen(
+            ['svn', 'log', url, '--limit=1', '--xml'],
+            fullcmd=True
+        )
+        tree = ElementTree.fromstring(output)
+        entry = tree.find('logentry')
+        if entry is not None:
+            return entry.get('revision')
+        return None
+
+    @classmethod
+    def get_remote_args(cls, source, target):
+        result = ['--prefix=origin/', source, target]
+        if cls.is_stdlayout(source):
+            result.insert(0, '--stdlayout')
+            revision = cls.get_last_repo_revision(source + '/trunk/')
+        else:
+            revision = cls.get_last_repo_revision(source)
+        if revision:
+            revision = '--revision={}:HEAD'.format(revision)
+
+        return result, revision
+
     def configure_remote(self, pull_url, push_url, branch):
-        """Initialize the git-svn repository."""
+        """Initialize the git-svn repository.
+
+        This does not support switching remote as it's quite complex:
+        https://git.wiki.kernel.org/index.php/GitSvnSwitch
+
+        The git svn init errors in case the URL is not matching.
+        """
         try:
-            oldurl = self.get_config('svn-remote.svn.url')
+            existing = self.get_config('svn-remote.svn.url')
         except RepositoryException:
-            oldurl = pull_url
-            self.execute(
-                ['svn', 'init', '-s', '--prefix=origin/', pull_url, self.path]
-            )
-        if oldurl != pull_url:
-            self.set_config('svn-remote.svn.url', pull_url)
+            existing = None
+        if existing:
+            # The URL is root of the repository, while we get full path
+            if not pull_url.startswith(existing):
+                raise RepositoryException(
+                    -1, 'Can not switch subversion URL', ''
+                )
+            return
+        args, self._fetch_revision = self.get_remote_args(pull_url, self.path)
+        self.execute(['svn', 'init'] + args)
+
+    def update_remote(self):
+        """Update remote repository."""
+        if self._fetch_revision:
+            self.execute(self._cmd_update_remote + [self._fetch_revision])
+            self._fetch_revision = None
+        else:
+            self.execute(self._cmd_update_remote + ['--parent'])
+        self.clean_revision_cache()
 
     @classmethod
     def _clone(cls, source, target, branch=None):
         """Clone svn repository with git-svn."""
-        cls._popen([
-            'svn', 'clone', '-s', '--prefix=origin/', source, target
-        ])
+        args, revision = cls.get_remote_args(source, target)
+        if revision:
+            args.insert(0, revision)
+        cls._popen(['svn', 'clone'] + args)
 
     def merge(self, abort=False):
         """Rebases. Git-svn does not support merge."""
@@ -736,29 +817,30 @@ class SubversionRepository(GitRepository):
     def reset(self):
         """Reset working copy to match remote branch."""
         self.execute(['reset', '--hard', self.get_remote_branch_name()])
-        self._last_revision = None
+        self.clean_revision_cache()
 
-    @property
+    @cached_property
     def last_remote_revision(self):
         """Return last remote revision."""
-        if self._last_remote_revision is None:
-            self._last_remote_revision = self.execute(
-                [
-                    'log', '-n', '1', '--format=format:%H',
-                    self.get_remote_branch_name()
-                ],
-                needs_lock=False
-            )
-        return self._last_remote_revision
+        return self.execute(
+            [
+                'log', '-n', '1', '--format=format:%H',
+                self.get_remote_branch_name()
+            ],
+            needs_lock=False
+        )
 
     def get_remote_branch_name(self):
         """Return the remote branch name: trunk if local branch is master,
         local branch otherwise.
         """
         if self.branch == 'master':
-            return 'origin/trunk'
-        else:
-            return 'origin/{0}'.format(self.branch)
+            fetch = self.get_config('svn-remote.svn.fetch')
+            if 'origin/trunk' in fetch:
+                return 'origin/trunk'
+            if 'origin/git-svn' in fetch:
+                return 'origin/git-svn'
+        return 'origin/{0}'.format(self.branch)
 
 
 @register_vcs
@@ -888,6 +970,8 @@ class HgRepository(Repository):
 
     def set_config(self, path, value):
         """Set entry in local configuration."""
+        if not self.lock.is_locked:
+            raise RuntimeError('Repository operation without lock held!')
         section, option = path.split('.', 1)
         filename = os.path.join(self.path, '.hg', 'hgrc')
         if six.PY2:
@@ -918,7 +1002,7 @@ class HgRepository(Repository):
         self.execute(['update', '--clean', 'remote(.)'])
         if self.needs_push():
             self.execute(['strip', 'roots(outgoing())'])
-        self._last_revision = None
+        self.clean_revision_cache()
 
     def configure_merge(self):
         """Select the correct merge tool"""
@@ -986,7 +1070,7 @@ class HgRepository(Repository):
         status = self.execute(cmd, needs_lock=False)
         return status != ''
 
-    def get_revision_info(self, revision):
+    def _get_revision_info(self, revision):
         """Return dictionary with detailed revision information."""
         template = '''
         author_name: {person(author)}
@@ -1097,7 +1181,7 @@ class HgRepository(Repository):
         # Execute it
         self.execute(cmd)
         # Clean cache
-        self._last_revision = None
+        self.clean_revision_cache()
 
     def remove(self, files, message, author=None):
         """Remove files and creates new revision."""
@@ -1149,3 +1233,10 @@ class HgRepository(Repository):
                 # No changes found
                 return
             raise
+
+    def get_file(self, path, revision):
+        """Return content of file at given revision."""
+        return self.execute(
+            ['cat', '--rev', revision, path],
+            needs_lock=False
+        )

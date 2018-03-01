@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -175,7 +175,7 @@ class Command(BaseCommand):
     def checkout_tmp(self, project, repo, branch):
         """Checkout project to temporary location."""
         # Create temporary working dir
-        workdir = tempfile.mkdtemp(dir=project.get_path())
+        workdir = tempfile.mkdtemp(dir=project.full_path)
         # Make the temporary directory readable by others
         os.chmod(workdir, 0o755)
 
@@ -201,7 +201,7 @@ class Command(BaseCommand):
         matches = self.get_matching_files(repo)
         self.logger.info('Found %d matching files', len(matches))
 
-        if len(matches) == 0:
+        if not matches:
             raise CommandError('Your mask did not match any files!')
 
         # Parse subproject names out of them
@@ -301,14 +301,14 @@ class Command(BaseCommand):
             project = Project.objects.get(slug=options['project'])
         except Project.DoesNotExist:
             raise CommandError(
-                'Project {0} not found, you have to create it first!'.format(
+                'Project "{0}" not found, please create it first!'.format(
                     options['project']
                 )
             )
 
         # We need to limit slug length to avoid problems with MySQL
         # silent truncation
-        # pylint: disable=W0212
+        # pylint: disable=protected-access
         slug_len = SubProject._meta.get_field('slug').max_length
         name_len = SubProject._meta.get_field('name').max_length
 
@@ -318,13 +318,13 @@ class Command(BaseCommand):
                 sub_project = SubProject.objects.get_linked(repo)
             except SubProject.DoesNotExist:
                 raise CommandError(
-                    'SubProject {0} not found, '
-                    'you need to create it first!'.format(
+                    'Component "{0}" not found, '
+                    'please create it first!'.format(
                         repo
                     )
                 )
             matches = self.get_matching_subprojects(
-                sub_project.get_path(),
+                sub_project.full_path,
             )
         else:
             matches, sharedrepo = self.import_initial(
@@ -415,7 +415,7 @@ class Command(BaseCommand):
         # Rename gitrepository to new name
         os.rename(
             workdir,
-            os.path.join(project.get_path(), slug)
+            os.path.join(project.full_path, slug)
         )
 
         SubProject.objects.create(

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,9 +19,7 @@
 #
 
 from __future__ import unicode_literals
-import json
-import os
-import binascii
+
 import datetime
 
 from django.db import models
@@ -40,14 +38,14 @@ from django.utils.translation import LANGUAGE_SESSION_KEY
 
 from rest_framework.authtoken.models import Token
 
-from social_django.models import UserSocialAuth, Code
+from social_django.models import UserSocialAuth
 
 from weblate.lang.models import Language
 from weblate.utils import messages
 from weblate.accounts.avatar import get_user_display
-from weblate.trans.signals import user_pre_delete
 from weblate.utils.validators import validate_editor
 from weblate.utils.decorators import disable_for_loaddata
+from weblate.utils.fields import JSONField
 
 DEMO_ACCOUNTS = ('demo', 'review')
 
@@ -109,7 +107,7 @@ NOTIFY_ACTIVITY = frozenset((
 class WeblateAnonymousUser(User):
     """Proxy model to customize User behavior."""
 
-    class Meta:
+    class Meta(object):
         proxy = True
 
     @property
@@ -153,7 +151,7 @@ class AuditLogManager(models.Manager):
             activity=activity,
             address=address,
             user_agent=user_agent,
-            params=json.dumps(params)
+            params=params
         )
 
 
@@ -198,7 +196,7 @@ class AuditLog(models.Model):
         choices=[(a, a) for a in sorted(ACCOUNT_ACTIVITY.keys())],
         db_index=True,
     )
-    params = models.TextField()
+    params = JSONField()
     address = models.GenericIPAddressField()
     user_agent = models.CharField(max_length=200, default='')
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -210,12 +208,9 @@ class AuditLog(models.Model):
 
     def get_message(self):
         return ACCOUNT_ACTIVITY[self.activity].format(
-            **self.get_params()
+            **self.params
         )
     get_message.short_description = _('Account activity')
-
-    def get_params(self):
-        return json.loads(self.params)
 
     def should_notify(self):
         return self.activity in NOTIFY_ACTIVITY
@@ -247,7 +242,7 @@ class VerifiedEmail(models.Model):
 
 class ProfileManager(models.Manager):
     """Manager providing shortcuts for subscription queries."""
-    # pylint: disable=W0232
+    # pylint: disable=no-init
 
     def subscribed_any_translation(self, project, language, user):
         return self.filter(
@@ -519,57 +514,6 @@ def set_lang(request, profile):
         request.session[LANGUAGE_SESSION_KEY] = profile.language
 
 
-def get_all_user_mails(user):
-    """Return all verified mails for user."""
-    emails = set(
-        VerifiedEmail.objects.filter(
-            social__user=user
-        ).values_list(
-            'email', flat=True
-        )
-    )
-    emails.add(user.email)
-    return emails
-
-
-def remove_user(user, request):
-    """Remove user account."""
-    from weblate.accounts.notifications import notify_account_activity
-
-    # Send signal (to commit any pending changes)
-    user_pre_delete.send(instance=user, sender=user.__class__)
-
-    # Store activity log and notify
-    notify_account_activity(user, request, 'removed')
-
-    # Remove any email validation codes
-    Code.objects.filter(email__in=get_all_user_mails(user)).delete()
-
-    # Change username
-    user.username = 'deleted-{0}'.format(user.pk)
-    while User.objects.filter(username=user.username).exists():
-        user.username = 'deleted-{0}-{1}'.format(
-            user.pk,
-            binascii.b2a_hex(os.urandom(5))
-        )
-
-    # Remove user information
-    user.first_name = 'Deleted User'
-    user.last_name = ''
-    user.email = 'noreply@weblate.org'
-
-    # Disable the user
-    user.is_active = False
-    user.set_unusable_password()
-    user.save()
-
-    # Remove all social auth associations
-    user.social_auth.all().delete()
-
-    # Remove user from all groups
-    user.groups.clear()
-
-
 @receiver(user_logged_in)
 def post_login_handler(sender, request, user, **kwargs):
     """Signal handler for post login.
@@ -604,6 +548,14 @@ def post_login_handler(sender, request, user, **kwargs):
     # Set language for session based on preferences
     set_lang(request, profile)
 
+    # Fixup accounts with empty name
+    if not user.first_name:
+        if user.last_name:
+            user.first_name = user.last_name
+        else:
+            user.first_name = user.username
+        user.save(update_fields=['first_name'])
+
     # Warn about not set email
     if not user.email:
         messages.error(
@@ -627,3 +579,12 @@ def create_profile_callback(sender, instance, created=False, **kwargs):
         )
         # Create profile
         Profile.objects.get_or_create(user=instance)
+        # Generate full name from parts
+        # This is needed with LDAP authentication when the
+        # server does not contain full name
+        if (instance.first_name and instance.last_name and
+                instance.last_name not in instance.first_name):
+            instance.first_name = '{} {}'.format(
+                instance.first_name, instance.last_name
+            )
+            instance.save(update_fields=['first_name'])

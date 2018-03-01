@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -29,20 +29,21 @@ import re
 
 from django.conf import settings
 from django.db import models, transaction
-from django.db.models import Sum
 from django.utils.translation import ugettext as _, ugettext_lazy
 from django.utils.encoding import python_2_unicode_compatible, force_text
+from django.utils.functional import cached_property
 from django.core.mail import mail_admins
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.core.cache import cache
 from django.utils import timezone
 
-from weblate.utils import messages
 from weblate.trans.formats import FILE_FORMAT_CHOICES, FILE_FORMATS, ParseError
-from weblate.trans.mixins import PercentMixin, URLMixin, PathMixin
+from weblate.trans.mixins import URLMixin, PathMixin
 from weblate.trans.fields import RegexField
+from weblate.utils import messages
 from weblate.utils.site import get_site_url
+from weblate.utils.state import STATE_TRANSLATED, STATE_FUZZY
 from weblate.utils.errors import report_error
 from weblate.trans.util import (
     is_repo_link, cleanup_repo_url, cleanup_path, path_separator,
@@ -52,6 +53,7 @@ from weblate.trans.signals import (
     vcs_post_push, vcs_post_update, translation_post_add
 )
 from weblate.trans.vcs import RepositoryException, VCS_REGISTRY, VCS_CHOICES
+from weblate.utils.stats import ComponentStats
 from weblate.trans.models.translation import Translation
 from weblate.trans.validators import (
     validate_filemask, validate_extra_file,
@@ -102,18 +104,18 @@ MERGE_CHOICES = (
 
 def perform_on_link(func):
     """Decorator to handle repository link"""
-    def wrapper(self, *args, **kwargs):
+    def on_link_wrapper(self, *args, **kwargs):
         if self.is_repo_link:
             # Call same method on linked component
             return getattr(self.linked_subproject, func.__name__)(
                 *args, **kwargs
             )
         return func(self, *args, **kwargs)
-    return wrapper
+    return on_link_wrapper
 
 
 class SubProjectQuerySet(models.QuerySet):
-    # pylint: disable=W0232
+    # pylint: disable=no-init
 
     def prefetch(self):
         return self.select_related(
@@ -129,7 +131,7 @@ class SubProjectQuerySet(models.QuerySet):
 
 
 @python_2_unicode_compatible
-class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
+class SubProject(models.Model, URLMixin, PathMixin):
     name = models.CharField(
         verbose_name=ugettext_lazy('Component name'),
         max_length=100,
@@ -137,7 +139,6 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
     )
     slug = models.SlugField(
         verbose_name=ugettext_lazy('URL slug'),
-        db_index=True,
         max_length=100,
         help_text=ugettext_lazy('Name used in URLs and file names.')
     )
@@ -522,10 +523,8 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         """Constructor to initialize some cache properties."""
         super(SubProject, self).__init__(*args, **kwargs)
         self._file_format = None
-        self._template_store = None
-        self._all_flags = None
-        self._linked_subproject = None
-        self._repository = None
+        self.stats = ComponentStats(self)
+        self.addons_cache = {}
 
     @property
     def filemask_re(self):
@@ -533,7 +532,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
             fnmatch.translate(self.filemask).replace('.*', '(.*)')
         )
 
-    @property
+    @cached_property
     def log_prefix(self):
         return '/'.join((self.project.slug, self.slug))
 
@@ -562,13 +561,10 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
     def __str__(self):
         return '/'.join((force_text(self.project), self.name))
 
-    def get_full_slug(self):
-        return '__'.join((self.project.slug, self.slug))
-
     @perform_on_link
     def _get_path(self):
         """Return full path to subproject VCS repository."""
-        return os.path.join(self.project.get_path(), self.slug)
+        return os.path.join(self.project.full_path, self.slug)
 
     @perform_on_link
     def can_push(self):
@@ -584,44 +580,32 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         """Return true if new languages can be added."""
         return self.new_lang != 'none'
 
-    @property
+    @cached_property
     def linked_subproject(self):
         """Return subproject for linked repo."""
-        if self._linked_subproject is None:
-            self._linked_subproject = SubProject.objects.get_linked(self.repo)
-        return self._linked_subproject
+        return SubProject.objects.get_linked(self.repo)
 
-    @perform_on_link
-    def _get_repository(self):
-        """Get VCS repository object."""
-        if self._repository is None:
-            self._repository = VCS_REGISTRY[self.vcs](
-                self.get_path(), self.branch, self
-            )
-            cache_key = '{0}-config-check'.format(self.get_full_slug())
-            if cache.get(cache_key) is None:
-                self._repository.check_config()
-                cache.set(cache_key, True)
-
-        return self._repository
-
-    @property
+    @cached_property
     def repository(self):
-        """VCS repository object."""
-        return self._get_repository()
+        """Get VCS repository object."""
+        if self.is_repo_link:
+            return self.linked_subproject.repository
+        repository = VCS_REGISTRY[self.vcs](
+            self.full_path, self.branch, self
+        )
+        cache_key = 'sp-config-check-{}'.format(self.pk)
+        if cache.get(cache_key) is None:
+            with repository.lock:
+                repository.check_config()
+            cache.set(cache_key, True, 86400)
+
+        return repository
 
     def get_last_remote_commit(self):
         """Return latest remote commit we know."""
-        cache_key = '{0}-last-commit'.format(self.get_full_slug())
-
-        result = cache.get(cache_key)
-
-        if result is None:
-            result = self.repository.get_revision_info(
-                self.repository.last_remote_revision
-            )
-            cache.set(cache_key, result)
-        return result
+        return self.repository.get_revision_info(
+            self.repository.last_remote_revision
+        )
 
     @perform_on_link
     def get_repo_url(self):
@@ -646,7 +630,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         For linked repositories, it is possible to override linked
         repository path here.
         """
-        if len(self.repoweb) == 0:
+        if not self.repoweb:
             if self.is_repo_link:
                 return self.linked_subproject.get_repoweb_link(filename, line)
             return None
@@ -669,7 +653,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
                 start = time.time()
                 self.repository.update_remote()
                 timediff = time.time() - start
-                self.log_info('update took %.2f seconds:', timediff)
+                self.log_info('update took %.2f seconds', timediff)
                 for line in self.repository.last_output.splitlines():
                     self.log_debug('update: %s', line)
             return True
@@ -870,7 +854,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
 
     def set_linked_cache(self, linked):
         """Store linked component cache"""
-        self._linked_subproject = linked
+        self.__dict__['linked_subproject'] = linked
 
     def get_linked_childs(self):
         """Return list of subprojects which link repository to us."""
@@ -999,9 +983,9 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
 
     def get_mask_matches(self):
         """Return files matching current mask."""
-        prefix = path_separator(os.path.join(self.get_path(), ''))
+        prefix = path_separator(os.path.join(self.full_path, ''))
         matches = set()
-        for filename in glob(os.path.join(self.get_path(), self.filemask)):
+        for filename in glob(os.path.join(self.full_path, self.filemask)):
             path = path_separator(filename).replace(prefix, '')
             code = self.get_lang_code(path)
             if re.match(self.language_regex, code):
@@ -1055,7 +1039,11 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
                 languages.add(lang.code)
                 # Remove fuzzy flag on template name change
                 if changed_template:
-                    translation.unit_set.update(fuzzy=False)
+                    translation.unit_set.filter(
+                        state=STATE_FUZZY
+                    ).update(
+                        state=STATE_TRANSLATED
+                    )
 
         # Delete possibly no longer existing translations
         if langs is None:
@@ -1151,7 +1139,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
 
     def clean_lang_codes(self, matches):
         """Validate that there are no double language codes"""
-        if len(matches) == 0 and not self.can_add_new_language():
+        if not matches and not self.can_add_new_language():
             raise ValidationError(
                 {'filemask': _('The mask did not match any files!')}
             )
@@ -1187,7 +1175,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         """Validate whether we can parse translation files."""
         notrecognized = []
         errors = []
-        dir_path = self.get_path()
+        dir_path = self.full_path
         for match in matches:
             try:
                 parsed = self.file_format_cls.parse(
@@ -1201,7 +1189,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
                 notrecognized.append(match)
             except Exception as error:
                 errors.append('{0}: {1}'.format(match, str(error)))
-        if len(notrecognized) > 0:
+        if notrecognized:
             msg = (
                 _('Format of %d matched files could not be recognized.') %
                 len(notrecognized)
@@ -1210,7 +1198,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
                 msg,
                 '\n'.join(notrecognized)
             ))
-        if len(errors) > 0:
+        if errors:
             raise ValidationError('{0}\n{1}'.format(
                 (_('Failed to parse %d matched files!') % len(errors)),
                 '\n'.join(errors)
@@ -1253,7 +1241,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
 
         # Validate template loading
         if self.has_template():
-            full_path = os.path.join(self.get_path(), self.template)
+            full_path = os.path.join(self.full_path, self.template)
             if not os.path.exists(full_path):
                 msg = _('Template file not found!')
                 raise ValidationError({'template': msg})
@@ -1369,13 +1357,13 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
 
     def get_template_filename(self):
         """Create absolute filename for template."""
-        return os.path.join(self.get_path(), self.template)
+        return os.path.join(self.full_path, self.template)
 
     def get_new_base_filename(self):
         """Create absolute filename for base file for new translations."""
         if not self.new_base:
             return None
-        return os.path.join(self.get_path(), self.new_base)
+        return os.path.join(self.full_path, self.new_base)
 
     def save(self, *args, **kwargs):
         """Save wrapper
@@ -1439,10 +1427,6 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         if changed_project:
             old.project.suggestion_set.copy(self.project)
 
-    def _get_percents(self, lang=None):
-        """Return percentages of translation status"""
-        return self.translation_set.get_percents(language=lang)
-
     def repo_needs_commit(self):
         """Check whether there are some not committed changes"""
         for translation in self.translation_set.all():
@@ -1475,7 +1459,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         monolingual = self.file_format_cls.monolingual
         return (
             (monolingual or monolingual is None) and
-            len(self.template) > 0 and
+            self.template and
             not self.template.endswith('.pot')
         )
 
@@ -1485,20 +1469,17 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
             self.get_template_filename(),
         )
 
-    @property
+    @cached_property
     def template_store(self):
         """Get translate-toolkit store for template."""
         # Do we need template?
         if not self.has_template():
             return None
 
-        if self._template_store is None:
-            try:
-                self._template_store = self.load_template_store()
-            except Exception as exc:
-                self.handle_parse_error(exc)
-
-        return self._template_store
+        try:
+            return self.load_template_store()
+        except Exception as exc:
+            self.handle_parse_error(exc)
 
     @property
     def last_change(self):
@@ -1512,15 +1493,13 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         except IndexError:
             return None
 
-    @property
+    @cached_property
     def all_flags(self):
         """Return parsed list of flags."""
-        if self._all_flags is None:
-            self._all_flags = (
-                self.check_flags.split(',') +
-                list(self.file_format_cls.check_flags)
-            )
-        return self._all_flags
+        return (
+            self.check_flags.split(',') +
+            list(self.file_format_cls.check_flags)
+        )
 
     def can_add_new_language(self):
         """Wrapper to check if we can add new language."""
@@ -1549,7 +1528,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
             self.filemask,
             language.code
         )
-        fullname = os.path.join(self.get_path(), filename)
+        fullname = os.path.join(self.full_path, filename)
 
         # Ignore request if file exists (possibly race condition as
         # the processing of new language can take some time and user
@@ -1574,6 +1553,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         translation = Translation.objects.create(
             subproject=self,
             language=language,
+            plural=language.plural,
             filename=filename,
             language_code=language.code,
             commit_message='__add__'
@@ -1610,16 +1590,6 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         if not self.edit_template or not self.has_template():
             return None
         return self.translation_set.get(filename=self.template)
-
-    def get_total_words(self):
-        return self.translation_set.aggregate(
-            Sum('total_words'),
-        )['total_words__sum']
-
-    def get_total(self):
-        return self.translation_set.aggregate(
-            Sum('total'),
-        )['total__sum']
 
     def get_language_count(self):
         return self.translation_set.count()

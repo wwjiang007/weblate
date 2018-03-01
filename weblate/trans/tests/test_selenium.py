@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -233,7 +233,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
 
         # Wait for registration email
         loops = 0
-        while len(mail.outbox) == 0:
+        while not mail.outbox:
             time.sleep(1)
             loops += 1
             if loops > 20:

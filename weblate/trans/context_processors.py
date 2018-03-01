@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,8 +20,10 @@
 
 from datetime import datetime
 
+from django.utils.html import escape
 from django.utils.http import is_safe_url
 from django.utils.translation import ugettext as _
+from django.utils.safestring import mark_safe
 from django.conf import settings
 
 import weblate
@@ -29,6 +31,7 @@ import weblate.screenshots.views
 from weblate.accounts.models import DEMO_ACCOUNTS
 from weblate.utils.site import get_site_url
 from weblate.trans.models.project import Project
+from weblate.wladmin.models import ConfigurationError
 
 URL_BASE = 'https://weblate.org/?utm_source=weblate&utm_term=%s'
 URL_DONATE = 'https://weblate.org/donate/?utm_source=weblate&utm_term=%s'
@@ -66,11 +69,24 @@ def weblate_context(request):
         rollbar_token = None
         rollbar_environment = None
 
+    weblate_url = URL_BASE % weblate.VERSION
+
     return {
+        'cache_param': '?v={}'.format(weblate.GIT_VERSION),
         'version': weblate.VERSION,
         'description': description,
 
-        'weblate_url': URL_BASE % weblate.VERSION,
+        'weblate_link': mark_safe(
+            '<a href="{}">weblate.org</a>'.format(escape(weblate_url))
+        ),
+        'weblate_name_link': mark_safe(
+            '<a href="{}">Weblate</a>'.format(escape(weblate_url))
+        ),
+        'weblate_version_link': mark_safe(
+            '<a href="{}">Weblate {}</a>'.format(
+                escape(weblate_url), weblate.VERSION
+            )
+        ),
         'donate_url': URL_DONATE % weblate.VERSION,
 
         'site_title': settings.SITE_TITLE,
@@ -104,4 +120,5 @@ def weblate_context(request):
         'allow_index': False,
         'legal': 'weblate.legal' in settings.INSTALLED_APPS,
         'status_url': settings.STATUS_URL,
+        'configuration_errors': ConfigurationError.objects.all(),
     }

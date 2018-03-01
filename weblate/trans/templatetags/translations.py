@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -38,9 +38,10 @@ from weblate.trans.simplediff import html_diff
 from weblate.trans.util import split_plural
 from weblate.lang.models import Language
 from weblate.trans.models import (
-    Project, SubProject, Dictionary, Advertisement, WhiteboardMessage, Unit,
+    Project, SubProject, Dictionary, WhiteboardMessage, Unit,
 )
 from weblate.trans.checks import CHECKS, highlight_string
+from weblate.utils.stats import BaseStats
 
 register = template.Library()
 
@@ -80,6 +81,10 @@ PERM_TEMPLATE = '''
     data-name="{2}"
     {3} />
 </td>
+'''
+
+SOURCE_LINK = '''
+<a href="{0}" target="_blank">{1} <i class="fa fa-external-link"></i></a>
 '''
 
 
@@ -147,11 +152,15 @@ def fmt_search(value, search_match, match):
 
 
 @register.inclusion_tag('format-translation.html')
-def format_translation(value, language, diff=None, search_match=None,
-                       simple=False, num_plurals=2, unit=None, match='search'):
+def format_translation(value, language, plural=None, diff=None,
+                       search_match=None, simple=False, num_plurals=2,
+                       unit=None, match='search'):
     """Nicely formats translation text possibly handling plurals or diff."""
     # Split plurals to separate strings
     plurals = split_plural(value)
+
+    if plural is None:
+        plural = language.plural
 
     # Show plurals?
     if int(num_plurals) <= 1:
@@ -195,7 +204,7 @@ def format_translation(value, language, diff=None, search_match=None,
         # Show label for plural (if there are any)
         title = ''
         if len(plurals) > 1:
-            title = language.get_plural_name(idx)
+            title = plural.get_plural_name(idx)
 
         # Join paragraphs
         content = mark_safe(newline.join(paras))
@@ -268,10 +277,12 @@ def documentation(page, anchor=''):
     return weblate.get_doc_url(page, anchor)
 
 
-@register.simple_tag
-def doc_url(page, anchor=''):
-    """Return link to Weblate documentation."""
-    return weblate.get_doc_url(page, anchor)
+@register.inclusion_tag('documentation-icon.html')
+def documentation_icon(page, anchor='', right=False):
+    return {
+        'right': right,
+        'doc_url': weblate.get_doc_url(page, anchor),
+    }
 
 
 @register.simple_tag
@@ -310,7 +321,7 @@ def naturaltime_past(value, now):
     """Handling of past dates for naturaltime."""
 
     # this function is huge
-    # pylint: disable=R0911,R0912
+    # pylint: disable=too-many-branches,too-many-return-statements
 
     delta = now - value
 
@@ -369,7 +380,7 @@ def naturaltime_future(value, now):
     """Handling of future dates for naturaltime."""
 
     # this function is huge
-    # pylint: disable=R0911,R0912
+    # pylint: disable=too-many-branches,too-many-return-statements
 
     delta = value - now
 
@@ -455,58 +466,42 @@ def naturaltime(value, now=None):
     )
 
 
-@register.simple_tag
-def get_advertisement_text_mail():
-    """Return advertisement text."""
-    advertisement = Advertisement.objects.get_advertisement(
-        Advertisement.PLACEMENT_MAIL_TEXT
-    )
-    if advertisement is None:
-        return ''
-    return advertisement.text
-
-
-@register.simple_tag
-def get_advertisement_html_mail():
-    """Return advertisement text."""
-    advertisement = Advertisement.objects.get_advertisement(
-        Advertisement.PLACEMENT_MAIL_HTML
-    )
-    if advertisement is None:
-        return ''
-    return mark_safe(advertisement.text)
-
-
-def translation_progress_data(translated, fuzzy, checks):
+def translation_progress_data(approved, translated, fuzzy, checks):
     return {
-        'good': '{0:.1f}'.format(translated - checks),
+        'approved': '{0:.1f}'.format(approved),
+        'good': '{0:.1f}'.format(translated - checks - approved),
         'checks': '{0:.1f}'.format(checks),
         'fuzzy': '{0:.1f}'.format(fuzzy),
         'percent': '{0:.1f}'.format(translated),
     }
 
 
-@register.inclusion_tag('progress.html')
-def generic_progress(translated):
-    return translation_progress_data(translated, 0, 0)
+def get_stats(obj):
+    if isinstance(obj, BaseStats):
+        return obj
+    return obj.stats
 
 
 @register.inclusion_tag('progress.html')
-def translation_progress(translation):
-    translated = translation.get_translated_percent()
-    fuzzy = translation.get_fuzzy_percent()
-    checks = translation.get_failing_checks_percent()
-
-    return translation_progress_data(translated, fuzzy, checks)
+def translation_progress(obj):
+    stats = get_stats(obj)
+    return translation_progress_data(
+        stats.approved_percent,
+        stats.translated_percent,
+        stats.fuzzy_percent,
+        stats.allchecks_percent,
+    )
 
 
 @register.inclusion_tag('progress.html')
-def words_progress(translation):
-    translated = translation.get_words_percent()
-    fuzzy = translation.get_fuzzy_words_percent()
-    checks = translation.get_failing_checks_words_percent()
-
-    return translation_progress_data(translated, fuzzy, checks)
+def words_progress(obj):
+    stats = get_stats(obj)
+    return translation_progress_data(
+        stats.approved_words_percent,
+        stats.translated_words_percent,
+        stats.fuzzy_words_percent,
+        stats.allchecks_words_percent,
+    )
 
 
 @register.simple_tag
@@ -589,7 +584,7 @@ def get_location_links(profile, unit):
     ret = []
 
     # Do we have any locations?
-    if len(unit.location) == 0:
+    if not unit.location:
         return ''
 
     # Is it just an ID?
@@ -619,9 +614,7 @@ def get_location_links(profile, unit):
         if link is None:
             ret.append(escape(location))
         else:
-            ret.append(
-                '<a href="{0}">{1}</a>'.format(escape(link), escape(location))
-            )
+            ret.append(SOURCE_LINK.format(escape(link), escape(location)))
     return mark_safe('\n'.join(ret))
 
 

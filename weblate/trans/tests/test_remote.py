@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -26,10 +26,10 @@ from unittest import SkipTest
 from django.utils import timezone
 
 from weblate.trans.models import SubProject
-from weblate.trans.models.unit import STATE_TRANSLATED
 from weblate.trans.tests.utils import REPOWEB_URL
 from weblate.trans.tests.test_views import ViewTestCase
 from weblate.trans.vcs import VCS_REGISTRY
+from weblate.utils.state import STATE_TRANSLATED
 
 EXTRA_PO = '''
 #: accounts/models.py:319 trans/views/basic.py:104 weblate/html/index.html:21
@@ -98,7 +98,7 @@ class MultiRepoTest(ViewTestCase):
 
         unit = self.get_unit()
         unit.translate(self.request, [newtext], STATE_TRANSLATED)
-        self.assertEqual(self.get_translation().translated, 1)
+        self.assertEqual(self.get_translation().stats.translated, 1)
         self.subproject.do_push(self.request)
 
     def push_replace(self, content, mode):
@@ -127,7 +127,7 @@ class MultiRepoTest(ViewTestCase):
         translation = self.subproject2.translation_set.get(
             language_code='cs'
         )
-        self.assertEqual(translation.translated, 1)
+        self.assertEqual(translation.stats.translated, 1)
 
     def test_failed_update(self):
         """Test failed remote update."""
@@ -151,13 +151,14 @@ class MultiRepoTest(ViewTestCase):
         translation = self.subproject2.translation_set.get(
             language_code='cs'
         )
-        self.assertEqual(translation.translated, 0)
+        translation.invalidate_cache()
+        self.assertEqual(translation.stats.translated, 0)
 
         translation.do_update(self.request)
         translation = self.subproject2.translation_set.get(
             language_code='cs'
         )
-        self.assertEqual(translation.translated, 1)
+        self.assertEqual(translation.stats.translated, 1)
 
     def test_rebase(self):
         """Testing of rebase"""
@@ -192,14 +193,14 @@ class MultiRepoTest(ViewTestCase):
         translation = self.subproject2.translation_set.get(
             language_code='cs'
         )
-        self.assertEqual(translation.failing_checks, 1)
+        self.assertEqual(translation.stats.allchecks, 1)
 
         self.push_first(False, 'Nazdar svete\n')
         translation.do_update(self.request)
         translation = self.subproject2.translation_set.get(
             language_code='cs'
         )
-        self.assertEqual(translation.failing_checks, 0)
+        self.assertEqual(translation.stats.allchecks, 0)
 
     def test_new_unit(self):
         """Test adding new unit with update."""
@@ -210,7 +211,7 @@ class MultiRepoTest(ViewTestCase):
         translation = self.subproject2.translation_set.get(
             language_code='cs'
         )
-        self.assertEqual(translation.total, 5)
+        self.assertEqual(translation.stats.all, 5)
 
     def test_deleted_unit(self):
         """Test removing several units from remote repo."""
@@ -221,7 +222,7 @@ class MultiRepoTest(ViewTestCase):
         translation = self.subproject2.translation_set.get(
             language_code='cs'
         )
-        self.assertEqual(translation.total, 1)
+        self.assertEqual(translation.stats.all, 1)
 
     def test_deleted_stale_unit(self):
         """Test removing several units from remote repo with no
@@ -235,7 +236,7 @@ class MultiRepoTest(ViewTestCase):
         translation = self.subproject2.translation_set.get(
             language_code='cs'
         )
-        self.assertEqual(translation.total, 1)
+        self.assertEqual(translation.stats.all, 1)
 
 
 class GitBranchMultiRepoTest(MultiRepoTest):

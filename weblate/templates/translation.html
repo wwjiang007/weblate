@@ -108,24 +108,25 @@
 
 {% if object.is_template %}
   <div class="panel-body">
-{% show_message "warning" _("This translation is being used as source strings within this component.") %}
+{% trans "This translation is being used as source strings within this component." as msg %}
+{% show_message "warning" msg %}
   </div>
 {% endif %}
 
 <table class="table">
 <tr>
-<th>{% trans "Strings" %}<span class="badge pull-right flip">{{ object.total }}</span></th>
+<th>{% trans "Strings" %}<span class="badge pull-right flip">{{ object.stats.all }}</span></th>
 <td class="progress-cell">{% translation_progress object %}</td>
-<td class="percent">{{ object.get_translated_percent }}%</td>
+<td class="percent">{{ object.stats.translated_percent }}%</td>
 <td rowspan="2">
-<a href="{{ object.get_translate_url }}?type={% if object.untranslated > 0 %}untranslated{% else %}all{% endif %}" class="pull-right flip btn btn-default"><i class="fa fa-pencil"></i> {% trans "Translate" %}</a>
+<a href="{{ object.get_translate_url }}?type={% if object.stats.nottranslated > 0 %}untranslated{% else %}all{% endif %}" class="pull-right flip btn btn-default"><i class="fa fa-pencil"></i> {% trans "Translate" %}</a>
 </td>
 </tr>
 
 <tr>
-<th>{% trans "Words" %}<span class="badge pull-right flip">{{ object.total_words }}</span></th>
+<th>{% trans "Words" %}<span class="badge pull-right flip">{{ object.stats.all_words }}</span></th>
 <td class="progress-cell">{% words_progress object %}</td>
-<td class="percent">{{ object.get_words_percent }}%</td>
+<td class="percent">{{ object.stats.translated_words_percent }}%</td>
 </tr>
 </table>
 
@@ -138,8 +139,7 @@
 <div class="panel panel-primary">
 <div class="panel-heading">
 <h4 class="panel-title">
-{% doc_url 'user/translating' 'strings-to-check' as strings_doc_url %}
-<a class="pull-right flip" href="{{ strings_doc_url }}"><i class="fa fa-question-circle" aria-hidden="true"></i></a>
+{% documentation_icon 'user/translating' 'strings-to-check' right=True %}
 {% trans "Strings to check" %}
 </h4>
 </div>
@@ -284,6 +284,11 @@
 <div class="row">
 <div class="col-lg-6">
 
+{% if pending_fulltext %}
+{% trans "The fulltext search might not work properly as the fulltext index for this translation is not yet up to date." as msg %}
+{% show_message "warning" msg %}
+{% endif %}
+
 <form action="{{ object.get_translate_url }}" method="GET" data-persist="search-translation">
 <div class="panel panel-primary">
 <div class="panel-heading"><h4 class="panel-title">{% trans "Search" %}</h4></div>
@@ -339,25 +344,25 @@
 <tr>
 <th>{% trans "Total" %}</th>
 <td class="percent"></td>
-<td class="number">{{ object.total }}</td>
-<td class="number">{{ object.total_words }}</td>
+<td class="number">{{ object.stats.all }}</td>
+<td class="number">{{ object.stats.all_words }}</td>
 </tr>
 <tr>
 <th>{% trans "Translated" %}</th>
-<td class="percent">{{ object.get_translated_percent }}%</td>
-<td class="number">{{ object.translated }}</td>
-<td class="number">{{ object.translated_words }}</td>
+<td class="percent">{{ object.stats.translated_percent }}%</td>
+<td class="number">{{ object.stats.translated }}</td>
+<td class="number">{{ object.stats.translated_words }}</td>
 </tr>
 <tr>
 <th>{% trans "Review" %}</th>
-<td class="percent">{{ object.get_fuzzy_percent }}%</td>
-<td class="number">{{ object.fuzzy }}</td>
+<td class="percent">{{ object.stats.fuzzy_percent }}%</td>
+<td class="number">{{ object.stats.fuzzy }}</td>
 <td class="number"></td>
 </tr>
 <tr>
 <th>{% trans "Failing check" %}</th>
-<td class="percent">{{ object.get_failing_checks_percent }}%</td>
-<td class="number">{{ object.failing_checks }}</td>
+<td class="percent">{{ object.stats.allchecks_percent }}%</td>
+<td class="number">{{ object.stats.allchecks }}</td>
 <td class="number"></td>
 </tr>
 </tbody>

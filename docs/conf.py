@@ -53,14 +53,14 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Weblate'
-copyright = '2012 - 2017 Michal Čihař'
+copyright = '2012 - 2018 Michal Čihař'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short X.Y version.
-version = '2.19'
+version = '2.20'
 # The full version, including alpha/beta/rc tags.
 release = version
 
@@ -348,6 +348,7 @@ intersphinx_mapping = {
     'django': ('https://docs.djangoproject.com/en/stable/', 'https://docs.djangoproject.com/en/stable/_objects/'),
     'psa': ('https://python-social-auth.readthedocs.io/en/latest/', None),
     'tt': ('http://docs.translatehouse.org/projects/translate-toolkit/en/latest/', None),
+    'ldap': ('http://django-auth-ldap.readthedocs.io/en/latest/', None),
 }
 
 # Ignore missing targets for the http:obj <type>, it's how we declare the types
