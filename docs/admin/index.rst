@@ -12,10 +12,12 @@ Administrators guide
     projects
     languages
     continuous
+    licensing
     translating
     checks
     machine
     addons
+    memory
     config
     sample
     management

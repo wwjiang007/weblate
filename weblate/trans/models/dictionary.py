@@ -30,8 +30,8 @@ from django.utils.encoding import python_2_unicode_compatible
 from whoosh.analysis import LanguageAnalyzer, NgramAnalyzer, SimpleAnalyzer
 
 from weblate.lang.models import Language
-from weblate.trans.checks.same import strip_string
-from weblate.trans.formats import AutoFormat
+from weblate.checks.same import strip_string
+from weblate.formats.auto import AutoFormat
 from weblate.trans.models.project import Project
 from weblate.utils.db import re_escape
 from weblate.utils.errors import report_error
@@ -117,7 +117,7 @@ class DictionaryManager(models.Manager):
     def get_words(self, unit):
         """Return list of word pairs for an unit."""
         words = set()
-        source_language = unit.translation.subproject.project.source_language
+        source_language = unit.translation.component.project.source_language
 
         # Prepare analyzers
         # - simple analyzer just splits words based on regexp
@@ -154,7 +154,7 @@ class DictionaryManager(models.Manager):
         # Build the query for fetching the words
         # We want case insensitive lookup
         return self.filter(
-            project=unit.translation.subproject.project,
+            project=unit.translation.component.project,
             language=unit.translation.language,
             source__iregex=r'(^|[ \t\n\r\f\v])({0})($|[ \t\n\r\f\v])'.format(
                 '|'.join([re_escape(word) for word in words])
@@ -173,9 +173,6 @@ class Dictionary(models.Model):
 
     class Meta(object):
         ordering = ['source']
-        permissions = (
-            ('upload_dictionary', "Can import dictionary"),
-        )
         app_label = 'trans'
 
     def __str__(self):

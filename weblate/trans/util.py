@@ -107,7 +107,9 @@ def get_distinct_translations(units):
 
 def translation_percent(translated, total):
     """Return translation percentage."""
-    if total == 0 or total is None:
+    if total == 0:
+        return 100.0
+    if total is None:
         return 0.0
     perc = round(1000 * translated / total) / 10.0
     # Avoid displaying misleading rounded 0.0% or 100.0%
@@ -272,7 +274,7 @@ def check_domain(domain):
 def redirect_next(next_url, fallback):
     """Redirect to next URL from request after validating it."""
     if (next_url is None or
-            not is_safe_url(next_url) or
+            not is_safe_url(next_url, allowed_hosts=None) or
             not next_url.startswith('/')):
         return redirect(fallback)
     return HttpResponseRedirect(next_url)

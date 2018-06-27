@@ -19,6 +19,11 @@ formats that are not well tested.
     likely contribute to your project.
 
 
+.. _bimono:
+
+Bilingual and monolignual formats
+---------------------------------
+
 Weblate does support both :index:`monolingual <pair: translation; monolingual>`
 and :index:`bilingual <pair: translation; bilingual>` formats. Bilingual
 formats store two languages in single file - source and translation (typical
@@ -85,8 +90,13 @@ The bilingual gettext PO file typically looks like:
 
 .. seealso::
 
-   `Gettext on Wikipedia <https://en.wikipedia.org/wiki/Gettext>`_,
-   :doc:`tt:formats/po`
+    `Gettext on Wikipedia <https://en.wikipedia.org/wiki/Gettext>`_,
+    :doc:`tt:formats/po`,
+    :ref:`addon-weblate.gettext.configure`,
+    :ref:`addon-weblate.gettext.customize`,
+    :ref:`addon-weblate.gettext.linguas`,
+    :ref:`addon-weblate.gettext.mo`,
+    :ref:`addon-weblate.gettext.msgmerge`,
 
 Monolingual Gettext
 +++++++++++++++++++
@@ -230,7 +240,9 @@ Weblate supports ISO-8859-1, UTF-8 and UTF-16 variants of this format.
 .. seealso::
 
     `Java properties on Wikipedia <https://en.wikipedia.org/wiki/.properties>`_,
-    :doc:`tt:formats/properties`
+    :doc:`tt:formats/properties`,
+    :ref:`addon-weblate.properties.sort`,
+    :ref:`addon-weblate.cleanup.generic`,
 
 Joomla translations
 -------------------
@@ -256,10 +268,6 @@ Joomla translations are usually used as monolingual.
 | File format                    | `Joomla Language File`           |
 +--------------------------------+----------------------------------+
 
-.. note::
-
-    You need translate-toolkit 2.1.0 or newer for Joomla support.
-
 .. seealso::
 
     `Specification of Joomla language files <https://docs.joomla.org/Specification_of_language_files>`_,
@@ -277,7 +285,7 @@ Translation format used in Qt based applications.
 Qt Linguist files are used as both bilingual and monolingual.
 
 +-------------------------------------------------------------------+
-| Typical Weblate :ref:`component`                                  |
+| Typical Weblate :ref:`component` when using as bilingual          |
 +================================+==================================+
 | File mask                      | ``i18n/app.*.ts``                |
 +--------------------------------+----------------------------------+
@@ -288,10 +296,23 @@ Qt Linguist files are used as both bilingual and monolingual.
 | File format                    | `Qt Linguist Translation File`   |
 +--------------------------------+----------------------------------+
 
++-------------------------------------------------------------------+
+| Typical Weblate :ref:`component` when using as monolingual        |
++================================+==================================+
+| File mask                      | ``i18n/app.*.ts``                |
++--------------------------------+----------------------------------+
+| Monolingual base language file | ``i18n/app.en.ts``               |
++--------------------------------+----------------------------------+
+| Base file for new translations | ``i18n/app.en.ts``               |
++--------------------------------+----------------------------------+
+| File format                    | `Qt Linguist Translation File`   |
++--------------------------------+----------------------------------+
+
 .. seealso::
 
     `Qt Linguist manual <http://doc.qt.io/qt-5/qtlinguist-index.html>`_,
-    :doc:`tt:formats/ts`
+    :doc:`tt:formats/ts`,
+    :ref:`bimono`
 
 .. _aresource:
 
@@ -382,11 +403,6 @@ Apple OS X strings are usually used as bilingual.
 
     `Apple Strings Files documentation <https://developer.apple.com/library/mac/#documentation/MacOSX/Conceptual/BPInternational/Articles/StringsFiles.html>`_,
     :doc:`tt:formats/strings`
-
-.. note::
-
-    You need translate-toolkit 1.12.0 or newer for proper support of Apple OS X
-    strings. Older versions might produce corrupted files.
 
 PHP strings
 -----------
@@ -490,7 +506,10 @@ Nested files are supported as well (see above for requirements), such file can l
 
 .. seealso::
 
-    :doc:`tt:formats/json`
+    :doc:`tt:formats/json`,
+    `i18next JSON Format <https://www.i18next.com/misc/json-format>`_,
+    :ref:`addon-weblate.json.customize`,
+    :ref:`addon-weblate.cleanup.generic`,
 
 WebExtension JSON
 -----------------
@@ -549,11 +568,10 @@ Example file:
 | File format                    | `.Net resource file`             |
 +--------------------------------+----------------------------------+
 
-.. note::
+.. seealso::
 
-    You need translate-toolkit 1.13.0 or newer to include support for this format.
-
-.. seealso:: :doc:`tt:formats/resx`
+    :doc:`tt:formats/resx`,
+    :ref:`addon-weblate.cleanup.generic`,
 
 CSV files
 ---------
@@ -664,6 +682,38 @@ Example DTD file:
 
 .. seealso:: :doc:`tt:formats/dtd`
 
+Windows RC files
+----------------
+
+.. versionadded:: 3.0
+
+    Experimental support has been added in Weblate 3.0.
+
+.. index::
+    pair: DTD; file format
+
+.. versionadded:: 2.18
+
+Example DTD file:
+
+.. literalinclude:: ../weblate/trans/tests/data/cs-CZ.rc
+    :language: text
+    :encoding: utf-8
+
++-------------------------------------------------------------------+
+| Typical Weblate :ref:`component`                                  |
++================================+==================================+
+| File mask                      | ``lang/*.rc``                    |
++--------------------------------+----------------------------------+
+| Monolingual base language file | ``lang/en-US.rc``                |
++--------------------------------+----------------------------------+
+| Base file for new translations | ``lang/en-US.rc``                |
++--------------------------------+----------------------------------+
+| File format                    | `RC file`                        |
++--------------------------------+----------------------------------+
+
+.. seealso:: :doc:`tt:formats/rc`
+
 Others
 ------
 
@@ -686,7 +736,7 @@ Adding new translations
     In versions prior to 2.18 the behaviour of adding new translations was file
     format specific.
 
-Weblate can automatically start new translation for all of the the file
+Weblate can automatically start new translation for all of the file
 formats.
 
 Some formats expect to start with empty file and only translated

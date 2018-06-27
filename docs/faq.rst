@@ -96,6 +96,37 @@ branches:
     # Push changes to upstream respository, Weblate will fetch merge from there
     git push
 
+In case of Gettext po files, there is a way to merge conflict in a semi-automatic way:
+
+Get and keep local clone of the Weblate git repository. Also get a second fresh
+local clone of the upstream git repository (i. e. you need two copies of the
+upstream git repository: intact and working copy):
+
+
+.. code-block:: sh
+
+    # Add remote
+    git remote add weblate /path/to/weblate/snapshot/
+
+    # Update weblate remote
+    git remote update weblate
+
+    # Merge Weblate changes
+    git merge weblate/master
+
+    # Resolve conflicts in the po files
+    for PO in `find . -name '*.po'` ; do
+        msgcat --use-first /path/to/weblate/snapshot/$PO\
+                   /path/to/upstream/snapshot/$PO -o $PO.merge
+        msgmerge --previous --lang=${PO%.po} $PO.merge domain.pot -o $PO
+        rm $PO.merge
+        git add $PO
+    done
+    git commit
+
+    # Push changes to upstream respository, Weblate will fetch merge from there
+    git push
+
 .. seealso:: 
    
    :ref:`git-export`
@@ -202,19 +233,6 @@ correctly as the user who has made the translation.
 .. seealso:: 
    
    :ref:`component`
-
-Why do I get a warning about not reflected changes on database migration?
--------------------------------------------------------------------------
-
-When running :command:`./manage.py migrate`, you can get the following warning:
-
-.. code-block:: console
-
-    Your models have changes that are not yet reflected in a migration, and so won't be applied.
-    Run 'manage.py makemigrations' to make new migrations, and then re-run 'manage.py migrate' to apply them.
-
-This is expected as Weblate generates choices for some fields and Django
-migrations can not reflect this. You can safely ignore this warning.
 
 Usage
 +++++
@@ -323,9 +341,8 @@ the :command:`msgmerge` tool:
 
     msgmerge -U locale/cs/LC_MESSAGES/django.mo locale/django.pot
 
-In case you want to do the update automatically, you can add a custom script
-to handle this to :setting:`POST_UPDATE_SCRIPTS` and enable it in the
-:ref:`component`.
+In case you want to do the update automatically, you can install
+addon :ref:`addon-weblate.gettext.msgmerge`.
 
 Troubleshooting
 +++++++++++++++

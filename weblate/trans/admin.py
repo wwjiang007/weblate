@@ -21,6 +21,7 @@
 from django.contrib import admin
 from django.utils.translation import ugettext_lazy as _
 
+from weblate.auth.models import User
 from weblate.trans.models import AutoComponentList, Unit
 from weblate.trans.util import sort_choices
 
@@ -38,7 +39,7 @@ class ProjectAdmin(WeblateModelAdmin):
 
     def list_admins(self, obj):
         return ', '.join(
-            obj.all_users('@Administration').values_list('username', flat=True)
+            User.objects.all_admins(obj).values_list('username', flat=True)
         )
     list_admins.short_description = _('Administrators')
 
@@ -51,7 +52,7 @@ class ProjectAdmin(WeblateModelAdmin):
     get_source_words.short_description = _('Source words')
 
     def num_vcs(self, obj):
-        return obj.subproject_set.exclude(repo__startswith='weblate:/').count()
+        return obj.component_set.exclude(repo__startswith='weblate:/').count()
     num_vcs.short_description = _('VCS repositories')
 
     def update_from_git(self, request, queryset):
@@ -67,7 +68,7 @@ class ProjectAdmin(WeblateModelAdmin):
         """Recalculate checks for selected components."""
         cnt = 0
         units = Unit.objects.filter(
-            translation__subproject__project__in=queryset
+            translation__component__project__in=queryset
         )
         translations = {}
         for unit in units.iterator():
@@ -103,7 +104,7 @@ class ProjectAdmin(WeblateModelAdmin):
         return result
 
 
-class SubProjectAdmin(WeblateModelAdmin):
+class ComponentAdmin(WeblateModelAdmin):
     list_display = [
         'name', 'slug', 'project', 'repo', 'branch', 'vcs', 'file_format'
     ]
@@ -125,7 +126,7 @@ class SubProjectAdmin(WeblateModelAdmin):
         """Recalculate checks for selected components."""
         cnt = 0
         units = Unit.objects.filter(
-            translation__subproject__in=queryset
+            translation__component__in=queryset
         )
         for unit in units.iterator():
             unit.run_checks()
@@ -150,20 +151,20 @@ class SubProjectAdmin(WeblateModelAdmin):
 
 class TranslationAdmin(WeblateModelAdmin):
     list_display = [
-        'subproject', 'language', 'translated', 'total',
+        'component', 'language', 'translated', 'total',
         'fuzzy', 'revision', 'filename'
     ]
     search_fields = [
-        'subproject__slug', 'language__code', 'revision', 'filename'
+        'component__slug', 'language__code', 'revision', 'filename'
     ]
-    list_filter = ['subproject__project', 'subproject', 'language']
+    list_filter = ['component__project', 'component', 'language']
 
 
 class UnitAdmin(WeblateModelAdmin):
     list_display = ['source', 'target', 'position', 'fuzzy', 'translated']
     search_fields = ['source', 'target', 'id_hash']
     list_filter = [
-        'translation__subproject',
+        'translation__component',
         'translation__language',
         'fuzzy',
         'translated'
@@ -184,12 +185,6 @@ class CommentAdmin(WeblateModelAdmin):
     search_fields = ['content_hash', 'comment']
 
 
-class CheckAdmin(WeblateModelAdmin):
-    list_display = ['content_hash', 'check', 'project', 'language', 'ignore']
-    search_fields = ['content_hash', 'check']
-    list_filter = ['check', 'project', 'ignore']
-
-
 class DictionaryAdmin(WeblateModelAdmin):
     list_display = ['source', 'target', 'project', 'language']
     search_fields = ['source', 'target']
@@ -200,15 +195,15 @@ class ChangeAdmin(WeblateModelAdmin):
     list_display = ['unit', 'user', 'timestamp']
     date_hierarchy = 'timestamp'
     list_filter = [
-        'unit__translation__subproject',
-        'unit__translation__subproject__project',
+        'unit__translation__component',
+        'unit__translation__component__project',
         'unit__translation__language'
     ]
     raw_id_fields = ('unit',)
 
 
 class WhiteboardMessageAdmin(WeblateModelAdmin):
-    list_display = ['message', 'project', 'subproject', 'language']
+    list_display = ['message', 'project', 'component', 'language']
     prepopulated_fields = {}
     search_fields = ['message']
     list_filter = ['project', 'language']
@@ -220,7 +215,8 @@ class AutoComponentListAdmin(admin.TabularInline):
 
 
 class ComponentListAdmin(WeblateModelAdmin):
-    list_display = ['name']
+    list_display = ['name', 'show_dashboard']
+    list_filter = ['show_dashboard']
     prepopulated_fields = {'slug': ('name',)}
     filter_horizontal = ('components', )
     inlines = [AutoComponentListAdmin]
@@ -228,4 +224,9 @@ class ComponentListAdmin(WeblateModelAdmin):
 
 class SourceAdmin(WeblateModelAdmin):
     list_display = ['id_hash', 'priority', 'timestamp']
+    date_hierarchy = 'timestamp'
+
+
+class ContributorAgreementAdmin(WeblateModelAdmin):
+    list_display = ['user', 'component', 'timestamp']
     date_hierarchy = 'timestamp'

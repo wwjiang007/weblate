@@ -27,20 +27,12 @@ from django.utils.safestring import mark_safe
 from weblate.utils.site import get_site_url
 from weblate.lang.models import Language
 from weblate.trans.forms import EngageForm
-from weblate.trans.models import SubProject
+from weblate.trans.models import Component
 from weblate.trans.widgets import WIDGETS
 from weblate.trans.views.helper import (
-    get_project, get_subproject, try_set_language,
+    get_project, get_component, try_set_language,
 )
 from weblate.trans.util import render
-
-
-def widgets_root(request):
-    return render(
-        request,
-        'widgets-root.html',
-        {},
-    )
 
 
 def widgets_sorter(widget):
@@ -59,7 +51,7 @@ def widgets(request, project):
         if form.cleaned_data['lang']:
             lang = Language.objects.get(code=form.cleaned_data['lang']).code
         if form.cleaned_data['component']:
-            component = SubProject.objects.get(
+            component = Component.objects.get(
                 slug=form.cleaned_data['component'],
                 project=obj
             ).slug
@@ -70,7 +62,7 @@ def widgets(request, project):
     engage_url = get_site_url(reverse('engage', kwargs=kwargs))
     engage_url_track = '{0}?utm_source=widget'.format(engage_url)
     engage_link = mark_safe(
-        '<a href="{0}">{0}</a>'.format(escape(engage_url))
+        '<a href="{0}" id="engage-link">{0}</a>'.format(escape(engage_url))
     )
     widget_base_url = get_site_url(
         reverse('widgets', kwargs={'project': obj.slug})
@@ -91,7 +83,7 @@ def widgets(request, project):
             if lang is not None:
                 kwargs['lang'] = lang
             if component is not None:
-                kwargs['subproject'] = component
+                kwargs['component'] = component
             color_url = reverse('widget-image', kwargs=kwargs)
             color_list.append({
                 'name': color,
@@ -120,12 +112,12 @@ def widgets(request, project):
 
 
 def render_widget(request, project, widget='287x66', color=None, lang=None,
-                  subproject=None, extension='png'):
+                  component=None, extension='png'):
     # We intentionally skip ACL here to allow widget sharing
-    if subproject is None:
+    if component is None:
         obj = get_project(request, project, skip_acl=True)
     else:
-        obj = get_subproject(request, project, subproject, skip_acl=True)
+        obj = get_component(request, project, component, skip_acl=True)
 
     # Handle language parameter
     if lang is not None:

@@ -60,8 +60,7 @@ class ClassLoader(object):
         self.name = name
         self.construct = construct
 
-    @cached_property
-    def data(self):
+    def load_data(self):
         result = {}
         for path in getattr(settings, self.name):
             obj = load_class(path, self.name)
@@ -69,6 +68,10 @@ class ClassLoader(object):
                 obj = obj()
             result[obj.get_identifier()] = obj
         return result
+
+    @cached_property
+    def data(self):
+        return self.load_data()
 
     def __getitem__(self, key):
         return self.data.__getitem__(key)
@@ -96,3 +99,9 @@ class ClassLoader(object):
 
     def __contains__(self, item):
         return self.data.__contains__(item)
+
+    def exists(self):
+        return bool(self.data)
+
+    def get_choices(self):
+        return [(x, self[x].name) for x in sorted(self)]

@@ -3,14 +3,31 @@
 
 . ci/lib
 
-TAGS="weblate-2.16 weblate-2.17.1 weblate-2.18 weblate-2.19 weblate-2.19.1"
+TAGS="weblate-3.0.1"
+DBS="sqlite mysql postgresql"
 
-for tag in $TAGS ; do
-    rm weblate.db
-    git checkout $tag
-    run_coverage ./manage.py migrate
-    check
-    git checkout $TRAVIS_COMMIT
-    run_coverage ./manage.py migrate
-    check
+for CI_DATABASE in $DBS ; do
+    export CI_DATABASE
+
+    for tag in $TAGS ; do
+        rm weblate.db
+        git checkout $tag || continue
+        run_coverage ./manage.py migrate
+        check
+        git checkout $TRAVIS_COMMIT
+        run_coverage ./manage.py migrate
+        check
+    done
 done
+
+./manage.py makemigrations
+check
+if [ `git status -s | grep -c /migrations/` -gt 0 ] ; then
+    echo 'There are untracked migrations:'
+    git status -s --porcelain | grep /migrations/ | sed -n '/^??/ s/^?? \(.*\)/\1/p' | while read migration ; do
+        echo $migration
+        cat $migration
+        echo
+    done
+    exit 1
+fi

@@ -157,7 +157,7 @@ class LanguageQuerySet(models.QuerySet):
         code = self.sanitize_code(code)
 
         lookups = [
-            # First try getting langauge as is
+            # First try getting language as is
             Q(code__iexact=code),
             # Replace dash with underscore (for things as zh_Hant)
             Q(code__iexact=code.replace('-', '_')),
@@ -166,7 +166,7 @@ class LanguageQuerySet(models.QuerySet):
         ]
 
         for lookup in lookups:
-            # First try getting langauge as is
+            # First try getting language as is
             ret = self.try_get(lookup)
             if ret is not None:
                 return ret
@@ -199,28 +199,33 @@ class LanguageQuerySet(models.QuerySet):
             return ret
 
         # Try canonical variant
-        if settings.SIMPLIFY_LANGUAGES and newcode in data.DEFAULT_LANGS:
+        if (settings.SIMPLIFY_LANGUAGES and
+                newcode.lower() in data.DEFAULT_LANGS):
             ret = self.try_get(code=lang.lower())
             if ret is not None:
                 return ret
 
         return newcode
 
-    def auto_get_or_create(self, code):
+    def auto_get_or_create(self, code, create=True):
         """Try to get language using fuzzy_get and create it if that fails."""
         ret = self.fuzzy_get(code)
         if isinstance(ret, Language):
             return ret
 
         # Create new one
-        return self.auto_create(ret)
+        return self.auto_create(ret, create)
 
-    def auto_create(self, code):
+    def auto_create(self, code, create=True):
         """Automatically create new language based on code and best guess
         of parameters.
         """
         # Create standard language
-        lang = self.create(
+        if create:
+            meth = self.create
+        else:
+            meth = Language
+        lang = meth(
             code=code,
             name='{0} (generated)'.format(code),
         )
@@ -240,14 +245,15 @@ class LanguageQuerySet(models.QuerySet):
         if baselang is not None:
             lang.name = baselang.name
             lang.direction = baselang.direction
-            lang.save()
-            baseplural = baselang.plural
-            lang.plural_set.create(
-                source=Plural.SOURCE_DEFAULT,
-                number=baseplural.number,
-                equation=baseplural.equation,
-            )
-        else:
+            if create:
+                lang.save()
+                baseplural = baselang.plural
+                lang.plural_set.create(
+                    source=Plural.SOURCE_DEFAULT,
+                    number=baseplural.number,
+                    equation=baseplural.equation,
+                )
+        elif create:
             lang.plural_set.create(
                 source=Plural.SOURCE_DEFAULT,
                 number=2,
@@ -327,9 +333,9 @@ class LanguageQuerySet(models.QuerySet):
 
 
 @receiver(post_migrate)
-def setup_lang(sender, intermediate=False, **kwargs):
+def setup_lang(sender, **kwargs):
     """Hook for creating basic set of languages on database migration."""
-    if not intermediate and sender.label == 'lang':
+    if sender.label == 'lang':
         with transaction.atomic():
             Language.objects.setup(False)
 
@@ -495,6 +501,7 @@ class Plural(models.Model):
     equation = models.CharField(
         max_length=400,
         default='n != 1',
+        blank=False,
         verbose_name=ugettext_lazy('Plural equation'),
     )
     type = models.IntegerField(
@@ -521,7 +528,9 @@ class Plural(models.Model):
 
     @cached_property
     def plural_function(self):
-        return gettext.c2py(self.equation)
+        return gettext.c2py(
+            self.equation if self.equation else '0'
+        )
 
     @cached_property
     def examples(self):
@@ -542,11 +551,16 @@ class Plural(models.Model):
         if matches is None:
             raise ValueError('Failed to parse formula')
 
-        return int(matches.group(1)), matches.group(2)
+        number = int(matches.group(1))
+        formula = matches.group(2)
+        if not formula:
+            formula = '0'
+
+        return number, formula
 
     def same_plural(self, number, equation):
         """Compare whether given plurals formula matches"""
-        if number != self.number:
+        if number != self.number or not equation:
             return False
 
         # Convert formulas to functions

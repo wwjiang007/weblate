@@ -36,15 +36,17 @@ from weblate.trans.search import update_index_unit, fulltext_search
 import weblate.trans.search
 from weblate.trans.models import IndexUpdate
 from weblate.trans.tests.utils import TempDirMixin
+from weblate.utils.state import STATE_FUZZY, STATE_TRANSLATED
 
 
 class SearchViewTest(ViewTestCase):
     def setUp(self):
         super(SearchViewTest, self).setUp()
-        self.translation = self.subproject.translation_set.get(
+        self.translation = self.component.translation_set.get(
             language_code='cs'
         )
         self.translate_url = self.translation.get_translate_url()
+        self.update_fulltext_index()
 
     def do_search(self, params, expected, url=None):
         """Helper method for performing search test."""
@@ -127,7 +129,7 @@ class SearchViewTest(ViewTestCase):
             reverse('search'),
             {'type': 'xxx'}
         )
-        self.assertContains(response, 'Please select a valid filter type.')
+        self.assertContains(response, 'Please choose a valid filter type.')
         self.do_search_url(reverse('search'))
 
     def test_pagination(self):
@@ -173,7 +175,7 @@ class SearchViewTest(ViewTestCase):
 
     def test_component_search(self):
         """Searching within component."""
-        self.do_search_url(reverse('search', kwargs=self.kw_subproject))
+        self.do_search_url(reverse('search', kwargs=self.kw_component))
 
     def test_project_language_search(self):
         """Searching within project."""
@@ -219,7 +221,7 @@ class SearchViewTest(ViewTestCase):
         # Wrong type
         self.do_search(
             {'q': 'Thank', 'search': 'xxxx'},
-            'Please select a valid search type.'
+            'Please choose a valid search type.'
         )
 
     def test_random(self):
@@ -347,7 +349,7 @@ class SearchViewTest(ViewTestCase):
     def test_search_errors(self):
         self.do_search(
             {'type': 'nonexisting-type'},
-            'Please select a valid filter type.',
+            'Please choose a valid filter type.',
         )
         self.do_search(
             {'date': 'nonexisting'},
@@ -372,6 +374,10 @@ class SearchViewTest(ViewTestCase):
 
 
 class SearchBackendTest(ViewTestCase):
+    def setUp(self):
+        super(SearchBackendTest, self).setUp()
+        self.update_fulltext_index()
+
     def do_index_update(self):
         self.edit_unit(
             'Hello, world!\n',
@@ -554,5 +560,66 @@ class ReplaceTest(ViewTestCase):
 
     def test_replace_component(self):
         self.do_replace_test(
-            reverse('replace', kwargs=self.kw_subproject),
+            reverse('replace', kwargs=self.kw_component),
+        )
+
+
+class MassStateTest(ViewTestCase):
+    """Test for mass state change functionality."""
+
+    def setUp(self):
+        super(MassStateTest, self).setUp()
+        self.edit_unit(
+            'Hello, world!\n',
+            'Nazdar svete!\n',
+            fuzzy=True,
+        )
+        self.unit = self.get_unit()
+        self.make_manager()
+
+    def do_mass_state_test(self, url, confirm=True):
+        response = self.client.post(
+            url,
+            {
+                'type': 'fuzzy',
+                'state': STATE_TRANSLATED,
+            },
+            follow=True
+        )
+        unit = self.get_unit()
+        self.assertContains(
+            response,
+            'Mass state change completed, 1 string was updated.'
+        )
+        self.assertEqual(unit.state, STATE_TRANSLATED)
+
+    def test_no_match(self):
+        response = self.client.post(
+            reverse('state-change', kwargs=self.kw_project),
+            {
+                'type': 'approved',
+                'state': STATE_FUZZY,
+            },
+            follow=True
+        )
+        self.assertContains(
+            response,
+            'Mass state change completed, no strings were updated.'
+        )
+        unit = self.get_unit()
+        self.assertEqual(unit.state, STATE_FUZZY)
+
+    def test_mass_state(self):
+        self.do_mass_state_test(
+            reverse('state-change', kwargs=self.kw_translation),
+        )
+
+    def test_mass_state_project(self):
+        self.do_mass_state_test(
+            reverse('state-change', kwargs=self.kw_project),
+        )
+
+    def test_mass_state_component(self):
+        self.do_mass_state_test(
+            reverse('state-change', kwargs=self.kw_component),
         )

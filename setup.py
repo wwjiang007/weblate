@@ -40,7 +40,7 @@ DATA_FILES = [
 
 setup(
     name='Weblate',
-    version='2.20',
+    version='3.1',
     packages=[
         'weblate',
     ],
@@ -65,9 +65,9 @@ setup(
             'pyLibravatar',
             'pydns' if sys.version_info[0] == 2 else 'py3dns'
         ],
-        'Android': ['Babel'],
         'YAML': ['PyYAML>=3.0'],
         'OCR': ['tesserocr>=1.2'],
+        'PHP': ['phply>=1.2.3'],
     },
     classifiers=[
         'Environment :: Web Environment',
@@ -97,6 +97,7 @@ setup(
     tests_require=(
         'selenium',
         'httpretty',
+        'boto3',
     ),
     test_suite='runtests.runtests',
     data_files=DATA_FILES,

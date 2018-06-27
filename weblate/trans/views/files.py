@@ -29,38 +29,43 @@ from django.views.decorators.http import require_POST
 
 from weblate.utils import messages
 from weblate.utils.errors import report_error
-from weblate.trans.forms import get_upload_form
+from weblate.trans.forms import get_upload_form, SearchForm
 from weblate.trans.views.helper import (
     get_translation, download_translation_file, show_form_errors,
 )
-from weblate.permissions.helpers import (
-    can_author_translation, can_overwrite_translation,
-    can_upload_translation,
-)
 
 
-def download_translation_format(request, project, subproject, lang, fmt):
-    obj = get_translation(request, project, subproject, lang)
+def download_translation_format(request, project, component, lang, fmt):
+    obj = get_translation(request, project, component, lang)
 
-    return download_translation_file(obj, fmt)
+    form = SearchForm(request.GET)
+    if form.is_valid():
+        units = obj.unit_set.search(
+            form.cleaned_data,
+            translation=obj,
+        )
+    else:
+        units = obj.unit_set.all()
+
+    return download_translation_file(obj, fmt, units)
 
 
-def download_translation(request, project, subproject, lang):
-    obj = get_translation(request, project, subproject, lang)
+def download_translation(request, project, component, lang):
+    obj = get_translation(request, project, component, lang)
 
     return download_translation_file(obj)
 
 
 @require_POST
-def upload_translation(request, project, subproject, lang):
+def upload_translation(request, project, component, lang):
     """Handling of translation uploads."""
-    obj = get_translation(request, project, subproject, lang)
+    obj = get_translation(request, project, component, lang)
 
-    if not can_upload_translation(request.user, obj):
+    if not request.user.has_perm('upload.perform', obj):
         raise PermissionDenied()
 
     # Check method and lock
-    if obj.subproject.locked:
+    if obj.component.locked:
         messages.error(request, _('Access denied.'))
         return redirect(obj)
 
@@ -78,7 +83,7 @@ def upload_translation(request, project, subproject, lang):
 
     # Create author name
     author = None
-    if (can_author_translation(request.user, obj.subproject.project) and
+    if (request.user.has_perm('upload.authorship', obj) and
             form.cleaned_data['author_name'] != '' and
             form.cleaned_data['author_email'] != ''):
         author = '{0} <{1}>'.format(
@@ -88,7 +93,7 @@ def upload_translation(request, project, subproject, lang):
 
     # Check for overwriting
     overwrite = False
-    if can_overwrite_translation(request.user, obj.subproject.project):
+    if request.user.has_perm('upload.overwrite', obj):
         overwrite = form.cleaned_data['upload_overwrite']
 
     # Do actual import

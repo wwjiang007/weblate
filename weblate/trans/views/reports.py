@@ -28,8 +28,7 @@ from django.core.exceptions import PermissionDenied
 from weblate.trans.models.change import Change
 from weblate.trans.forms import ReportsForm
 from weblate.trans.util import redirect_param
-from weblate.trans.views.helper import get_subproject, show_form_errors
-from weblate.permissions.helpers import can_view_reports
+from weblate.trans.views.helper import get_component, show_form_errors
 
 
 RST_HEADING = ' '.join([
@@ -65,11 +64,11 @@ def generate_credits(component, start_date, end_date):
 
 @login_required
 @require_POST
-def get_credits(request, project, subproject):
+def get_credits(request, project, component):
     """View for credits"""
-    obj = get_subproject(request, project, subproject)
+    obj = get_component(request, project, component)
 
-    if not can_view_reports(request.user, obj.project):
+    if not request.user.has_perm('reports.view', obj):
         raise PermissionDenied()
 
     form = ReportsForm(request.POST)
@@ -145,7 +144,7 @@ def generate_counts(component, start_date, end_date):
             translation=translation,
             timestamp__range=(start_date, end_date),
         ).values_list(
-            'author__email', 'author__first_name', 'unit__num_words', 'action',
+            'author__email', 'author__full_name', 'unit__num_words', 'action',
         )
         for email, name, words, action in authors:
             if words is None:
@@ -175,11 +174,11 @@ def generate_counts(component, start_date, end_date):
 
 @login_required
 @require_POST
-def get_counts(request, project, subproject):
+def get_counts(request, project, component):
     """View for work counts"""
-    obj = get_subproject(request, project, subproject)
+    obj = get_component(request, project, component)
 
-    if not can_view_reports(request.user, obj.project):
+    if not request.user.has_perm('reports.view', obj):
         raise PermissionDenied()
 
     form = ReportsForm(request.POST)

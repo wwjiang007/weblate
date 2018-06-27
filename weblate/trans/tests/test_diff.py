@@ -22,7 +22,7 @@ from __future__ import unicode_literals
 from unittest import TestCase
 from weblate.trans.simplediff import html_diff
 from weblate.trans.templatetags.translations import format_translation
-from weblate.trans.tests.test_checks import MockUnit, MockLanguage
+from weblate.checks.tests.test_checks import MockUnit, MockLanguage
 
 
 class DiffTest(TestCase):
@@ -62,7 +62,7 @@ class DiffTest(TestCase):
         self.assertEqual(
             format_translation(
                 unit.source,
-                unit.translation.subproject.project.source_language,
+                unit.translation.component.project.source_language,
                 diff='Hello world!',
             )['items'][0]['content'],
             'Hello wor<del>l</del>d!'

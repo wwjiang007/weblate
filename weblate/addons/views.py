@@ -27,7 +27,6 @@ from django.utils.translation import ugettext as _
 from django.views.generic import ListView, UpdateView
 
 from weblate.addons.models import Addon, ADDONS
-from weblate.permissions.helpers import can_edit_subproject
 from weblate.utils import messages
 from weblate.utils.views import ComponentViewMixin
 
@@ -35,10 +34,10 @@ from weblate.utils.views import ComponentViewMixin
 class AddonViewMixin(ComponentViewMixin):
     def get_queryset(self):
         component = self.get_component()
-        if not can_edit_subproject(self.request.user, component.project):
+        if not self.request.user.has_perm('component.edit', component):
             raise PermissionDenied('Can not edit component')
-        self.kwargs['component'] = component
-        return Addon.objects.filter(component=component)
+        self.kwargs['component_obj'] = component
+        return Addon.objects.filter_component(component)
 
     def get_success_url(self):
         component = self.get_component()
@@ -46,7 +45,7 @@ class AddonViewMixin(ComponentViewMixin):
             'addons',
             kwargs={
                 'project': component.project.slug,
-                'subproject': component.slug,
+                'component': component.slug,
             }
         )
 
@@ -62,12 +61,13 @@ class AddonList(AddonViewMixin, ListView):
 
     def get_context_data(self, **kwargs):
         result = super(AddonList, self).get_context_data(**kwargs)
-        component = self.kwargs['component']
+        component = self.kwargs['component_obj']
         result['object'] = component
         installed = set([x.addon.name for x in result['object_list']])
         result['available'] = [
             x for x in ADDONS.values()
-            if x.is_compatible(component) and x.name not in installed
+            if x.can_install(component, self.request.user)
+            and (x.multiple or x.name not in installed)
         ]
         return result
 
@@ -78,7 +78,7 @@ class AddonList(AddonViewMixin, ListView):
         installed = set([x.addon.name for x in self.get_queryset()])
         if (not name or
                 addon is None or
-                not addon.is_compatible(component) or
+                not addon.can_install(component, request.user) or
                 name in installed):
             return self.redirect_list(_('Invalid addon name specified!'))
 
@@ -99,7 +99,7 @@ class AddonList(AddonViewMixin, ListView):
             context={
                 'addon': addon,
                 'form': form,
-                'object': self.kwargs['component'],
+                'object': self.kwargs['component_obj'],
             },
         )
 

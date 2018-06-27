@@ -18,6 +18,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from __future__ import unicode_literals
+
 from django.apps import apps
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
@@ -32,8 +34,8 @@ from weblate.trans.util import PRIORITY_CHOICES
 @python_2_unicode_compatible
 class Source(models.Model):
     id_hash = models.BigIntegerField()
-    subproject = models.ForeignKey(
-        'SubProject', on_delete=models.deletion.CASCADE
+    component = models.ForeignKey(
+        'Component', on_delete=models.deletion.CASCADE
     )
     timestamp = models.DateTimeField(auto_now_add=True)
     priority = models.IntegerField(
@@ -45,14 +47,11 @@ class Source(models.Model):
         validators=[validate_check_flags],
         blank=True,
     )
+    context = models.TextField(default='', blank=True)
 
     class Meta(object):
-        permissions = (
-            ('edit_priority', "Can edit priority"),
-            ('edit_flags', "Can edit check flags"),
-        )
         app_label = 'trans'
-        unique_together = ('id_hash', 'subproject')
+        unique_together = ('id_hash', 'component')
         ordering = ('id', )
 
     @cached_property
@@ -86,7 +85,7 @@ class Source(models.Model):
     @property
     def unit(self):
         try:
-            translation = self.subproject.translation_set.all()[0]
+            translation = self.component.translation_set.all()[0]
         except IndexError:
             return None
         try:
@@ -97,11 +96,11 @@ class Source(models.Model):
     def units(self):
         return self.units_model.objects.filter(
             id_hash=self.id_hash,
-            translation__subproject=self.subproject
+            translation__component=self.component
         )
 
     def get_absolute_url(self):
         return reverse('review_source', kwargs={
-            'project': self.subproject.project.slug,
-            'subproject': self.subproject.slug,
+            'project': self.component.project.slug,
+            'component': self.component.slug,
         })

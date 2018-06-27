@@ -1,6 +1,16 @@
 Checks and fixups
 =================
 
+The quality checks help to catch common translator errors to make sure the
+translation is in good shape. The checks are divided into three severities and
+can be ignored in case there is a false positive.
+
+Once submitting translation with failing check, this is immediatelly shown to
+the user:
+
+.. image:: ../images/checks.png
+
+
 .. _autofix:
 
 Automatic fixups
@@ -210,7 +220,7 @@ Python format
 +----------------------+------------------------------------------------------------+
 | Simple format string | ``There are %d apples``                                    |
 +----------------------+------------------------------------------------------------+
-| Named format string  | ``Your ballance is %(amount) %(currency)``                 |
+| Named format string  | ``Your balance is %(amount) %(currency)``                  |
 +----------------------+------------------------------------------------------------+
 | Flag to enable       | `python-format`                                            |
 +----------------------+------------------------------------------------------------+
@@ -226,7 +236,7 @@ Python brace format
 +----------------------+------------------------------------------------------------+
 | Simple format string | ``There are {} apples``                                    |
 +----------------------+------------------------------------------------------------+
-| Named format string  | ``Your ballance is {amount} {currency}``                   |
+| Named format string  | ``Your balance is {amount} {currency}``                    |
 +----------------------+------------------------------------------------------------+
 | Flag to enable       | `python-brace-format`                                      |
 +----------------------+------------------------------------------------------------+
@@ -242,7 +252,7 @@ PHP format
 +------------------------+------------------------------------------------------------+
 | Simple format string   | ``There are %d apples``                                    |
 +------------------------+------------------------------------------------------------+
-| Position format string | ``Your ballance is %1$d %2$s``                             |
+| Position format string | ``Your balance is %1$d %2$s``                              |
 +------------------------+------------------------------------------------------------+
 | Flag to enable         | `php-format`                                               |
 +------------------------+------------------------------------------------------------+
@@ -258,7 +268,7 @@ C format
 +------------------------+------------------------------------------------------------+
 | Simple format string   | ``There are %d apples``                                    |
 +------------------------+------------------------------------------------------------+
-| Position format string | ``Your ballance is %1$d %2$s``                             |
+| Position format string | ``Your balance is %1$d %2$s``                              |
 +------------------------+------------------------------------------------------------+
 | Flag to enable         | `c-format`                                                 |
 +------------------------+------------------------------------------------------------+
@@ -274,7 +284,7 @@ Perl format
 +------------------------+------------------------------------------------------------+
 | Simple format string   | ``There are %d apples``                                    |
 +------------------------+------------------------------------------------------------+
-| Position format string | ``Your ballance is %1$d %2$s``                             |
+| Position format string | ``Your balance is %1$d %2$s``                              |
 +------------------------+------------------------------------------------------------+
 | Flag to enable         | `perl-format`                                              |
 +------------------------+------------------------------------------------------------+
@@ -301,7 +311,7 @@ AngularJS interpolation string
 ******************************
 
 +----------------------+------------------------------------------------------------+
-| Named format string  | ``Your ballance is {{amount}} {{ currency }}``             |
+| Named format string  | ``Your balance is {{amount}} {{ currency }}``              |
 +----------------------+------------------------------------------------------------+
 | Flag to enable       | `angularjs-format`                                         |
 +----------------------+------------------------------------------------------------+

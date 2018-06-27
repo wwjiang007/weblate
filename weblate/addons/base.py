@@ -23,7 +23,7 @@ from __future__ import unicode_literals
 from django.apps import apps
 from django.utils.functional import cached_property
 
-from weblate.addons.events import EVENT_POST_UPDATE
+from weblate.addons.events import EVENT_POST_UPDATE, EVENT_STORE_POST_LOAD
 from weblate.addons.forms import BaseAddonForm
 
 
@@ -32,9 +32,11 @@ class BaseAddon(object):
     settings_form = None
     name = None
     compat = {}
+    multiple = False
     verbose = 'Base addon'
     description = 'Base addon'
     icon = 'cog'
+    project_scope = False
 
     """Base class for Weblate addons."""
     def __init__(self, storage=None):
@@ -50,6 +52,7 @@ class BaseAddon(object):
 
     @classmethod
     def create(cls, component, **kwargs):
+        kwargs['project_scope'] = cls.project_scope
         storage = apps.get_model('addons', 'Addon').objects.create(
             component=component, name=cls.name, **kwargs
         )
@@ -88,7 +91,7 @@ class BaseAddon(object):
         self.instance.save(update_fields=['state'])
 
     @classmethod
-    def is_compatible(cls, component):
+    def can_install(cls, component, user):
         """Check whether addon is compatible with given component."""
         for key, values in cls.compat.items():
             if getattr(component, key) not in values:
@@ -104,13 +107,16 @@ class BaseAddon(object):
     def post_commit(self, translation):
         return
 
-    def pre_commit(self, translation):
+    def pre_commit(self, translation, author):
         return
 
     def post_add(self, translation):
         return
 
     def unit_pre_create(self, unit):
+        return
+
+    def store_post_load(self, translation, store):
         return
 
 
@@ -150,3 +156,21 @@ Updated by {name} hook in Weblate.'''
     def post_update(self, component, previous_head):
         self.update_translations(component, previous_head)
         self.commit_and_push(component)
+
+
+class StoreBaseAddon(BaseAddon):
+    """Base class for addons tweaking store."""
+    events = (EVENT_STORE_POST_LOAD,)
+    icon = 'wrench'
+
+    @staticmethod
+    def is_store_compatible(store):
+        return False
+
+    @classmethod
+    def can_install(cls, component, user):
+        if (not super(StoreBaseAddon, cls).can_install(component, user) or
+                not component.translation_set.exists()):
+            return False
+        translation = component.translation_set.all()[0]
+        return cls.is_store_compatible(translation.store.store)

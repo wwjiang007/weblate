@@ -30,7 +30,6 @@ from django.core.exceptions import ValidationError
 from django.db.models.signals import post_save
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import python_2_unicode_compatible
-from django.contrib.auth.models import User
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
@@ -40,14 +39,13 @@ from rest_framework.authtoken.models import Token
 
 from social_django.models import UserSocialAuth
 
+from weblate.auth.models import User
 from weblate.lang.models import Language
 from weblate.utils import messages
 from weblate.accounts.avatar import get_user_display
 from weblate.utils.validators import validate_editor
 from weblate.utils.decorators import disable_for_loaddata
 from weblate.utils.fields import JSONField
-
-DEMO_ACCOUNTS = ('demo', 'review')
 
 ACCOUNT_ACTIVITY = {
     'password': _(
@@ -57,19 +55,19 @@ ACCOUNT_ACTIVITY = {
         'Password reset has been requested.'
     ),
     'reset': _(
-        'Password reset has been confirmed and password has been reset.'
+        'Password reset has been confirmed and password has been disabled.'
     ),
     'auth-connect': _(
-        'Authentication using {method} ({name}) has been added.'
+        'Authentication ({method}:{name}) has been added.'
     ),
     'auth-disconnect': _(
-        'Authentication using {method} ({name}) has been removed.'
+        'Authentication ({method}:{name}) has been removed.'
     ),
     'login': _(
-        'Successfully authenticated using {method} ({name}).'
+        'Authenticated ({method}:{name}).'
     ),
     'login-new': _(
-        'Successfully authenticated using {method} ({name}) from new device.'
+        'Authenticated ({method}:{name}) from new device.'
     ),
     'register': _(
         'Somebody has attempted to register with your email.'
@@ -78,7 +76,7 @@ ACCOUNT_ACTIVITY = {
         'Somebody has attempted to add your email to existing account.'
     ),
     'failed-auth': _(
-        'Failed authentication attempt using {method} ({name}).'
+        'Failed authentication attempt ({method}:{name}).'
     ),
     'locked': _(
         'Account locked due to excessive failed authentication attempts.'
@@ -88,6 +86,12 @@ ACCOUNT_ACTIVITY = {
     ),
     'tos': _(
         'Agreement with Terms of Service {date}.'
+    ),
+}
+
+EXTRA_MESSAGES = {
+    'locked': _(
+        'To restore access to your account, please reset your password.'
     ),
 }
 
@@ -102,46 +106,6 @@ NOTIFY_ACTIVITY = frozenset((
     'removed',
     'login-new',
 ))
-
-
-class WeblateAnonymousUser(User):
-    """Proxy model to customize User behavior."""
-
-    class Meta(object):
-        proxy = True
-
-    @property
-    def is_authenticated(self):
-        return False
-
-    @property
-    def is_anonymous(self):
-        return True
-
-
-def get_anonymous():
-    """Return anonymous user"""
-    return WeblateAnonymousUser.objects.get(
-        username=settings.ANONYMOUS_USER_NAME,
-    )
-
-
-def get_author_name(user, email=True):
-    """Return formatted author name with email."""
-    # The < > are replace to avoid tricking Git to use
-    # name as email
-
-    # Get full name from database
-    full_name = user.first_name.replace('<', '').replace('>', '')
-
-    # Use username if full name is empty
-    if full_name == '':
-        full_name = user.username.replace('<', '').replace('>', '')
-
-    # Add email if we are asked for it
-    if not email:
-        return full_name
-    return '{0} <{1}>'.format(full_name, user.email)
 
 
 class AuditLogManager(models.Manager):
@@ -197,7 +161,7 @@ class AuditLog(models.Model):
         db_index=True,
     )
     params = JSONField()
-    address = models.GenericIPAddressField()
+    address = models.GenericIPAddressField(null=True)
     user_agent = models.CharField(max_length=200, default='')
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 
@@ -212,8 +176,15 @@ class AuditLog(models.Model):
         )
     get_message.short_description = _('Account activity')
 
+    def get_extra_message(self):
+        if self.activity in EXTRA_MESSAGES:
+            return EXTRA_MESSAGES[self.activity].format(
+                **self.params
+            )
+        return None
+
     def should_notify(self):
-        return self.activity in NOTIFY_ACTIVITY
+        return self.activity in NOTIFY_ACTIVITY and not self.user.is_demo
 
     def __str__(self):
         return '{0} for {1} from {2}'.format(
@@ -337,7 +308,7 @@ class Profile(models.Model):
     translated = models.IntegerField(default=0, db_index=True)
 
     hide_completed = models.BooleanField(
-        verbose_name=_('Hide completed translations on dashboard'),
+        verbose_name=_('Hide completed translations on the dashboard'),
         default=False
     )
     secondary_in_zen = models.BooleanField(
@@ -376,10 +347,12 @@ class Profile(models.Model):
     DASHBOARD_LANGUAGES = 2
     DASHBOARD_COMPONENT_LIST = 4
     DASHBOARD_SUGGESTIONS = 5
+    DASHBOARD_COMPONENT_LISTS = 6
 
     DASHBOARD_CHOICES = (
         (DASHBOARD_WATCHED, _('Watched translations')),
         (DASHBOARD_LANGUAGES, _('Your languages')),
+        (DASHBOARD_COMPONENT_LISTS, _('Component lists')),
         (DASHBOARD_COMPONENT_LIST, _('Component list')),
         (DASHBOARD_SUGGESTIONS, _('Suggested translations')),
     )
@@ -389,6 +362,7 @@ class Profile(models.Model):
         DASHBOARD_LANGUAGES: 'your-languages',
         DASHBOARD_COMPONENT_LIST: 'list',
         DASHBOARD_SUGGESTIONS: 'suggestions',
+        DASHBOARD_COMPONENT_LISTS: 'componentlists'
     }
 
     DASHBOARD_SLUGMAP = {
@@ -414,7 +388,7 @@ class Profile(models.Model):
         verbose_name=_('Watched projects'),
         help_text=_(
             'You can receive notifications for watched projects and '
-            'they are shown on dashboard by default.'
+            'they are shown on the dashboard by default.'
         ),
         blank=True,
     )
@@ -486,10 +460,10 @@ class Profile(models.Model):
     @property
     def full_name(self):
         """Return user's full name."""
-        return self.user.first_name
+        return self.user.full_name
 
     def clean(self):
-        """Check if component list is selected when required."""
+        """Check if component list is chosen when required."""
         # This is used for form validation as well, but those
         # will not contain all fields
         if not hasattr(self, 'dashboard_component_list'):
@@ -498,13 +472,13 @@ class Profile(models.Model):
                 self.dashboard_component_list is None):
             raise ValidationError({
                 'dashboard_component_list':
-                _("Component list must be selected when used as default.")
+                _("Component list must be chosen when used as default.")
             })
         if (self.dashboard_view != Profile.DASHBOARD_COMPONENT_LIST and
                 self.dashboard_component_list is not None):
             raise ValidationError({
                 'dashboard_component_list':
-                _("Component list must not be selected when not used.")
+                _("Component list can not be chosen when unused.")
             })
 
 
@@ -534,6 +508,7 @@ def post_login_handler(sender, request, user, **kwargs):
     profile = Profile.objects.get_or_create(user=user)[0]
 
     # Migrate django-registration based verification to python-social-auth
+    # and handle external authentication such as LDAP
     if (is_email_auth and user.has_usable_password() and user.email and
             not user.social_auth.filter(provider='email').exists()):
         social = user.social_auth.create(
@@ -549,12 +524,9 @@ def post_login_handler(sender, request, user, **kwargs):
     set_lang(request, profile)
 
     # Fixup accounts with empty name
-    if not user.first_name:
-        if user.last_name:
-            user.first_name = user.last_name
-        else:
-            user.first_name = user.username
-        user.save(update_fields=['first_name'])
+    if not user.full_name:
+        user.full_name = user.username
+        user.save(update_fields=['full_name'])
 
     # Warn about not set email
     if not user.email:
@@ -579,12 +551,3 @@ def create_profile_callback(sender, instance, created=False, **kwargs):
         )
         # Create profile
         Profile.objects.get_or_create(user=instance)
-        # Generate full name from parts
-        # This is needed with LDAP authentication when the
-        # server does not contain full name
-        if (instance.first_name and instance.last_name and
-                instance.last_name not in instance.first_name):
-            instance.first_name = '{} {}'.format(
-                instance.first_name, instance.last_name
-            )
-            instance.save(update_fields=['first_name'])

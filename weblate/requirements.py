@@ -24,10 +24,11 @@ import importlib
 import sys
 from distutils.version import LooseVersion
 from django.core.exceptions import ImproperlyConfigured
-from weblate.trans.vcs import (
-    GitRepository, HgRepository, SubversionRepository, GitWithGerritRepository,
+from weblate.vcs.git import (
+    GitRepository, SubversionRepository, GitWithGerritRepository,
     GithubRepository,
 )
+from weblate.vcs.mercurial import HgRepository
 
 
 def get_version_module(module, name, url, optional=False):
@@ -196,7 +197,7 @@ def get_versions():
         'Translate Toolkit',
         'http://toolkit.translatehouse.org/',
         'translate.__version__',
-        '2.2.0',
+        '2.3.0',
         'sver',
     ))
 
@@ -265,7 +266,7 @@ def get_versions():
         'djangorestframework',
         'http://www.django-rest-framework.org/',
         'rest_framework',
-        '3.7',
+        '3.8',
     ))
 
     result.append(get_single(

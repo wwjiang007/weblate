@@ -27,7 +27,6 @@ import unicodedata
 from django.conf import settings
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.contrib.auth.models import User
 from django.utils.encoding import force_text
 from django.utils.http import is_safe_url
 from django.utils.translation import ugettext as _
@@ -39,17 +38,16 @@ from social_core.exceptions import AuthMissingParameter, AuthAlreadyAssociated
 
 from social_django.models import Code
 
+from weblate.auth.models import User
 from weblate.accounts.notifications import (
     send_notification_email, notify_account_activity
 )
 from weblate.accounts.templatetags.authnames import get_auth_name
-from weblate.accounts.models import VerifiedEmail, DEMO_ACCOUNTS
+from weblate.accounts.models import VerifiedEmail
 from weblate.utils import messages
-from weblate.utils.validators import clean_fullname
+from weblate.utils.validators import clean_fullname, USERNAME_MATCHER
 from weblate import USER_AGENT
 
-USERNAME_RE = r'^[\w@+-][\w.@+-]*$'
-USERNAME_MATCHER = re.compile(USERNAME_RE)
 STRIP_MATCHER = re.compile(r'[^\w\s.@+-]')
 CLEANUP_MATCHER = re.compile(r'[-\s]+')
 
@@ -215,7 +213,7 @@ def verify_open(strategy, backend, user, weblate_action, **kwargs):
         raise AuthMissingParameter(backend, 'disabled')
 
     # Avoid adding associations to demo user
-    if user and settings.DEMO_SERVER and user.username in DEMO_ACCOUNTS:
+    if user and user.is_demo:
         raise AuthMissingParameter(backend, 'demo')
 
     # Ensure it's still same user
@@ -228,11 +226,11 @@ def cleanup_next(strategy, **kwargs):
     # This is mostly fix for lack of next validation in Python Social Auth
     # see https://github.com/python-social-auth/social-core/issues/62
     url = strategy.session_get('next')
-    if url and not is_safe_url(url):
+    if url and not is_safe_url(url, allowed_hosts=None):
         strategy.session_set('next', None)
-    if 'next' in kwargs and not is_safe_url(kwargs['next']):
-        return {'next': None}
-    return None
+    if is_safe_url(kwargs.get('next', ''), allowed_hosts=None):
+        return None
+    return {'next': None}
 
 
 def store_params(strategy, user, **kwargs):
@@ -384,7 +382,7 @@ def notify_connect(strategy, backend, user, social, new_association=False,
 
 def user_full_name(strategy, details, user=None, **kwargs):
     """Update user full name using data from provider."""
-    if user and not user.first_name:
+    if user and not user.full_name:
         full_name = details.get('fullname', '').strip()
 
         if (not full_name and
@@ -407,13 +405,12 @@ def user_full_name(strategy, details, user=None, **kwargs):
 
         full_name = clean_fullname(full_name)
 
-        # The Django User model limit is 30 chars, this should
-        # be raised if we switch to custom User model
-        if len(full_name) > 30:
-            full_name = full_name[:30]
+        # The User model limit is 150 chars
+        if len(full_name) > 150:
+            full_name = full_name[:150]
 
         if full_name:
-            user.first_name = full_name
+            user.full_name = full_name
             strategy.storage.user.changed(user)
 
 

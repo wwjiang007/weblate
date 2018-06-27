@@ -25,7 +25,7 @@ import re
 from datetime import date
 
 from django.utils.html import escape, urlize
-from django.contrib.admin.templatetags.admin_static import static
+from django.templatetags.static import static
 from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
 from django.utils.encoding import force_text
@@ -38,15 +38,23 @@ from weblate.trans.simplediff import html_diff
 from weblate.trans.util import split_plural
 from weblate.lang.models import Language
 from weblate.trans.models import (
-    Project, SubProject, Dictionary, WhiteboardMessage, Unit,
+    Project, Component, Dictionary, WhiteboardMessage, Unit,
+    ContributorAgreement,
 )
-from weblate.trans.checks import CHECKS, highlight_string
+from weblate.checks import CHECKS, highlight_string
 from weblate.utils.stats import BaseStats
 
 register = template.Library()
 
-SPACE_NL = '<span class="hlspace space-nl" title="{0}"></span><br />'
-SPACE_TAB = '<span class="hlspace space-tab" title="{0}"></span>'
+HIGHLIGTH_SPACE = '<span class="hlspace">{}</span>{}'
+SPACE_TEMPLATE = '<span class="{}"><span class="sr-only">{}</span></span>'
+SPACE_SPACE = SPACE_TEMPLATE.format('space-space', ' ')
+SPACE_NL = HIGHLIGTH_SPACE.format(
+    SPACE_TEMPLATE.format('space-nl', ''), '<br />'
+)
+SPACE_TAB = HIGHLIGTH_SPACE.format(
+    SPACE_TEMPLATE.format('space-tab', '\t'), ''
+)
 
 HL_CHECK = (
     '<span class="hlcheck">{0}'
@@ -88,18 +96,19 @@ SOURCE_LINK = '''
 '''
 
 
+def replace_whitespace(match):
+    spaces = match.group(1).replace(' ', SPACE_SPACE)
+    return HIGHLIGTH_SPACE.format(spaces, '')
+
+
 def fmt_whitespace(value):
     """Format whitespace so that it is more visible."""
     # Highlight exta whitespace
-    value = WHITESPACE_RE.sub(
-        '<span class="hlspace">\\1</span>',
-        value
-    )
+    value = WHITESPACE_RE.sub(replace_whitespace, value)
+
     # Highlight tabs
-    value = value.replace(
-        '\t',
-        SPACE_TAB.format(_('Tab character'))
-    )
+    value = value.replace('\t', SPACE_TAB.format(_('Tab character')))
+
     return value
 
 
@@ -252,10 +261,10 @@ def project_name(prj):
 
 
 @register.simple_tag
-def subproject_name(prj, subprj):
-    """Get subproject name based on slug."""
+def component_name(prj, subprj):
+    """Get component name based on slug."""
     return escape(
-        force_text(SubProject.objects.get(project__slug=prj, slug=subprj))
+        force_text(Component.objects.get(project__slug=prj, slug=subprj))
     )
 
 
@@ -589,7 +598,7 @@ def get_location_links(profile, unit):
 
     # Is it just an ID?
     if unit.location.isdigit():
-        return _('unit ID %s') % unit.location
+        return _('string ID %s') % unit.location
 
     # Go through all locations separated by comma
     for location in unit.location.split(','):
@@ -606,10 +615,10 @@ def get_location_links(profile, unit):
             link = profile.editor_link % {
                 'file': filename,
                 'line': line,
-                'branch': unit.translation.subproject.branch
+                'branch': unit.translation.component.branch
             }
         else:
-            link = unit.translation.subproject.get_repoweb_link(filename, line)
+            link = unit.translation.component.get_repoweb_link(filename, line)
         location = location.replace('/', '/\u200B')
         if link is None:
             ret.append(escape(location))
@@ -619,23 +628,26 @@ def get_location_links(profile, unit):
 
 
 @register.simple_tag
-def whiteboard_messages(project=None, subproject=None, language=None):
+def whiteboard_messages(project=None, component=None, language=None):
     """Display whiteboard messages for given context"""
     ret = []
 
     whiteboards = WhiteboardMessage.objects.context_filter(
-        project, subproject, language
+        project, component, language
     )
 
     for whiteboard in whiteboards:
+        if whiteboard.message_html:
+            content = mark_safe(whiteboard.message)
+        else:
+            content = mark_safe(urlize(whiteboard.message, autoescape=True))
+
         ret.append(
             render_to_string(
                 'message.html',
                 {
                     'tags': ' '.join((whiteboard.category, 'whiteboard')),
-                    'message': mark_safe(
-                        urlize(whiteboard.message, autoescape=True)
-                    )
+                    'message':  content,
                 }
             )
         )
@@ -660,7 +672,7 @@ def active_link(context, slug):
 def matching_cotentsum(item):
     """Find matching objects to suggestion, comment or check"""
     return Unit.objects.prefetch().filter(
-        translation__subproject__project=item.project,
+        translation__component__project=item.project,
         translation__language=item.language,
         content_hash=item.content_hash,
     )
@@ -672,14 +684,30 @@ def user_permissions(user, groups):
     result = []
     for group in groups:
         checked = ''
-        if user.groups.filter(pk=group[0]).exists():
+        if user.groups.filter(pk=group.pk).exists():
             checked = ' checked="checked"'
         result.append(
             PERM_TEMPLATE.format(
                 escape(user.username),
-                group[0],
-                escape(group[1]),
+                group.pk,
+                escape(group.short_name),
                 checked
             )
         )
     return mark_safe(''.join(result))
+
+
+@register.simple_tag(takes_context=True)
+def show_contributor_agreement(context, component):
+    if not component.agreement:
+        return ''
+    if ContributorAgreement.objects.has_agreed(context['user'], component):
+        return ''
+
+    return render_to_string(
+        'show-contributor-agreement.html',
+        {
+            'object': component,
+            'next': context['request'].get_full_path(),
+        }
+    )

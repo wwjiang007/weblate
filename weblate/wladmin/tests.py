@@ -34,7 +34,6 @@ class AdminTest(FixtureTestCase):
     """Test for customized admin interface."""
     def setUp(self):
         super(AdminTest, self).setUp()
-        self.user.is_staff = True
         self.user.is_superuser = True
         self.user.save()
 
@@ -101,14 +100,14 @@ class AdminTest(FixtureTestCase):
         response = self.client.get(reverse('admin:trans_project_add'))
         self.assertContains(response, 'Required fields are marked in bold')
 
-    def test_create_subproject(self):
-        response = self.client.get(reverse('admin:trans_subproject_add'))
+    def test_create_component(self):
+        response = self.client.get(reverse('admin:trans_component_add'))
         self.assertContains(response, 'Import speed documentation')
 
-    def test_subproject(self):
-        """Test for custom subproject actions."""
+    def test_component(self):
+        """Test for custom component actions."""
         self.assert_custom_admin(
-            reverse('admin:trans_subproject_changelist')
+            reverse('admin:trans_component_changelist')
         )
 
     def test_project(self):

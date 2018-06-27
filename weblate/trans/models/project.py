@@ -23,62 +23,18 @@ from __future__ import unicode_literals
 import os
 import os.path
 
+from django.conf import settings
 from django.db import models
-from django.utils.translation import ugettext as _, ugettext_lazy, pgettext
+from django.utils.translation import ugettext as _, ugettext_lazy
 from django.utils.encoding import python_2_unicode_compatible
 from django.core.exceptions import ValidationError
 from django.urls import reverse
-from django.contrib.auth.models import Permission, User, Group
 
-from weblate.accounts.models import Profile
 from weblate.lang.models import Language, get_english_lang
 from weblate.trans.mixins import URLMixin, PathMixin
 from weblate.utils.stats import ProjectStats
 from weblate.utils.site import get_site_url
 from weblate.trans.data import data_dir
-
-
-class ProjectManager(models.Manager):
-    # pylint: disable=no-init
-
-    def get_acl_ids(self, user):
-        """Return list of project IDs and status
-        for current user filtered by ACL
-        """
-        if user.is_superuser:
-            return self.values_list('id', flat=True)
-        if not hasattr(user, 'acl_ids_cache'):
-            permission = Permission.objects.get(codename='access_project')
-
-            not_filtered = set()
-            # Projects where access is not filtered by GroupACL
-            if user.has_perm('trans.access_project'):
-                not_filtered = set(self.exclude(
-                    groupacl__permissions=permission
-                ).values_list(
-                    'id', flat=True
-                ))
-
-            # Projects where current user has GroupACL based access
-            have_access = set(self.filter(
-                groupacl__permissions=permission,
-                groupacl__groups__permissions=permission,
-                groupacl__groups__user=user,
-            ).values_list(
-                'id', flat=True
-            ))
-
-            user.acl_ids_cache = not_filtered | have_access
-
-        return user.acl_ids_cache
-
-    def all_acl(self, user):
-        """Return list of projects user is allowed to access
-        and flag whether there is any filtering active.
-        """
-        if user.is_superuser:
-            return self.all()
-        return self.filter(id__in=self.get_acl_ids(user))
 
 
 @python_2_unicode_compatible
@@ -87,6 +43,13 @@ class Project(models.Model, URLMixin, PathMixin):
     ACCESS_PROTECTED = 1
     ACCESS_PRIVATE = 100
     ACCESS_CUSTOM = 200
+
+    ACCESS_CHOICES = (
+        (ACCESS_PUBLIC, ugettext_lazy('Public')),
+        (ACCESS_PROTECTED, ugettext_lazy('Protected')),
+        (ACCESS_PRIVATE, ugettext_lazy('Private')),
+        (ACCESS_CUSTOM, ugettext_lazy('Custom')),
+    )
 
     name = models.CharField(
         verbose_name=ugettext_lazy('Project name'),
@@ -117,34 +80,30 @@ class Project(models.Model, URLMixin, PathMixin):
     )
 
     set_translation_team = models.BooleanField(
-        verbose_name=ugettext_lazy('Set Translation-Team header'),
+        verbose_name=ugettext_lazy('Set \"Translation-Team\" header'),
         default=True,
         help_text=ugettext_lazy(
-            'Whether the Translation-Team in file headers should be '
+            'Whether the \"Translation-Team\" field in file headers should be '
             'updated by Weblate.'
         ),
     )
 
     access_control = models.IntegerField(
-        default=ACCESS_PUBLIC,
-        choices=(
-            (ACCESS_PUBLIC, ugettext_lazy('Public')),
-            (ACCESS_PROTECTED, ugettext_lazy('Protected')),
-            (ACCESS_PRIVATE, ugettext_lazy('Private')),
-            (ACCESS_CUSTOM, ugettext_lazy('Custom')),
+        default=(
+            ACCESS_CUSTOM if settings.DEFAULT_CUSTOM_ACL else ACCESS_PUBLIC
         ),
+        choices=ACCESS_CHOICES,
         verbose_name=_('Access control'),
         help_text=ugettext_lazy(
-            'How to restrict access to this project, please check '
-            'the documentation for more details.'
+            'How to restrict access to this project is detailed '
+            'in the documentation.'
         )
     )
     enable_review = models.BooleanField(
         verbose_name=ugettext_lazy('Enable reviews'),
         default=False,
         help_text=ugettext_lazy(
-            'Enable this if you intend for dedicated reviewers to '
-            'approve translations.'
+            'Requires dedicated reviewers to approve translations.'
         )
     )
     enable_hooks = models.BooleanField(
@@ -164,18 +123,12 @@ class Project(models.Model, URLMixin, PathMixin):
         on_delete=models.deletion.CASCADE,
     )
 
-    objects = ProjectManager()
-
     is_lockable = True
     _reverse_url_name = 'project'
 
     class Meta(object):
         ordering = ['name']
         app_label = 'trans'
-        permissions = (
-            ('manage_acl', 'Can manage ACL rules for a project'),
-            ('access_project', 'Can access project'),
-        )
         verbose_name = ugettext_lazy('Project')
         verbose_name_plural = ugettext_lazy('Projects')
 
@@ -184,51 +137,26 @@ class Project(models.Model, URLMixin, PathMixin):
         self.old_access_control = self.access_control
         self.stats = ProjectStats(self)
 
-    def all_users(self, group=None):
-        """Return all users having ACL on this project."""
-        groups = Group.objects.filter(groupacl__project=self)
-        if group is not None:
-            groups = groups.filter(name__endswith=group)
-        return User.objects.filter(groups__in=groups).distinct()
-
-    def all_groups(self):
-        """Return list of applicable groups for project."""
-        return [
-            (g.pk, pgettext('Permissions group', g.name.split('@')[1]))
-            for g in Group.objects.filter(
-                groupacl__project=self, name__contains='@'
-            ).order_by('name')
-        ]
-
     def add_user(self, user, group=None):
-        """Add user based on username of email."""
+        """Add user based on username or email address."""
         if group is None:
             if self.access_control != self.ACCESS_PUBLIC:
                 group = '@Translate'
             else:
                 group = '@Administration'
-        group = Group.objects.get(name='{0}{1}'.format(self.name, group))
+        group = self.group_set.get(name='{0}{1}'.format(self.name, group))
         user.groups.add(group)
-        self.add_subscription(user)
-
-    def add_subscription(self, user):
-        """Add user subscription to current project"""
-        try:
-            profile = user.profile
-        except Profile.DoesNotExist:
-            profile = Profile.objects.create(user=user)
-
-        profile.subscriptions.add(self)
+        user.profile.subscriptions.add(self)
 
     def remove_user(self, user, group=None):
-        """Add user based on username of email."""
+        """Add user based on username or email address."""
         if group is None:
-            groups = Group.objects.filter(
-                name__startswith='{0}@'.format(self.name)
+            groups = self.group_set.filter(
+                internal=True, name__contains='@'
             )
             user.groups.remove(*groups)
         else:
-            group = Group.objects.get(name='{0}{1}'.format(self.name, group))
+            group = self.group_set.get(name='{0}{1}'.format(self.name, group))
             user.groups.remove(group)
 
     def clean(self):
@@ -259,10 +187,10 @@ class Project(models.Model, URLMixin, PathMixin):
 
     @property
     def locked(self):
-        subprojects = self.subproject_set.all()
-        if not subprojects:
+        components = self.component_set.all()
+        if not components:
             return False
-        return max([subproject.locked for subproject in subprojects])
+        return max([component.locked for component in components])
 
     def _get_path(self):
         return os.path.join(data_dir('vcs'), self.slug)
@@ -277,6 +205,14 @@ class Project(models.Model, URLMixin, PathMixin):
             old = Project.objects.get(pk=self.id)
             # Detect slug changes and rename directory
             self.check_rename(old)
+            # Rename linked repos
+            if old.slug != self.slug:
+                for component in old.component_set.all():
+                    new_component = self.component_set.get(pk=component.pk)
+                    new_component.project = self
+                    component.get_linked_childs().update(
+                        repo=new_component.get_repo_link_url()
+                    )
 
         self.create_path()
 
@@ -285,7 +221,7 @@ class Project(models.Model, URLMixin, PathMixin):
     def get_languages(self):
         """Return list of all languages used in project."""
         return Language.objects.filter(
-            translation__subproject__project=self
+            translation__component__project=self
         ).distinct()
 
     def get_language_count(self):
@@ -295,13 +231,13 @@ class Project(models.Model, URLMixin, PathMixin):
 
     def repo_needs_commit(self):
         """Check whether there are any uncommitted changes."""
-        for component in self.subproject_set.all():
+        for component in self.component_set.all():
             if component.repo_needs_commit():
                 return True
         return False
 
     def repo_needs_merge(self):
-        for component in self.subproject_set.all():
+        for component in self.component_set.all():
             if component.repo_needs_merge():
                 return True
         return False
@@ -330,18 +266,18 @@ class Project(models.Model, URLMixin, PathMixin):
         return ret
 
     def do_update(self, request=None, method=None):
-        """Update all git repos."""
+        """Update all Git repos."""
         ret = True
         for component in self.all_repo_components():
             ret &= component.do_update(request, method=method)
         return ret
 
     def do_push(self, request=None):
-        """Pushe all git repos."""
+        """Push all Git repos."""
         return self.commit_pending(request, on_commit=False)
 
     def do_reset(self, request=None):
-        """Pushe all git repos."""
+        """Push all Git repos."""
         ret = False
         for component in self.all_repo_components():
             ret |= component.do_reset(request)
@@ -350,14 +286,14 @@ class Project(models.Model, URLMixin, PathMixin):
     def can_push(self):
         """Check whether any suprojects can push."""
         ret = False
-        for component in self.subproject_set.all():
+        for component in self.component_set.all():
             ret |= component.can_push()
         return ret
 
     @property
     def last_change(self):
         """Return date of last change done in Weblate."""
-        components = self.subproject_set.all()
+        components = self.component_set.all()
         changes = [component.last_change for component in components]
         changes = [c for c in changes if c is not None]
         if not changes:
@@ -367,11 +303,11 @@ class Project(models.Model, URLMixin, PathMixin):
     def all_repo_components(self):
         """Return list of all unique VCS components."""
         result = list(
-            self.subproject_set.exclude(repo__startswith='weblate://')
+            self.component_set.exclude(repo__startswith='weblate://')
         )
         included = {component.get_repo_link_url() for component in result}
 
-        linked = self.subproject_set.filter(repo__startswith='weblate://')
+        linked = self.component_set.filter(repo__startswith='weblate://')
         for other in linked:
             if other.repo in included:
                 continue

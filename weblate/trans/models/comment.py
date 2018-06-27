@@ -20,14 +20,13 @@
 
 from __future__ import unicode_literals
 
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
 
 from weblate.trans.mixins import UserDisplayMixin
 from weblate.trans.models.change import Change
-from weblate.trans.models.unitdata import UnitData
-from weblate.accounts.notifications import notify_new_comment
+from weblate.utils.unitdata import UnitData
 
 
 class CommentManager(models.Manager):
@@ -38,24 +37,24 @@ class CommentManager(models.Manager):
         new_comment = self.create(
             user=user,
             content_hash=unit.content_hash,
-            project=unit.translation.subproject.project,
+            project=unit.translation.component.project,
             comment=text,
             language=lang
         )
         Change.objects.create(
             unit=unit,
             action=Change.ACTION_COMMENT,
-            translation=unit.translation,
             user=user,
             author=user
         )
 
         # Notify subscribed users
+        from weblate.accounts.notifications import notify_new_comment
         notify_new_comment(
             unit,
             new_comment,
             user,
-            unit.translation.subproject.report_source_bugs
+            unit.translation.component.report_source_bugs
         )
 
 
@@ -63,7 +62,8 @@ class CommentManager(models.Manager):
 class Comment(UnitData, UserDisplayMixin):
     comment = models.TextField()
     user = models.ForeignKey(
-        User, null=True, blank=True, on_delete=models.deletion.CASCADE
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.deletion.CASCADE
     )
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 

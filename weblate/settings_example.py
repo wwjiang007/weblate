@@ -214,6 +214,9 @@ AUTHENTICATION_BACKENDS = (
     'weblate.accounts.auth.WeblateUserBackend',
 )
 
+# Custom user model
+AUTH_USER_MODEL = 'weblate_auth.User'
+
 # Social auth backends setup
 SOCIAL_AUTH_GITHUB_KEY = ''
 SOCIAL_AUTH_GITHUB_SECRET = ''
@@ -315,7 +318,7 @@ AUTH_PASSWORD_VALIDATORS = [
     #     'NAME': 'zxcvbn_password.ZXCVBNValidator',
     #     'OPTIONS': {
     #         'min_score': 3,
-    #         'user_attributes': ('username', 'email', 'first_name')
+    #         'user_attributes': ('username', 'email', 'full_name')
     #     }
     # },
 ]
@@ -355,13 +358,18 @@ INSTALLED_APPS = (
     'rest_framework',
     'rest_framework.authtoken',
     'weblate.addons',
+    'weblate.auth',
+    'weblate.checks',
+    'weblate.formats',
+    'weblate.machinery',
     'weblate.trans',
     'weblate.lang',
     'weblate.langdata',
-    'weblate.permissions',
+    'weblate.memory',
     'weblate.screenshots',
     'weblate.accounts',
     'weblate.utils',
+    'weblate.vcs',
     'weblate.wladmin',
     'weblate',
 
@@ -504,18 +512,19 @@ if not HAVE_SYSLOG:
     del LOGGING['handlers']['syslog']
 
 # List of machine translations
-# MACHINE_TRANSLATION_SERVICES = (
-#     'weblate.trans.machine.apertium.ApertiumAPYTranslation',
-#     'weblate.trans.machine.glosbe.GlosbeTranslation',
-#     'weblate.trans.machine.google.GoogleTranslation',
-#     'weblate.trans.machine.microsoft.MicrosoftCognitiveTranslation',
-#     'weblate.trans.machine.mymemory.MyMemoryTranslation',
-#     'weblate.trans.machine.tmserver.AmagamaTranslation',
-#     'weblate.trans.machine.tmserver.TMServerTranslation',
-#     'weblate.trans.machine.yandex.YandexTranslation',
-#     'weblate.trans.machine.weblatetm.WeblateSimilarTranslation',
-#     'weblate.trans.machine.weblatetm.WeblateTranslation',
-#     'weblate.trans.machine.saptranslationhub.SAPTranslationHub',
+# MT_SERVICES = (
+#     'weblate.machinery.apertium.ApertiumAPYTranslation',
+#     'weblate.machinery.deepl.DeepLTranslation',
+#     'weblate.machinery.glosbe.GlosbeTranslation',
+#     'weblate.machinery.google.GoogleTranslation',
+#     'weblate.machinery.microsoft.MicrosoftCognitiveTranslation',
+#     'weblate.machinery.mymemory.MyMemoryTranslation',
+#     'weblate.machinery.tmserver.AmagamaTranslation',
+#     'weblate.machinery.tmserver.TMServerTranslation',
+#     'weblate.machinery.yandex.YandexTranslation',
+#     'weblate.machinery.weblatetm.WeblateTranslation',
+#     'weblate.machinery.saptranslationhub.SAPTranslationHub',
+#     'weblate.memory.machine.WeblateMemory',
 # )
 
 # Machine translation API keys
@@ -523,10 +532,8 @@ if not HAVE_SYSLOG:
 # URL of the Apertium APy server
 MT_APERTIUM_APY = None
 
-# Microsoft Translator service, register at
-# https://datamarket.azure.com/developer/applications/
-MT_MICROSOFT_ID = None
-MT_MICROSOFT_SECRET = None
+# DeepL API key
+MT_DEEPL_KEY = None
 
 # Microsoft Cognitive Services Translator API, register at
 # https://portal.azure.com/
@@ -609,9 +616,6 @@ BACKGROUND_HOOKS = True
 # Number of nearby messages to show in each direction
 NEARBY_MESSAGES = 5
 
-# Enable lazy commits
-LAZY_COMMITS = True
-
 # Offload indexing
 OFFLOAD_INDEXING = False
 
@@ -623,36 +627,36 @@ CRISPY_TEMPLATE_PACK = 'bootstrap3'
 
 # List of quality checks
 # CHECK_LIST = (
-#     'weblate.trans.checks.same.SameCheck',
-#     'weblate.trans.checks.chars.BeginNewlineCheck',
-#     'weblate.trans.checks.chars.EndNewlineCheck',
-#     'weblate.trans.checks.chars.BeginSpaceCheck',
-#     'weblate.trans.checks.chars.EndSpaceCheck',
-#     'weblate.trans.checks.chars.EndStopCheck',
-#     'weblate.trans.checks.chars.EndColonCheck',
-#     'weblate.trans.checks.chars.EndQuestionCheck',
-#     'weblate.trans.checks.chars.EndExclamationCheck',
-#     'weblate.trans.checks.chars.EndEllipsisCheck',
-#     'weblate.trans.checks.chars.EndSemicolonCheck',
-#     'weblate.trans.checks.chars.MaxLengthCheck',
-#     'weblate.trans.checks.format.PythonFormatCheck',
-#     'weblate.trans.checks.format.PythonBraceFormatCheck',
-#     'weblate.trans.checks.format.PHPFormatCheck',
-#     'weblate.trans.checks.format.CFormatCheck',
-#     'weblate.trans.checks.format.PerlFormatCheck',
-#     'weblate.trans.checks.format.JavascriptFormatCheck',
-#     'weblate.trans.checks.consistency.PluralsCheck',
-#     'weblate.trans.checks.consistency.SamePluralsCheck',
-#     'weblate.trans.checks.consistency.ConsistencyCheck',
-#     'weblate.trans.checks.consistency.TranslatedCheck',
-#     'weblate.trans.checks.chars.NewlineCountingCheck',
-#     'weblate.trans.checks.markup.BBCodeCheck',
-#     'weblate.trans.checks.chars.ZeroWidthSpaceCheck',
-#     'weblate.trans.checks.markup.XMLValidityCheck',
-#     'weblate.trans.checks.markup.XMLTagsCheck',
-#     'weblate.trans.checks.source.OptionalPluralCheck',
-#     'weblate.trans.checks.source.EllipsisCheck',
-#     'weblate.trans.checks.source.MultipleFailingCheck',
+#     'weblate.checks.same.SameCheck',
+#     'weblate.checks.chars.BeginNewlineCheck',
+#     'weblate.checks.chars.EndNewlineCheck',
+#     'weblate.checks.chars.BeginSpaceCheck',
+#     'weblate.checks.chars.EndSpaceCheck',
+#     'weblate.checks.chars.EndStopCheck',
+#     'weblate.checks.chars.EndColonCheck',
+#     'weblate.checks.chars.EndQuestionCheck',
+#     'weblate.checks.chars.EndExclamationCheck',
+#     'weblate.checks.chars.EndEllipsisCheck',
+#     'weblate.checks.chars.EndSemicolonCheck',
+#     'weblate.checks.chars.MaxLengthCheck',
+#     'weblate.checks.format.PythonFormatCheck',
+#     'weblate.checks.format.PythonBraceFormatCheck',
+#     'weblate.checks.format.PHPFormatCheck',
+#     'weblate.checks.format.CFormatCheck',
+#     'weblate.checks.format.PerlFormatCheck',
+#     'weblate.checks.format.JavascriptFormatCheck',
+#     'weblate.checks.consistency.PluralsCheck',
+#     'weblate.checks.consistency.SamePluralsCheck',
+#     'weblate.checks.consistency.ConsistencyCheck',
+#     'weblate.checks.consistency.TranslatedCheck',
+#     'weblate.checks.chars.NewlineCountingCheck',
+#     'weblate.checks.markup.BBCodeCheck',
+#     'weblate.checks.chars.ZeroWidthSpaceCheck',
+#     'weblate.checks.markup.XMLValidityCheck',
+#     'weblate.checks.markup.XMLTagsCheck',
+#     'weblate.checks.source.OptionalPluralCheck',
+#     'weblate.checks.source.EllipsisCheck',
+#     'weblate.checks.source.MultipleFailingCheck',
 # )
 
 # List of automatic fixups
@@ -669,17 +673,16 @@ CRISPY_TEMPLATE_PACK = 'bootstrap3'
 #     'weblate.addons.gettext.UpdateLinguasAddon',
 #     'weblate.addons.gettext.UpdateConfigureAddon',
 #     'weblate.addons.gettext.MsgmergeAddon',
+#     'weblate.addons.gettext.GettextCustomizeAddon',
+#     'weblate.addons.gettext.GettextAuthorComments',
 #     'weblate.addons.cleanup.CleanupAddon',
+#     'weblate.addons.consistency.LangaugeConsistencyAddon',
+#     'weblate.addons.discovery.DiscoveryAddon',
 #     'weblate.addons.flags.SourceEditAddon',
 #     'weblate.addons.flags.TargetEditAddon',
 #     'weblate.addons.generate.GenerateFileAddon',
-# )
-
-
-# List of scripts to use in custom processing
-# POST_UPDATE_SCRIPTS = (
-# )
-# PRE_COMMIT_SCRIPTS = (
+#     'weblate.addons.json.JSONCustomizeAddon',
+#     'weblate.addons.properties.PropertiesSortAddon',
 # )
 
 # E-mail address that error messages come from.
@@ -692,8 +695,21 @@ DEFAULT_FROM_EMAIL = 'noreply@example.com'
 # List of URLs your site is supposed to serve
 ALLOWED_HOSTS = []
 
-# Example configuration to use memcached for caching
+# Example configuration for caching
 # CACHES = {
+# Recommended redis + hiredis:
+#     'default': {
+#         'BACKEND': 'django_redis.cache.RedisCache',
+#         'LOCATION': 'redis://127.0.0.1:6379/0',
+#         # If redis is running on same host as Weblate, you might
+#         # want to use unix sockets instead:
+#         # 'LOCATION': 'unix:///var/run/redis/redis.sock?db=0',
+#         'OPTIONS': {
+#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+#             'PARSER_CLASS': 'redis.connection.HiredisParser',
+#         }
+#     }
+# Memcached alternative:
 #     'default': {
 #         'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
 #         'LOCATION': '127.0.0.1:11211',
@@ -717,6 +733,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.TokenAuthentication',
+        'weblate.api.authentication.BearerAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_THROTTLE_CLASSES': (
@@ -732,7 +749,7 @@ REST_FRAMEWORK = {
     ),
     'PAGE_SIZE': 20,
     'VIEW_DESCRIPTION_FUNCTION': 'weblate.api.views.get_view_description',
-    'UNAUTHENTICATED_USER': 'weblate.accounts.models.get_anonymous',
+    'UNAUTHENTICATED_USER': 'weblate.auth.models.get_anonymous',
 }
 
 # Example for restricting access to logged in users
@@ -749,6 +766,8 @@ REST_FRAMEWORK = {
 #    r'/hooks/(.*)$',    # Allowing public access to notification hooks
 #    r'/api/(.*)$',      # Allowing access to API
 #    r'/js/i18n/$',      # Javascript localization
+#    r'/contact/$',      # Optional for contact form
+#    r'/legal/(.*)$',    # Optional for legal app
 # )
 
 # Force sane test runner

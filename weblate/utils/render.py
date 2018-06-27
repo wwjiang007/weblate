@@ -21,7 +21,8 @@
 from __future__ import unicode_literals
 
 from django.template import Template, Context, Engine
-from django.utils.encoding import force_text
+
+from weblate.utils.site import get_site_url
 
 
 class RestrictedEngine(Engine):
@@ -29,22 +30,30 @@ class RestrictedEngine(Engine):
         'django.template.defaultfilters',
     ]
 
+    def __init__(self, *args, **kwargs):
+        kwargs['autoescape'] = False
+        super(RestrictedEngine, self).__init__(*args, **kwargs)
 
-def render_template(template, translation=None):
+
+def render_template(template, translation=None, **kwargs):
     """Helper class to render string template with context."""
     context = {}
+    context.update(kwargs)
+
     if translation is not None:
         translation.stats.ensure_basic()
-        context['project_name'] = translation.subproject.project.name
-        context['project_slug'] = translation.subproject.project.slug
-        context['component_name'] = translation.subproject.name
-        context['component_slug'] = translation.subproject.slug
+        context['project_name'] = translation.component.project.name
+        context['project_slug'] = translation.component.project.slug
+        context['component_name'] = translation.component.name
+        context['component_slug'] = translation.component.slug
         context['language_code'] = translation.language_code
-        context['language_name'] = force_text(translation.language)
+        context['language_name'] = translation.language.name
         context['stats'] = translation.stats.get_data()
+        context['url'] = get_site_url(translation.get_absolute_url())
+
     return Template(
         template,
-        engine=RestrictedEngine(autoescape=False),
+        engine=RestrictedEngine(),
     ).render(
-        Context(context),
+        Context(context, autoescape=False),
     )

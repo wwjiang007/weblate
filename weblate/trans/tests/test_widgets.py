@@ -56,12 +56,6 @@ class FontsTest(TestCase):
 
 class WidgetsTest(FixtureTestCase):
     """Testing of widgets."""
-    def test_view_widgets_root(self):
-        response = self.client.get(
-            reverse('widgets_root')
-        )
-        self.assertContains(response, 'Test')
-
     def test_view_widgets(self):
         response = self.client.get(
             reverse('widgets', kwargs=self.kw_project)
@@ -155,14 +149,14 @@ class WidgetsPercentRenderTest(WidgetsRenderTest):
             self.assert_widget(widget, response)
 
 
-class WidgetsSubprojectRenderTest(WidgetsRenderTest):
+class WidgetsComponentRenderTest(WidgetsRenderTest):
     def perform_test(self, widget, color):
         response = self.client.get(
             reverse(
                 'widget-image',
                 kwargs={
                     'project': self.project.slug,
-                    'subproject': self.subproject.slug,
+                    'component': self.component.slug,
                     'widget': widget,
                     'color': color,
                     'extension': WIDGETS[widget].extension,

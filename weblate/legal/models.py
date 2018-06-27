@@ -22,11 +22,12 @@ from __future__ import unicode_literals
 
 from datetime import date
 
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
 
 from weblate.accounts.notifications import notify_account_activity
+from weblate.utils.request import get_ip_address, get_user_agent
 
 
 # Current TOS date
@@ -36,9 +37,12 @@ TOS_DATE = date(2017, 7, 2)
 @python_2_unicode_compatible
 class Agreement(models.Model):
     user = models.OneToOneField(
-        User, unique=True, on_delete=models.deletion.CASCADE
+        settings.AUTH_USER_MODEL, unique=True,
+        on_delete=models.deletion.CASCADE
     )
     tos = models.DateField(default=date(1970, 1, 1))
+    address = models.GenericIPAddressField(null=True)
+    user_agent = models.CharField(max_length=200, default='')
     timestamp = models.DateTimeField(auto_now=True)
 
     class Meta(object):
@@ -56,4 +60,6 @@ class Agreement(models.Model):
                 self.user, request, 'tos', date=TOS_DATE.isoformat()
             )
             self.tos = TOS_DATE
+            self.address = get_ip_address(request)
+            self.user_agent = get_user_agent(request)
             self.save()

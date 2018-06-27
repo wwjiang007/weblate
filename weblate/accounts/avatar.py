@@ -153,7 +153,7 @@ def download_avatar_image(user, size):
     handle = urlopen(request)
 
     # Read and possibly convert response
-    return handle.read()
+    return bytes(handle.read())
 
 
 def get_user_display(user, icon=True, link=False):
@@ -164,7 +164,7 @@ def get_user_display(user, icon=True, link=False):
         full_name = pgettext('No known user', 'None')
     else:
         # Get full name
-        full_name = user.first_name
+        full_name = user.full_name
 
         # Use user name if full name is empty
         if full_name.strip() == '':

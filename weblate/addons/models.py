@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 from appconf import AppConf
 
 from django.db import models
+from django.db.models import Q
 from django.dispatch import receiver
 from django.urls import reverse
 from django.utils.encoding import python_2_unicode_compatible
@@ -31,12 +32,13 @@ from django.utils.functional import cached_property
 from weblate.addons.events import (
     EVENT_CHOICES, EVENT_POST_PUSH, EVENT_POST_UPDATE, EVENT_PRE_COMMIT,
     EVENT_POST_COMMIT, EVENT_POST_ADD, EVENT_UNIT_PRE_CREATE,
+    EVENT_STORE_POST_LOAD,
 )
 
-from weblate.trans.models import SubProject
+from weblate.trans.models import Component
 from weblate.trans.signals import (
     vcs_post_push, vcs_post_update, vcs_pre_commit, vcs_post_commit,
-    translation_post_add, unit_pre_create,
+    translation_post_add, unit_pre_create, store_post_load,
 )
 from weblate.utils.classloader import ClassLoader
 from weblate.utils.fields import JSONField
@@ -46,10 +48,18 @@ ADDONS = ClassLoader('WEBLATE_ADDONS', False)
 
 
 class AddonQuerySet(models.QuerySet):
+    def filter_component(self, component):
+        return self.filter((
+            Q(component=component) & Q(project_scope=False)
+        ) | (
+            Q(component__project=component.project) & Q(project_scope=True)
+        ))
+
     def filter_event(self, component, event):
         if event not in component.addons_cache:
-            component.addons_cache[event] = self.filter(
-                component=component,
+            component.addons_cache[event] = self.filter_component(
+                component
+            ).filter(
                 event__event=event
             )
         return component.addons_cache[event]
@@ -58,11 +68,12 @@ class AddonQuerySet(models.QuerySet):
 @python_2_unicode_compatible
 class Addon(models.Model):
     component = models.ForeignKey(
-        SubProject, on_delete=models.deletion.CASCADE
+        Component, on_delete=models.deletion.CASCADE
     )
     name = models.CharField(max_length=100)
     configuration = JSONField()
     state = JSONField()
+    project_scope = models.BooleanField(default=False, db_index=True)
 
     objects = AddonQuerySet.as_manager()
 
@@ -86,7 +97,7 @@ class Addon(models.Model):
             'addon-detail',
             kwargs={
                 'project': self.component.project.slug,
-                'subproject': self.component.slug,
+                'component': self.component.slug,
                 'pk': self.pk,
             }
         )
@@ -110,10 +121,15 @@ class AddonsConf(AppConf):
         'weblate.addons.gettext.UpdateLinguasAddon',
         'weblate.addons.gettext.UpdateConfigureAddon',
         'weblate.addons.gettext.MsgmergeAddon',
+        'weblate.addons.gettext.GettextCustomizeAddon',
+        'weblate.addons.gettext.GettextAuthorComments',
         'weblate.addons.cleanup.CleanupAddon',
+        'weblate.addons.consistency.LangaugeConsistencyAddon',
+        'weblate.addons.discovery.DiscoveryAddon',
         'weblate.addons.flags.SourceEditAddon',
         'weblate.addons.flags.TargetEditAddon',
         'weblate.addons.generate.GenerateFileAddon',
+        'weblate.addons.json.JSONCustomizeAddon',
         'weblate.addons.properties.PropertiesSortAddon',
     )
 
@@ -134,18 +150,18 @@ def post_update(sender, component, previous_head, **kwargs):
 
 
 @receiver(vcs_pre_commit)
-def pre_commit(sender, translation, **kwargs):
+def pre_commit(sender, translation, author, **kwargs):
     addons = Addon.objects.filter_event(
-        translation.subproject, EVENT_PRE_COMMIT
+        translation.component, EVENT_PRE_COMMIT
     )
     for addon in addons:
-        addon.addon.pre_commit(translation)
+        addon.addon.pre_commit(translation, author)
 
 
 @receiver(vcs_post_commit)
 def post_commit(sender, translation, **kwargs):
     addons = Addon.objects.filter_event(
-        translation.subproject, EVENT_POST_COMMIT
+        translation.component, EVENT_POST_COMMIT
     )
     for addon in addons:
         addon.addon.post_commit(translation)
@@ -154,7 +170,7 @@ def post_commit(sender, translation, **kwargs):
 @receiver(translation_post_add)
 def post_add(sender, translation, **kwargs):
     addons = Addon.objects.filter_event(
-        translation.subproject, EVENT_POST_ADD
+        translation.component, EVENT_POST_ADD
     )
     for addon in addons:
         addon.addon.post_add(translation)
@@ -163,7 +179,16 @@ def post_add(sender, translation, **kwargs):
 @receiver(unit_pre_create)
 def unit_pre_create_handler(sender, unit, **kwargs):
     addons = Addon.objects.filter_event(
-        unit.translation.subproject, EVENT_UNIT_PRE_CREATE
+        unit.translation.component, EVENT_UNIT_PRE_CREATE
     )
     for addon in addons:
         addon.addon.unit_pre_create(unit)
+
+
+@receiver(store_post_load)
+def store_post_load_handler(sender, translation, store, **kwargs):
+    addons = Addon.objects.filter_event(
+        translation.component, EVENT_STORE_POST_LOAD
+    )
+    for addon in addons:
+        addon.addon.store_post_load(translation, store)

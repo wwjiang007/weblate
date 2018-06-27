@@ -24,13 +24,12 @@ from datetime import timedelta
 
 from django.db import models
 from django.db.models import Q
-from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils import timezone
 
-from weblate.trans.models import Project, SubProject, Change, Unit
+from weblate.trans.models import Project, Component, Change, Unit
 from weblate.lang.models import Language
 
 
@@ -66,9 +65,6 @@ class Billing(models.Model):
         Plan,
         on_delete=models.deletion.CASCADE
     )
-    user = models.OneToOneField(
-        User, on_delete=models.deletion.CASCADE
-    )
     projects = models.ManyToManyField(Project, blank=True)
     state = models.IntegerField(
         choices=(
@@ -80,14 +76,14 @@ class Billing(models.Model):
     )
 
     def __str__(self):
-        return '{0}: {1} ({2})'.format(
+        return '{0} ({1})'.format(
             ', '.join([str(x) for x in self.projects.all()]),
-            self.user, self.plan
+            self.plan
         )
 
     def count_changes(self, interval):
         return Change.objects.filter(
-            subproject__project__in=self.projects.all(),
+            component__project__in=self.projects.all(),
             timestamp__gt=timezone.now() - interval,
         ).count()
 
@@ -104,7 +100,7 @@ class Billing(models.Model):
     count_changes_1y.short_description = _('Changes in last year')
 
     def count_repositories(self):
-        return SubProject.objects.filter(
+        return Component.objects.filter(
             project__in=self.projects.all(),
         ).exclude(
             repo__startswith='weblate:/'
@@ -152,7 +148,7 @@ class Billing(models.Model):
 
     def count_languages(self):
         return Language.objects.filter(
-            translation__subproject__project__in=self.projects.all()
+            translation__component__project__in=self.projects.all()
         ).distinct().count()
 
     def display_languages(self):
@@ -187,7 +183,7 @@ class Billing(models.Model):
 
     def unit_count(self):
         return Unit.objects.filter(
-            translation__subproject__project__in=self.projects.all()
+            translation__component__project__in=self.projects.all()
         ).count()
     unit_count.short_description = _('Number of strings')
 

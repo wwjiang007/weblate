@@ -29,13 +29,14 @@
 <li><a data-toggle="tab" href="#licenses">{% trans "Licenses" %}</a></li>
 <li><a data-toggle="tab" href="#audit">{% trans "Audit log" %}</a></li>
 <li><a data-toggle="tab" href="#api">{% trans "API access" %}</a></li>
-{% if user.billing %}
+{% if billings %}
 <li><a data-toggle="tab" href="#billing">{% trans "Billing" %}</a></li>
 {% endif %}
 </ul>
 
 <div class="tab-content">
 <div class="tab-pane active" id="languages">
+<div class="container-fluid">
 <div class="row">
 <div class="col-lg-6">
 <div class="panel panel-primary">
@@ -69,7 +70,9 @@
 </div>
 </div>
 </div>
+</div>
 <div class="tab-pane" id="preferences">
+<div class="container-fluid">
 <div class="row">
 <div class="col-lg-6">
 <div class="panel panel-primary">
@@ -98,7 +101,9 @@
 </div>
 </div>
 </div>
+</div>
 <div class="tab-pane" id="subscriptions">
+<div class="container-fluid">
 <div class="row">
 <div class="col-lg-6">
 {% if managed_projects %}
@@ -147,7 +152,9 @@
 </div>
 </div>
 </div>
+</div>
 <div class="tab-pane" id="account">
+<div class="container-fluid">
 <div class="row">
 <div class="col-lg-6">
 <div class="panel panel-primary">
@@ -173,7 +180,9 @@
 </div>
 </div>
 </div>
+</div>
 <div class="tab-pane" id="auth">
+<div class="container-fluid">
 <div class="row">
 <div class="col-lg-6">
 <div class="panel panel-primary">
@@ -246,9 +255,11 @@
 </div>
 </div>
 </div>
+</div>
 
 </div>
 <div class="tab-pane" id="profile">
+<div class="container-fluid">
 <div class="row">
 <div class="col-lg-6">
 <div class="panel panel-primary">
@@ -288,6 +299,7 @@
   </div>
 </div>
 </div>
+</div>
 
 </div>
 
@@ -317,7 +329,7 @@
 <tr>
 <td>{{ log.timestamp|naturaltime }}</td>
 <td>{{ log.get_message }}</td>
-{% if not demo_server or user.username not in demo_accounts %}
+{% if not user.is_demo %}
 <td>{{ log.address }}</td>
 <td>{{ log.user_agent }}</td>
 {% else %}
@@ -340,6 +352,7 @@
 </div>
 
 <div class="tab-pane" id="api">
+<div class="container-fluid">
 <div class="row">
 <div class="col-lg-6">
 <div class="panel panel-primary">
@@ -403,11 +416,13 @@ wlc \
   </div>
 </div>
 </div>
+</div>
 
 </div>
 
 </div>
 <div class="tab-pane" id="licenses">
+<div class="container-fluid">
 <div class="row">
 <div class="col-lg-6">
 <div class="panel panel-primary">
@@ -416,6 +431,15 @@ wlc \
 <p>
 {% trans "By registering you agree to use your name and email in the commits and provide your contribution under license defined by each translated project." %}
 </p>
+
+{% if user.contributoragreement_set.all %}
+<p>{% trans "You have agreed to the following as a contributor:" %}</p>
+<ul>
+{% for agreement in user.contributoragreement_set.all %}
+<li><a href="{% url 'contributor-agreement' project=agreement.component.project.slug component=agreement.component.slug %}">{{ agreement.component }}</a></li>
+{% endfor %}
+</ul>
+{% endif %}
 
 {% if licenses %}
 <p>{% trans "Following translations have explicitly specified their licensing and copyright conditions:" %}</p>
@@ -452,14 +476,16 @@ wlc \
   </div>
 </div>
 </div>
-
 </div>
 
 </div>
 
-{% if user.billing %}
-{% with user.billing as billing %}
+</div>
+
+{% if billings %}
 <div class="tab-pane" id="billing">
+{% for billing in billings %}
+<div class="container-fluid">
 <div class="row">
 
 
@@ -498,11 +524,12 @@ wlc \
 </table>
 </div>
 </div>
-
 </div>
 
 </div>
-{% endwith %}
+{% endfor %}
+
+</div>
 {% endif %}
 
 </div>

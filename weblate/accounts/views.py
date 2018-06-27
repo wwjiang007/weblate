@@ -34,7 +34,6 @@ from django.utils.cache import patch_response_headers
 from django.utils.crypto import get_random_string
 from django.utils.decorators import method_decorator
 from django.utils.translation import get_language
-from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView, LogoutView
 from django.views.generic import TemplateView, ListView
 from django.views.decorators.cache import never_cache
@@ -52,9 +51,10 @@ from social_core.exceptions import (
     AuthStateMissing, AuthStateForbidden, AuthAlreadyAssociated,
     AuthForbidden,
 )
-from social_django.utils import BACKENDS
+import social_django.utils
 from social_django.views import complete, auth
 
+from weblate.auth.models import User
 from weblate.accounts.forms import (
     RegistrationForm, PasswordConfirmForm, EmailForm, ResetForm,
     LoginForm, HostingForm, CaptchaForm, SetPasswordForm,
@@ -63,10 +63,10 @@ from weblate.accounts.forms import (
 from weblate.accounts.ratelimit import check_rate_limit
 from weblate.logger import LOGGER
 from weblate.accounts.avatar import get_avatar_image, get_fallback_avatar_url
-from weblate.accounts.models import set_lang, Profile, DEMO_ACCOUNTS
+from weblate.accounts.models import set_lang, Profile
 from weblate.accounts.utils import remove_user
 from weblate.utils import messages
-from weblate.trans.models import Change, Project, SubProject, Suggestion
+from weblate.trans.models import Change, Project, Component, Suggestion
 from weblate.trans.views.helper import get_project
 from weblate.accounts.forms import (
     ProfileForm, SubscriptionForm, UserForm, ContactForm,
@@ -188,7 +188,7 @@ def deny_demo(request):
 def avoid_demo(function):
     """Avoid page being served to demo account."""
     def demo_wrap(request, *args, **kwargs):
-        if settings.DEMO_SERVER and request.user.username in DEMO_ACCOUNTS:
+        if request.user.is_demo:
             return deny_demo(request)
         return function(request, *args, **kwargs)
     return demo_wrap
@@ -241,14 +241,14 @@ def user_profile(request):
         UserSettingsForm,
         DashboardSettingsForm,
     ]
-    all_backends = set(load_backends(BACKENDS).keys())
+    all_backends = set(load_backends(social_django.utils.BACKENDS).keys())
 
     if request.method == 'POST':
         # Parse POST params
         forms = [form(request.POST, instance=profile) for form in form_classes]
         forms.append(UserForm(request.POST, instance=request.user))
 
-        if settings.DEMO_SERVER and request.user.username in DEMO_ACCOUNTS:
+        if request.user.is_demo:
             return deny_demo(request)
 
         if all(form.is_valid() for form in forms):
@@ -286,11 +286,19 @@ def user_profile(request):
         x for x in all_backends
         if x == 'email' or x not in social_names
     ]
-    license_projects = SubProject.objects.filter(
-        project__in=Project.objects.all_acl(request.user)
+    license_projects = Component.objects.filter(
+        project__in=request.user.allowed_projects
     ).exclude(
         license=''
     )
+
+    billings = None
+    if 'weblate.billing' in settings.INSTALLED_APPS:
+        # pylint: disable=wrong-import-position
+        from weblate.billing.models import Billing
+        billings = Billing.objects.filter(
+            projects__in=request.user.projects_with_perm('billing.view')
+        ).distinct()
 
     result = render(
         request,
@@ -307,11 +315,9 @@ def user_profile(request):
             'licenses': license_projects,
             'associated': social,
             'new_backends': new_backends,
-            'managed_projects': Project.objects.filter(
-                groupacl__groups__name__endswith='@Administration',
-                groupacl__groups__user=request.user,
-            ).distinct(),
+            'managed_projects': request.user.owned_projects,
             'auditlog': request.user.auditlog_set.all()[:20],
+            'billings': billings,
         }
     )
     result.set_cookie(
@@ -397,7 +403,7 @@ def get_initial_contact(request):
     """Fill in initial contact form fields from request."""
     initial = {}
     if request.user.is_authenticated:
-        initial['name'] = request.user.first_name
+        initial['name'] = request.user.full_name
         initial['email'] = request.user.email
     return initial
 
@@ -414,7 +420,7 @@ def contact(request):
         form = ContactForm(request.POST)
         if show_captcha:
             captcha = CaptchaForm(request, form, request.POST)
-        if not check_rate_limit(request):
+        if not check_rate_limit('message', request):
             messages.error(
                 request,
                 _('Too many messages sent, please try again later!')
@@ -499,7 +505,7 @@ def user_page(request, user):
 
     # Filter where project is active
     user_projects_ids = set(all_changes.values_list(
-        'translation__subproject__project', flat=True
+        'translation__component__project', flat=True
     ))
     user_projects = Project.objects.filter(id__in=user_projects_ids)
 
@@ -548,7 +554,9 @@ class WeblateLoginView(LoginView):
 
     def get_context_data(self, **kwargs):
         context = super(WeblateLoginView, self).get_context_data(**kwargs)
-        auth_backends = list(load_backends(BACKENDS).keys())
+        auth_backends = list(
+            load_backends(social_django.utils.BACKENDS).keys()
+        )
         context['login_backends'] = [x for x in auth_backends if x != 'email']
         context['can_reset'] = 'email' in auth_backends
         context['title'] = _('Login')
@@ -565,7 +573,9 @@ class WeblateLoginView(LoginView):
             return redirect_profile()
 
         # Redirect if there is only one backend
-        auth_backends = list(load_backends(BACKENDS).keys())
+        auth_backends = list(
+            load_backends(social_django.utils.BACKENDS).keys()
+        )
         if len(auth_backends) == 1 and auth_backends[0] != 'email':
             return redirect_single(request, auth_backends[0])
 
@@ -621,7 +631,7 @@ def register(request):
         if settings.REGISTRATION_CAPTCHA:
             captcha = CaptchaForm(request)
 
-    backends = set(load_backends(BACKENDS).keys())
+    backends = set(load_backends(social_django.utils.BACKENDS).keys())
 
     # Redirect if there is only one backend
     if len(backends) == 1 and 'email' not in backends:
@@ -757,7 +767,7 @@ def reset_password(request):
     """Password reset handling."""
     if request.user.is_authenticated:
         redirect_profile()
-    if 'email' not in load_backends(BACKENDS).keys():
+    if 'email' not in load_backends(social_django.utils.BACKENDS).keys():
         messages.error(
             request,
             _('Can not reset password, email authentication is disabled!')
@@ -847,7 +857,7 @@ class SuggestionView(ListView):
             user = get_object_or_404(User, username=self.kwargs['user'])
         return Suggestion.objects.filter(
             user=user,
-            project__in=Project.objects.all_acl(self.request.user)
+            project__in=self.request.user.allowed_projects
         )
 
     def get_context_data(self):
@@ -857,7 +867,7 @@ class SuggestionView(ListView):
         else:
             user = get_object_or_404(User, username=self.kwargs['user'])
         result['page_user'] = user
-        result['page_profile'] = user.profile
+        result['page_profile'] = Profile.objects.get_or_create(user=user)[0]
         return result
 
 

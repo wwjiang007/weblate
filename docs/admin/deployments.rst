@@ -131,13 +131,12 @@ should be no need for additional manual actions.
 Maintenance tasks
 +++++++++++++++++
 
-There are some cron jobs to run. You should set :envvar:`WEBLATE_OFFLOAD_INDEXING` to ``1`` when these are setup
+The Docker container runs some cron jobs to perform maintenance tasks in
+background:
 
-.. code-block:: text
-
-    */5 * * * * cd /usr/share/weblate/; docker-compose run --rm weblate update_index
-    @daily cd /usr/share/weblate/; docker-compose run --rm weblate cleanuptrans
-    @hourly cd /usr/share/weblate-docker/; docker-compose run --rm weblate commit_pending --all --age=96
+* Update fulltext index by :djadmin:`update_index` (needed for :envvar:`WEBLATE_OFFLOAD_INDEXING`)
+* Cleanup stale objects by :djadmin:`cleanuptrans`
+* Commit pending changes by :djadmin:`commit_pending`
 
 .. _docker-environment:
 
@@ -257,7 +256,7 @@ Generic settings
 
 .. envvar:: WEBLATE_OFFLOAD_INDEXING
 
-    Configures offloaded indexing.
+    Configures offloaded indexing, defaults to enabled.
 
     **Example:**
 
@@ -318,6 +317,10 @@ Generic settings
         environment:
           - WEBLATE_REQUIRE_LOGIN=1
 
+.. envvar:: WEBLATE_LOGIN_REQUIRED_URLS_EXCEPTIONS
+
+    Adds URL exceptions for login required for whole Weblate using :setting:`LOGIN_REQUIRED_URLS_EXCEPTIONS`.
+
 .. envvar:: WEBLATE_GOOGLE_ANALYTICS_ID
 
     Configures ID for Google Analytics by changing :setting:`GOOGLE_ANALYTICS_ID`.
@@ -344,13 +347,26 @@ Generic settings
 Machine translation settings
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. envvar:: WEBLATE_MT_DEEPL_KEY
+
+    Enables :ref:`deepl` machine translation and sets :setting:`MT_DEEPL_KEY`
+
 .. envvar:: WEBLATE_MT_GOOGLE_KEY
 
-    Enables Google machine translation and sets :setting:`MT_GOOGLE_KEY`
+    Enables :ref:`google-translate` and sets :setting:`MT_GOOGLE_KEY`
 
 .. envvar:: WEBLATE_MT_MICROSOFT_COGNITIVE_KEY
 
-    Enables Microsoft machine translation and sets :setting:`MT_MICROSOFT_COGNITIVE_KEY`
+    Enables :ref:`ms-cognitive-translate` and sets :setting:`MT_MICROSOFT_COGNITIVE_KEY`
+
+.. envvar:: WEBLATE_MT_MYMEMORY_ENABLED
+
+    Enables :ref:`mymemory` machine translation and sets
+    :setting:`MT_MYMEMORY_EMAIL` to :envvar:`WEBLATE_ADMIN_EMAIL`.
+
+.. envvar:: WEBLATE_MT_GLOSBE_ENABLED
+
+    Enables :ref:`glosbe` machine translation.
 
 Authentication settings
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -368,9 +384,9 @@ Authentication settings
         environment:
           - WEBLATE_AUTH_LDAP_SERVER_URI=ldap://ldap.example.org
           - WEBLATE_AUTH_LDAP_USER_DN_TEMPLATE=uid=%(user)s,ou=People,dc=example,dc=net
-          # map weblate 'first_name' to ldap 'name' and weblate 'email' attribute to 'mail' ldap attribute.
-          # another example that can be used with OpenLDAP: 'first_name:cn,email:mail'
-          - WEBLATE_AUTH_LDAP_USER_ATTR_MAP=first_name:name,email:mail
+          # map weblate 'full_name' to ldap 'name' and weblate 'email' attribute to 'mail' ldap attribute.
+          # another example that can be used with OpenLDAP: 'full_name:cn,email:mail'
+          - WEBLATE_AUTH_LDAP_USER_ATTR_MAP=full_name:name,email:mail
 
     .. seealso::
 
@@ -402,39 +418,9 @@ Authentication settings
 
     Enables :ref:`gitlab_auth`.
 
-Processing hooks
-~~~~~~~~~~~~~~~~
+.. envvar:: WEBLATE_NO_EMAIL_AUTH
 
-All these processing hooks should get a comma-separated list of available
-scripts, for example:
-
-.. code-block:: sh
-
-    WEBLATE_POST_UPDATE_SCRIPTS=/usr/local/share/weblate/examples/hook-unwrap-po
-
-.. seealso::
-
-    :ref:`processing`
-
-.. envvar:: WEBLATE_POST_UPDATE_SCRIPTS
-
-    Sets :setting:`POST_UPDATE_SCRIPTS`.
-
-.. envvar:: WEBLATE_PRE_COMMIT_SCRIPTS
-
-    Sets :setting:`PRE_COMMIT_SCRIPTS`.
-
-.. envvar:: WEBLATE_POST_COMMIT_SCRIPTS
-
-    Sets :setting:`POST_COMMIT_SCRIPTS`.
-
-.. envvar:: WEBLATE_POST_PUSH_SCRIPTS
-
-    Sets :setting:`POST_PUSH_SCRIPTS`.
-
-.. envvar:: WEBLATE_POST_ADD_SCRIPTS
-
-    Sets :setting:`POST_ADD_SCRIPTS`.
+    Disabled email authenticatin when set to any value.
 
 
 PostgreSQL database setup
@@ -469,10 +455,19 @@ both Weblate and PostgreSQL containers.
 Caching server setup
 ~~~~~~~~~~~~~~~~~~~~
 
-Using memcached is strongly recommended by Weblate and you have to provide
-memcached instance when running Weblate in Docker.
+Using redis is strongly recommended by Weblate and you have to provide redis
+instance when running Weblate in Docker. Additionally memcached is supported
+for compatibility with older deployments.
 
 .. seealso:: :ref:`production-cache`
+
+.. envvar:: REDIS_HOST
+
+   The memcached server hostname or IP adress. Defaults to ``cache``.
+
+.. envvar:: REDIS_PORT
+
+    The memcached server port. Defaults to ``6379``.
 
 .. envvar:: MEMCACHED_HOST
 
@@ -531,6 +526,14 @@ To make outgoing email work, you need to provide mail server.
     :envvar:`WEBLATE_EMAIL_USE_SSL`.
 
     .. seealso:: :setting:`django:EMAIL_USE_TLS`
+
+Further configuration custmoziation
++++++++++++++++++++++++++++++++++++
+
+You can additionally override the configuration by
+:file:`/app/data/settings-override.py`. This is executed after all environment
+settings are loaded, so it gets complete setup and can be used to customize
+anything.
 
 Hub setup
 +++++++++
@@ -635,7 +638,7 @@ After installation on OpenShift Weblate is ready to use and preconfigured as fol
 * Random Django secret key (:setting:`SECRET_KEY`)
 * Indexing offloading if the cron cartridge is installed (:setting:`OFFLOAD_INDEXING`)
 * Committing of pending changes if the cron cartridge is installed (:djadmin:`commit_pending`)
-* Weblate machine translations for suggestions bases on previous translations (:setting:`MACHINE_TRANSLATION_SERVICES`)
+* Weblate machine translations for suggestions bases on previous translations (:setting:`MT_SERVICES`)
 * Weblate directories (STATIC_ROOT, :setting:`DATA_DIR`, :setting:`TTF_PATH`, Avatar cache) set according to OpenShift requirements/conventions
 * Django site name and ALLOWED_HOSTS set to DNS name of your OpenShift application
 * Email sender addresses set to no-reply@<OPENSHIFT_CLOUD_DOMAIN>, where <OPENSHIFT_CLOUD_DOMAIN> is the domain OpenShift runs under. In case of OpenShift Online it's rhcloud.com.
@@ -715,7 +718,7 @@ With the exception of environment variables which can be referenced using ``${EN
 
 .. code-block:: sh
 
-    rhc -aweblate env set WEBLATE_PRE_COMMIT_SCRIPTS='("${OPENSHIFT_DATA_DIR}/examples/hook-unwrap-po",)'
+    rhc -aweblate env set WEBLATE_SCRIPTS='("${OPENSHIFT_DATA_DIR}/examples/hook-unwrap-po",)'
 
 You can check the effective settings Weblate is using by running:
 

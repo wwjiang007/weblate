@@ -40,7 +40,7 @@ Django (>= 1.11)
     https://www.djangoproject.com/
 siphashc (>= 0.8)
     https://github.com/WeblateOrg/siphashc
-Translate-toolkit (>= 2.2.0)
+translate-toolkit (>= 2.3.0)
     http://toolkit.translatehouse.org/
 Six (>= 1.7.0)
     https://pypi.python.org/pypi/six
@@ -70,7 +70,7 @@ django_compressor (>= 2.1.1)
     https://github.com/django-compressor/django-compressor
 django-crispy-forms (>= 1.6.1)
     https://django-crispy-forms.readthedocs.io/
-Django REST Framework (>=3.7)
+Django REST Framework (>=3.8)
     http://www.django-rest-framework.org/
 user-agents (>= 1.1.0)
     https://github.com/selwin/python-user-agents
@@ -81,8 +81,10 @@ libravatar (optional for federated avatar support)
     https://pypi.python.org/pypi/pyLibravatar
 pyuca (>= 1.1) (optional for proper sorting of strings)
     https://github.com/jtauber/pyuca
-babel (optional for Android resources support)
+Babel (optional for Android resources support)
     http://babel.pocoo.org/
+phply (optional for PHP support)
+    https://github.com/viraptor/phply
 Database backend
     Any database supported in Django will work, see :ref:`database-setup` and
     backends documentation for more details.
@@ -96,6 +98,8 @@ akismet (>= 1.0) (optional for suggestion spam protection)
     https://github.com/ubernostrum/akismet
 PyYAML (>= 3.0) (optional for :ref:`yaml`)
     https://pyyaml.org/
+python-Levenshtein (recommended for performance)
+    https://github.com/ztane/python-Levenshtein/
 
 Other system requirements
 +++++++++++++++++++++++++
@@ -326,8 +330,8 @@ you might need additional components:
     # Web server option 2: Apache with mod_wsgi
     apt-get install apache2 libapache2-mod-wsgi
 
-    # Caching backend: memcached
-    apt-get install memcached
+    # Caching backend: redis
+    apt-get install redis-server
 
     # Database option 1: postgresql
     apt-get install postgresql
@@ -375,8 +379,8 @@ you might need additional components:
     # Web server option 2: Apache with mod_wsgi
     zypper install apache2 apache2-mod_wsgi
 
-    # Caching backend: memcached
-    zypper install memcached
+    # Caching backend: redis
+    zypper install redis-server
 
     # Database option 1: postgresql
     zypper install postgresql
@@ -786,7 +790,15 @@ site.
 Production setup
 ----------------
 
-For production setup you should do following adjustments:
+For production setup you should do adjustments described in following sections.
+The most critical settings will trigger warning which is indicated by red
+exclamation mark in the top bar if you are logged in as a superuser:
+
+.. image:: ../images/admin-wrench.png
+
+.. seealso::
+
+    :doc:`django:howto/deployment/checklist`
 
 .. _production-debug:
 
@@ -893,8 +905,26 @@ environment), see :ref:`database-setup` for more information.
 Enable caching
 ++++++++++++++
 
-If possible, use memcache from Django by adjusting ``CACHES`` configuration
+If possible, use redis from Django by adjusting ``CACHES`` configuration
 variable, for example:
+
+.. code-block:: python
+
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': 'redis://127.0.0.1:6379/0',
+            # If redis is running on same host as Weblate, you might
+            # want to use unix sockets instead:
+            # 'LOCATION': 'unix:///var/run/redis/redis.sock?db=0',
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'PARSER_CLASS': 'redis.connection.HiredisParser',
+            }
+        }
+    }
+
+Alternatively you can also use memcached:
 
 .. code-block:: python
 
@@ -923,8 +953,12 @@ recommended to use separate, file backed cache for this purpose:
     CACHES = {
         'default': {
             # Default caching backend setup, see above
-            'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
-            'LOCATION': '127.0.0.1:11211',
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': 'unix:///var/run/redis/redis.sock?db=0',
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'PARSER_CLASS': 'redis.connection.HiredisParser',
+            }
         },
         'avatar': {
             'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
@@ -1141,6 +1175,10 @@ For testing purposes, you can use the Django built-in web server:
 
     ./manage.py runserver
 
+.. warning::
+
+    Do not use this in production as this has severe performance limitations.
+
 .. _static-files:
 
 Serving static files
@@ -1347,4 +1385,4 @@ Other notes
 +++++++++++
 
 Don't forget to move other services which Weblate might have been using like
-memcached, cron jobs or custom authentication backends.
+redis, memcached, cron jobs or custom authentication backends.

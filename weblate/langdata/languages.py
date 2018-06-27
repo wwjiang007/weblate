@@ -479,6 +479,12 @@ LANGUAGES = (
         'n != 1',
     ),
     (
+        'en_NZ',
+        _('English (New Zealand)'),
+        2,
+        'n != 1',
+    ),
+    (
         'en_PH',
         _('English (Philippines)'),
         2,
@@ -741,6 +747,12 @@ LANGUAGES = (
         _('Croatian'),
         3,
         'n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2',
+    ),
+    (
+        'hrx',
+        _('Hunsrik'),
+        2,
+        'n != 1',
     ),
     (
         'hsb',
@@ -1038,7 +1050,7 @@ LANGUAGES = (
     ),
     (
         'lg',
-        _('Ganda'),
+        _('Luganda'),
         2,
         'n != 1',
     ),
@@ -1223,12 +1235,6 @@ LANGUAGES = (
         'n != 1',
     ),
     (
-        'nb_NO',
-        _('Norwegian Bokmål'),
-        2,
-        'n != 1',
-    ),
-    (
         'nd',
         _('North Ndebele'),
         2,
@@ -1406,7 +1412,7 @@ LANGUAGES = (
         'pt_PT',
         _('Portuguese (Portugal)'),
         2,
-        'n != 1',
+        'n > 1',
     ),
     (
         'qu',

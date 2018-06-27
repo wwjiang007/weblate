@@ -29,13 +29,9 @@ from filelock import Timeout
 
 from weblate.utils import messages
 from weblate.trans.views.helper import (
-    get_project, get_subproject, get_translation
+    get_project, get_component, get_translation
 )
 from weblate.trans.util import redirect_param
-from weblate.permissions.helpers import (
-    can_commit_translation, can_update_translation, can_reset_translation,
-    can_push_translation, can_remove_translation,
-)
 from weblate.utils.errors import report_error
 
 
@@ -108,7 +104,7 @@ def perform_reset(request, obj):
 def commit_project(request, project):
     obj = get_project(request, project)
 
-    if not can_commit_translation(request.user, obj):
+    if not request.user.has_perm('vcs.commit', obj):
         raise PermissionDenied()
 
     return perform_commit(request, obj)
@@ -116,10 +112,10 @@ def commit_project(request, project):
 
 @login_required
 @require_POST
-def commit_subproject(request, project, subproject):
-    obj = get_subproject(request, project, subproject)
+def commit_component(request, project, component):
+    obj = get_component(request, project, component)
 
-    if not can_commit_translation(request.user, obj.project):
+    if not request.user.has_perm('vcs.commit', obj):
         raise PermissionDenied()
 
     return perform_commit(request, obj)
@@ -127,10 +123,10 @@ def commit_subproject(request, project, subproject):
 
 @login_required
 @require_POST
-def commit_translation(request, project, subproject, lang):
-    obj = get_translation(request, project, subproject, lang)
+def commit_translation(request, project, component, lang):
+    obj = get_translation(request, project, component, lang)
 
-    if not can_commit_translation(request.user, obj.subproject.project):
+    if not request.user.has_perm('vcs.commit', obj):
         raise PermissionDenied()
 
     return perform_commit(request, obj)
@@ -141,7 +137,7 @@ def commit_translation(request, project, subproject, lang):
 def update_project(request, project):
     obj = get_project(request, project)
 
-    if not can_update_translation(request.user, obj):
+    if not request.user.has_perm('vcs.update', obj):
         raise PermissionDenied()
 
     return perform_update(request, obj)
@@ -149,10 +145,10 @@ def update_project(request, project):
 
 @login_required
 @require_POST
-def update_subproject(request, project, subproject):
-    obj = get_subproject(request, project, subproject)
+def update_component(request, project, component):
+    obj = get_component(request, project, component)
 
-    if not can_update_translation(request.user, obj.project):
+    if not request.user.has_perm('vcs.update', obj):
         raise PermissionDenied()
 
     return perform_update(request, obj)
@@ -160,10 +156,10 @@ def update_subproject(request, project, subproject):
 
 @login_required
 @require_POST
-def update_translation(request, project, subproject, lang):
-    obj = get_translation(request, project, subproject, lang)
+def update_translation(request, project, component, lang):
+    obj = get_translation(request, project, component, lang)
 
-    if not can_update_translation(request.user, obj.subproject.project):
+    if not request.user.has_perm('vcs.update', obj):
         raise PermissionDenied()
 
     return perform_update(request, obj)
@@ -174,7 +170,7 @@ def update_translation(request, project, subproject, lang):
 def push_project(request, project):
     obj = get_project(request, project)
 
-    if not can_push_translation(request.user, obj):
+    if not request.user.has_perm('vcs.push', obj):
         raise PermissionDenied()
 
     return perform_push(request, obj)
@@ -182,10 +178,10 @@ def push_project(request, project):
 
 @login_required
 @require_POST
-def push_subproject(request, project, subproject):
-    obj = get_subproject(request, project, subproject)
+def push_component(request, project, component):
+    obj = get_component(request, project, component)
 
-    if not can_push_translation(request.user, obj.project):
+    if not request.user.has_perm('vcs.push', obj):
         raise PermissionDenied()
 
     return perform_push(request, obj)
@@ -193,10 +189,10 @@ def push_subproject(request, project, subproject):
 
 @login_required
 @require_POST
-def push_translation(request, project, subproject, lang):
-    obj = get_translation(request, project, subproject, lang)
+def push_translation(request, project, component, lang):
+    obj = get_translation(request, project, component, lang)
 
-    if not can_push_translation(request.user, obj.subproject.project):
+    if not request.user.has_perm('vcs.push', obj):
         raise PermissionDenied()
 
     return perform_push(request, obj)
@@ -207,7 +203,7 @@ def push_translation(request, project, subproject, lang):
 def reset_project(request, project):
     obj = get_project(request, project)
 
-    if not can_reset_translation(request.user, obj):
+    if not request.user.has_perm('vcs.reset', obj):
         raise PermissionDenied()
 
     return perform_reset(request, obj)
@@ -215,10 +211,10 @@ def reset_project(request, project):
 
 @login_required
 @require_POST
-def reset_subproject(request, project, subproject):
-    obj = get_subproject(request, project, subproject)
+def reset_component(request, project, component):
+    obj = get_component(request, project, component)
 
-    if not can_reset_translation(request.user, obj.project):
+    if not request.user.has_perm('vcs.reset', obj):
         raise PermissionDenied()
 
     return perform_reset(request, obj)
@@ -226,10 +222,10 @@ def reset_subproject(request, project, subproject):
 
 @login_required
 @require_POST
-def reset_translation(request, project, subproject, lang):
-    obj = get_translation(request, project, subproject, lang)
+def reset_translation(request, project, component, lang):
+    obj = get_translation(request, project, component, lang)
 
-    if not can_reset_translation(request.user, obj.subproject.project):
+    if not request.user.has_perm('vcs.reset', obj):
         raise PermissionDenied()
 
     return perform_reset(request, obj)
@@ -237,15 +233,15 @@ def reset_translation(request, project, subproject, lang):
 
 @login_required
 @require_POST
-def remove_translation(request, project, subproject, lang):
-    obj = get_translation(request, project, subproject, lang)
+def remove_translation(request, project, component, lang):
+    obj = get_translation(request, project, component, lang)
 
-    if not can_remove_translation(request.user, obj.subproject.project):
+    if not request.user.has_perm('translation.delete', obj):
         raise PermissionDenied()
 
     return execute_locked(
         request,
-        obj.subproject,
+        obj.component,
         _('Translation has been removed.'),
         obj.remove,
         user=request.user,

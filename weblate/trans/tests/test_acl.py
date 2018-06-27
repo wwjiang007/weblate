@@ -22,7 +22,7 @@
 
 from django.conf import settings
 from django.urls import reverse
-from django.contrib.auth.models import User, Group
+from weblate.auth.models import User, Group
 
 from weblate.trans.models import Project
 from weblate.trans.tests.test_views import FixtureTestCase
@@ -40,8 +40,7 @@ class ACLTest(FixtureTestCase):
             'noreply@example.org',
             'testpassword'
         )
-        self.admin_group = Group.objects.get(
-            groupacl__project=self.project,
+        self.admin_group = self.project.group_set.get(
             name__endswith='@Administration'
         )
 
@@ -94,7 +93,7 @@ class ACLTest(FixtureTestCase):
         self.add_acl()
         self.make_manager()
         response = self.client.get(self.access_url)
-        self.assertContains(response, 'Manage users')
+        self.assertContains(response, 'Users')
 
     def test_edit_acl_owner(self):
         """Owner should have access to user management.
@@ -102,7 +101,7 @@ class ACLTest(FixtureTestCase):
         self.add_acl()
         self.project.add_user(self.user, '@Administration')
         response = self.client.get(self.access_url)
-        self.assertContains(response, 'Manage users')
+        self.assertContains(response, 'Users')
 
     def add_user(self):
         self.add_acl()
@@ -152,7 +151,7 @@ class ACLTest(FixtureTestCase):
             }
         )
         self.assertTrue(
-            self.project.all_users('@Administration').filter(
+            User.objects.all_admins(self.project).filter(
                 username=self.second_user.username
             ).exists()
         )
@@ -165,7 +164,7 @@ class ACLTest(FixtureTestCase):
             }
         )
         self.assertFalse(
-            self.project.all_users('@Administration').filter(
+            User.objects.all_admins(self.project).filter(
                 username=self.second_user.username
             ).exists()
         )
@@ -185,7 +184,7 @@ class ACLTest(FixtureTestCase):
         )
         self.remove_user()
         self.assertFalse(
-            self.project.all_users('@Administration').filter(
+            User.objects.all_admins(self.project).filter(
                 username=self.second_user.username
             ).exists()
         )
@@ -202,7 +201,7 @@ class ACLTest(FixtureTestCase):
             }
         )
         self.assertTrue(
-            self.project.all_users('@Administration').filter(
+            User.objects.all_admins(self.project).filter(
                 username=self.user.username
             ).exists()
         )
@@ -215,7 +214,7 @@ class ACLTest(FixtureTestCase):
             }
         )
         self.assertTrue(
-            self.project.all_users('@Administration').filter(
+            User.objects.all_admins(self.project).filter(
                 username=self.user.username
             ).exists()
         )
@@ -243,7 +242,7 @@ class ACLTest(FixtureTestCase):
             # Allow editing by creating billing plan
             from weblate.billing.models import Plan, Billing
             plan = Plan.objects.create()
-            billing = Billing.objects.create(plan=plan, user=self.user)
+            billing = Billing.objects.create(plan=plan)
             billing.projects.add(self.project)
 
         # Editing should now work
@@ -260,6 +259,10 @@ class ACLTest(FixtureTestCase):
     def test_acl_groups(self):
         """Test handling of ACL groups.
         """
+        if 'weblate.billing' in settings.INSTALLED_APPS:
+            billing_group = 1
+        else:
+            billing_group = 0
         match = '{}@'.format(self.project.name)
         self.project.access_control = Project.ACCESS_PUBLIC
         self.project.enable_review = False
@@ -271,13 +274,15 @@ class ACLTest(FixtureTestCase):
         self.project.enable_review = True
         self.project.save()
         self.assertEqual(
-            8, Group.objects.filter(name__startswith=match).count()
+            8 + billing_group,
+            Group.objects.filter(name__startswith=match).count()
         )
         self.project.access_control = Project.ACCESS_PRIVATE
         self.project.enable_review = True
         self.project.save()
         self.assertEqual(
-            8, Group.objects.filter(name__startswith=match).count()
+            8 + billing_group,
+            Group.objects.filter(name__startswith=match).count()
         )
         self.project.access_control = Project.ACCESS_CUSTOM
         self.project.save()
@@ -292,7 +297,8 @@ class ACLTest(FixtureTestCase):
         self.project.access_control = Project.ACCESS_PRIVATE
         self.project.save()
         self.assertEqual(
-            8, Group.objects.filter(name__startswith=match).count()
+            8 + billing_group,
+            Group.objects.filter(name__startswith=match).count()
         )
         self.project.delete()
         self.assertEqual(

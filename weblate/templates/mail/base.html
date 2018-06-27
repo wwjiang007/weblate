@@ -21,10 +21,13 @@ del {
 footer {
     font-size: small;
 }
+th {
+    vertical-align: top;
+}
   </style>
  </head>
 
- <body {% if LANGUAGE_BIDI %}class="dir-rtl"{% endif %}>
+ <body>
 {% block content %}
 {% endblock %}
 <footer>

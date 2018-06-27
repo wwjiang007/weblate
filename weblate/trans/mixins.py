@@ -102,8 +102,6 @@ class LoggerMixin(object):
 
 class PathMixin(LoggerMixin):
     """Mixin for path manipulations."""
-    _dir_path = None
-
     def _get_path(self):
         """Actual calculation of path."""
         raise NotImplementedError()
@@ -137,10 +135,6 @@ class PathMixin(LoggerMixin):
                     'renaming "%s" to "%s"', old_path, new_path
                 )
                 os.rename(old_path, new_path)
-
-            # Clean subproject cache on rename
-            if 'linked_subproject' in self.__dict__:
-                del self.__dict__['linked_subproject']
 
     def create_path(self):
         """Create filesystem directory for storing data"""

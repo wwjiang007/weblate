@@ -3,12 +3,12 @@
 {% load permissions %}
 {% with object.repo_needs_commit as needs_commit %}
 
-{% can_commit_translation user project as user_can_commit_translation %}
-{% can_update_translation user project as user_can_update_translation %}
-{% can_push_translation user project as user_can_push_translation %}
-{% can_reset_translation user project as user_can_reset_translation %}
-{% can_remove_translation user project as user_can_remove_translation %}
-{% can_lock_subproject user project as user_can_lock_subproject %}
+{% perm 'vcs.commit' project as user_can_commit_translation %}
+{% perm 'vcs.update' project as user_can_update_translation %}
+{% perm 'vcs.push' project as user_can_push_translation %}
+{% perm 'vcs.reset' project as user_can_reset_translation %}
+{% perm 'translation.delete' project as user_can_remove_translation %}
+{% perm 'component.lock' project as user_can_lock_component %}
 
 
 <div class="row">
@@ -38,7 +38,7 @@
 {% endif %}
 {% endif %}
 
-{% if object.subproject_set %}
+{% if object.component_set %}
 {% else %}
 {% with object.get_last_remote_commit as commit %}
 <p>
@@ -175,7 +175,7 @@
 {% endif %}
 
 
-{% if user_can_lock_subproject and object.is_lockable %}
+{% if user_can_lock_component and object.is_lockable %}
 {% if object.locked %}
 <tr>
 <td>
@@ -206,7 +206,7 @@
 {% if translation and user_can_remove_translation %}
 <tr>
 <td>
-<form method="POST" action="{% url 'remove_translation' project=translation.subproject.project.slug subproject=translation.subproject.slug lang=translation.language.code %}">
+<form method="POST" action="{% url 'remove_translation' project=translation.component.project.slug component=translation.component.slug lang=translation.language.code %}">
 {% csrf_token %}
 <input type="submit" class="btn btn-danger" value="{% trans "Delete" %}" />
 </form>

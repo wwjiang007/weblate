@@ -283,9 +283,9 @@ Once you have the package installed, you can hook it to Django authentication:
     # AUTH_LDAP_USER_DN_TEMPLATE = 'ou=users,dc=example,dc=com'
 
     # List of attributes to import from LDAP on login
-    # Weblate stores full user name in the first_name attribute
+    # Weblate stores full user name in the full_name attribute
     AUTH_LDAP_USER_ATTR_MAP = {
-        'first_name': 'name',
+        'full_name': 'name',
         # Use following if your LDAP server does not have full name
         # Weblate will merge them later
         # 'first_name': 'givenName',
@@ -306,6 +306,9 @@ Once you have the package installed, you can hook it to Django authentication:
 .. seealso::
 
     :doc:`ldap:index`
+
+
+.. _cas-auth:
 
 
 CAS authentication
@@ -369,3 +372,32 @@ cause problems, therefore it's suggested to put it:
 .. seealso::
 
     `Django CAS NG <https://github.com/mingchen/django-cas-ng>`_
+
+Configuring third party Django authentication
+---------------------------------------------
+
+Generally any Django authentication plugin should work with Weblate. Just
+follow instructions for the plugin, just remember to keep Weblate user backend
+installed.
+
+.. seealso::
+
+    :ref:`ldap-auth`,
+    :ref:`cas-auth`
+
+Typically the installation will consist of adding authentication backend to
+:setting:`django:AUTHENTICATION_BACKENDS` and installing authentication app (if
+there is any) into :setting:`django:INSTALLED_APPS`:
+
+.. code-block:: python
+
+    AUTHENTICATION_BACKENDS = (
+        # Add authentication backend here
+        'weblate.accounts.auth.WeblateUserBackend',
+    )
+
+    INSTALLED_APPS = (
+        ...
+        'weblate',
+        # Install authentication app here
+    )

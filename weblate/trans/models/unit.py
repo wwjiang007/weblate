@@ -34,19 +34,14 @@ from django.utils.translation import ugettext as _
 
 import six
 
-from weblate.accounts.models import get_author_name
-from weblate.permissions.helpers import can_translate
-from weblate.trans.checks import CHECKS
+from weblate.checks import CHECKS
+from weblate.checks.models import Check
 from weblate.trans.models.source import Source
-from weblate.trans.models.check import Check
 from weblate.trans.models.comment import Comment
 from weblate.trans.models.suggestion import Suggestion
 from weblate.trans.models.change import Change
 from weblate.trans.search import update_index_unit, fulltext_search, more_like
 from weblate.trans.signals import unit_pre_create
-from weblate.accounts.notifications import (
-    notify_new_contributor, notify_new_translation
-)
 from weblate.trans.mixins import LoggerMixin
 from weblate.trans.util import (
     is_plural, split_plural, join_plural, get_distinct_translations,
@@ -54,6 +49,7 @@ from weblate.trans.util import (
 from weblate.utils.hash import calculate_hash, hash_to_checksum
 from weblate.utils.state import (
     STATE_TRANSLATED, STATE_FUZZY, STATE_APPROVED, STATE_EMPTY,
+    STATE_CHOICES
 )
 
 SIMPLE_FILTERS = {
@@ -190,7 +186,7 @@ class UnitQuerySet(models.QuerySet):
             return self.all()
 
     def review(self, date, exclude_user, only_user,
-               project=None, subproject=None, language=None, translation=None):
+               project=None, component=None, language=None, translation=None):
         """Return units touched by other users since given time."""
         # Filter out changes we're interested in
         changes = Change.objects.content()
@@ -203,10 +199,10 @@ class UnitQuerySet(models.QuerySet):
         if translation:
             changes = changes.filter(translation=translation)
         else:
-            if subproject:
-                changes = changes.filter(subproject=subproject)
+            if component:
+                changes = changes.filter(component=component)
             elif project:
-                changes = changes.filter(subproject__project=project)
+                changes = changes.filter(component__project=project)
             if language:
                 changes = changes.filter(translation__language=language)
         # Filter units for these changes
@@ -217,19 +213,19 @@ class UnitQuerySet(models.QuerySet):
             'translation',
             'translation__language',
             'translation__plural',
-            'translation__subproject',
-            'translation__subproject__project',
-            'translation__subproject__project__source_language',
+            'translation__component',
+            'translation__component__project',
+            'translation__component__project__source_language',
         )
 
-    def search(self, params, project=None, subproject=None,
+    def search(self, params, project=None, component=None,
                language=None, translation=None):
         """High level wrapper for searching."""
         if translation is not None:
-            subproject = translation.subproject
+            component = translation.component
             language = translation.language
-        if subproject is not None:
-            project = subproject.project
+        if component is not None:
+            project = component.project
 
         base = self.prefetch()
         if params['type'] != 'all':
@@ -247,11 +243,11 @@ class UnitQuerySet(models.QuerySet):
                 params.get('date'),
                 params.get('exclude_user'),
                 params.get('only_user'),
-                project, subproject, language, translation
+                project, component, language, translation
             )
 
         if 'lang' in params and params['lang']:
-            base = base.filter(translation__language__code=params['lang'])
+            base = base.filter(translation__language__code__in=params['lang'])
 
         if not params['q']:
             result = base
@@ -288,22 +284,8 @@ class UnitQuerySet(models.QuerySet):
             )
         return result
 
-    def same_source(self, unit):
-        """Find units with same source."""
-        source = unit.get_source_plurals()[0]
-
-        return self.filter(
-            Q(source__iexact=source) |
-            Q(source__istartswith=join_plural([source, ''])),
-            translation__language=unit.translation.language,
-            state__gte=STATE_TRANSLATED,
-        ).exclude(
-            pk=unit.id
-        )
-
     def more_like_this(self, unit, top=5):
         """Find closely similar units."""
-        source = unit.get_source_plurals()[0]
         if settings.MT_WEBLATE_LIMIT >= 0:
             queue = multiprocessing.Queue()
             proc = multiprocessing.Process(
@@ -320,30 +302,22 @@ class UnitQuerySet(models.QuerySet):
                     'Request for more like {0} timed out.'.format(unit.pk)
                 )
 
-            more_results, scores = queue.get()
+            more_results = queue.get()
         else:
-            more_results, scores = more_like(unit.pk, unit.source, top)
+            more_results = more_like(unit.pk, unit.source, top)
 
-        result = self.filter(
+        return self.filter(
             pk__in=more_results,
             translation__language=unit.translation.language,
             state__gte=STATE_TRANSLATED,
-        ).exclude(
-            # These are covered by same_result
-            Q(source__iexact=source) |
-            Q(source__istartswith=join_plural([source, ''])) |
-            Q(pk=unit.id)
         )
-        for item in result:
-            item.score = scores[item.pk]
-        return result
 
     def same(self, unit, exclude=True):
         """Unit with same source within same project."""
-        project = unit.translation.subproject.project
+        project = unit.translation.component.project
         result = self.prefetch().filter(
             content_hash=unit.content_hash,
-            translation__subproject__project=project,
+            translation__component__project=project,
             translation__language=unit.translation.language
         )
         if exclude:
@@ -361,8 +335,14 @@ class UnitQuerySet(models.QuerySet):
         context = ttunit.get_context()
 
         params = [{'source': source, 'context': context}, {'source': source}]
+        # Try empty context first before matching any context
         if context != '':
             params.insert(1, {'source': source, 'context': ''})
+        # Special case for XLIFF
+        if '///' in context:
+            params.insert(
+                1, {'source': source, 'context': context.split('///', 1)[1]}
+            )
 
         for param in params:
             try:
@@ -391,12 +371,7 @@ class Unit(models.Model, LoggerMixin):
     state = models.IntegerField(
         default=STATE_EMPTY,
         db_index=True,
-        choices=(
-            (STATE_EMPTY, 'Empty'),
-            (STATE_FUZZY, 'Needs editing'),
-            (STATE_TRANSLATED, 'Translated'),
-            (STATE_APPROVED, 'Approved'),
-        )
+        choices=STATE_CHOICES,
     )
 
     position = models.IntegerField()
@@ -414,11 +389,6 @@ class Unit(models.Model, LoggerMixin):
     objects = UnitManager.from_queryset(UnitQuerySet)()
 
     class Meta(object):
-        permissions = (
-            ('save_translation', "Can save translation"),
-            ('save_template', "Can save template"),
-            ('review_translation', 'Can review translation'),
-        )
         ordering = ['priority', 'position']
         app_label = 'trans'
         unique_together = ('translation', 'id_hash')
@@ -433,7 +403,7 @@ class Unit(models.Model, LoggerMixin):
         self.old_unit = copy(self)
 
     def __str__(self):
-        return _('{translation}, translation unit {position}').format(
+        return _('{translation}, string {position}').format(
             translation=self.translation,
             position=self.position,
         )
@@ -453,8 +423,8 @@ class Unit(models.Model, LoggerMixin):
     @cached_property
     def log_prefix(self):
         return '/'.join((
-            self.translation.subproject.project.slug,
-            self.translation.subproject.slug,
+            self.translation.component.project.slug,
+            self.translation.component.slug,
             self.translation.language.code,
             str(self.pk)
         ))
@@ -476,7 +446,7 @@ class Unit(models.Model, LoggerMixin):
             return STATE_FUZZY
         if not translated:
             return STATE_EMPTY
-        elif approved and self.translation.subproject.project.enable_review:
+        elif approved and self.translation.component.project.enable_review:
             return STATE_APPROVED
         return STATE_TRANSLATED
 
@@ -531,7 +501,7 @@ class Unit(models.Model, LoggerMixin):
         # Ensure we track source string
         source_info, source_created = Source.objects.get_or_create(
             id_hash=self.id_hash,
-            subproject=self.translation.subproject
+            component=self.translation.component
         )
         contentsum_changed = self.content_hash != content_hash
 
@@ -565,7 +535,6 @@ class Unit(models.Model, LoggerMixin):
         # Create change object for new source string
         if source_created:
             Change.objects.create(
-                translation=self.translation,
                 action=Change.ACTION_NEW_SOURCE,
                 unit=self,
             )
@@ -609,10 +578,10 @@ class Unit(models.Model, LoggerMixin):
     def propagate(self, request, change_action=None):
         """Propagate current translation to all others."""
         allunits = Unit.objects.same(self).filter(
-            translation__subproject__allow_translation_propagation=True
+            translation__component__allow_translation_propagation=True
         )
         for unit in allunits:
-            if not can_translate(request.user, unit):
+            if not request.user.has_perm('unit.edit', unit):
                 continue
             unit.target = self.target
             unit.state = self.state
@@ -629,11 +598,14 @@ class Unit(models.Model, LoggerMixin):
         locked for update.
         """
         # For case when authorship specified, use user from request
-        if user is None or user.is_anonymous:
+        if user is None or (user.is_anonymous and request):
             user = request.user
 
-        # Commit possible previous changes by other author
-        self.translation.commit_pending(request, get_author_name(user))
+        # Commit possible previous changes on this unit
+        if self.pending:
+            change = self.change_set.content().order_by('-timestamp')[0]
+            if change.author_id != request.user.id:
+                self.translation.commit_pending(request)
 
         # Return if there was no change
         # We have to explicitly check for fuzzy flag change on monolingual
@@ -666,18 +638,19 @@ class Unit(models.Model, LoggerMixin):
         # Save updated unit to database
         self.save(backend=True)
 
-        # Update translation stats
         old_translated = self.translation.stats.translated
-        if change_action != Change.ACTION_UPLOAD:
+
+        if change_action not in (Change.ACTION_UPLOAD, Change.ACTION_AUTO):
+            # Update translation stats
             self.translation.invalidate_cache()
-            self.translation.store_hash()
+
+            # Update user stats
+            user.profile.translated += 1
+            user.profile.save()
 
         # Notify subscribed users about new translation
+        from weblate.accounts.notifications import notify_new_translation
         notify_new_translation(self, self.old_unit, user)
-
-        # Update user stats
-        user.profile.translated += 1
-        user.profile.save()
 
         # Generate Change object for this change
         if gen_change:
@@ -709,7 +682,7 @@ class Unit(models.Model, LoggerMixin):
         """
         # Find relevant units
         same_source = Unit.objects.filter(
-            translation__subproject=self.translation.subproject,
+            translation__component=self.translation.component,
             context=self.context,
         ).exclude(
             id=self.id
@@ -747,7 +720,6 @@ class Unit(models.Model, LoggerMixin):
             update_index_unit(unit)
             Change.objects.create(
                 unit=unit,
-                translation=unit.translation,
                 action=Change.ACTION_SOURCE_CHANGE,
                 user=user,
                 author=user,
@@ -764,6 +736,7 @@ class Unit(models.Model, LoggerMixin):
             user=request.user
         )
         if not user_changes.exists():
+            from weblate.accounts.notifications import notify_new_contributor
             notify_new_contributor(self, request.user)
 
         # Action type to store
@@ -777,14 +750,13 @@ class Unit(models.Model, LoggerMixin):
         kwargs = {}
 
         # Should we store history of edits?
-        if self.translation.subproject.save_history:
+        if self.translation.component.save_history:
             kwargs['target'] = self.target
             kwargs['old'] = self.old_unit.target
 
         # Create change object
         Change.objects.create(
             unit=self,
-            translation=self.translation,
             action=action,
             user=request.user,
             author=author,
@@ -824,7 +796,7 @@ class Unit(models.Model, LoggerMixin):
         """Return all suggestions for this unit."""
         return Suggestion.objects.filter(
             content_hash=self.content_hash,
-            project=self.translation.subproject.project,
+            project=self.translation.component.project,
             language=self.translation.language
         )
 
@@ -835,7 +807,7 @@ class Unit(models.Model, LoggerMixin):
             return False
         todelete = Check.objects.filter(
             content_hash=self.content_hash,
-            project=self.translation.subproject.project
+            project=self.translation.component.project
         ).filter(
             (Q(language=self.translation.language) & Q(check__in=target)) |
             (Q(language=None) & Q(check__in=source))
@@ -847,7 +819,7 @@ class Unit(models.Model, LoggerMixin):
         """Return all checks for this unit (even ignored)."""
         return Check.objects.filter(
             content_hash=self.content_hash,
-            project=self.translation.subproject.project,
+            project=self.translation.component.project,
             language=self.translation.language
         )
 
@@ -855,7 +827,7 @@ class Unit(models.Model, LoggerMixin):
         """Return all source checks for this unit (even ignored)."""
         return Check.objects.filter(
             content_hash=self.content_hash,
-            project=self.translation.subproject.project,
+            project=self.translation.component.project,
             language=None
         )
 
@@ -863,7 +835,7 @@ class Unit(models.Model, LoggerMixin):
         """Return all active (not ignored) checks for this unit."""
         return Check.objects.filter(
             content_hash=self.content_hash,
-            project=self.translation.subproject.project,
+            project=self.translation.component.project,
             language=self.translation.language,
             ignore=False
         )
@@ -872,7 +844,7 @@ class Unit(models.Model, LoggerMixin):
         """Return all active (not ignored) source checks for this unit."""
         return Check.objects.filter(
             content_hash=self.content_hash,
-            project=self.translation.subproject.project,
+            project=self.translation.component.project,
             language=None,
             ignore=False
         )
@@ -881,7 +853,7 @@ class Unit(models.Model, LoggerMixin):
         """Return list of target comments."""
         return Comment.objects.filter(
             content_hash=self.content_hash,
-            project=self.translation.subproject.project,
+            project=self.translation.component.project,
         ).filter(
             Q(language=self.translation.language) | Q(language=None),
         )
@@ -890,7 +862,7 @@ class Unit(models.Model, LoggerMixin):
         """Return list of target comments."""
         return Comment.objects.filter(
             content_hash=self.content_hash,
-            project=self.translation.subproject.project,
+            project=self.translation.component.project,
             language=None,
         )
 
@@ -909,15 +881,15 @@ class Unit(models.Model, LoggerMixin):
 
         if (not same_state or is_new) and self.state < STATE_TRANSLATED:
             # Check whether there is any message with same source
-            project = self.translation.subproject.project
+            project = self.translation.component.project
             same_source = Unit.objects.filter(
                 translation__language=self.translation.language,
-                translation__subproject__project=project,
+                translation__component__project=project,
                 content_hash=self.content_hash,
                 state__gte=STATE_TRANSLATED,
             ).exclude(
                 id=self.id,
-                translation__subproject__allow_translation_propagation=False,
+                translation__component__allow_translation_propagation=False,
             )
 
             # We run only checks which span across more units
@@ -969,7 +941,7 @@ class Unit(models.Model, LoggerMixin):
                     # Create new check
                     Check.objects.create(
                         content_hash=self.content_hash,
-                        project=self.translation.subproject.project,
+                        project=self.translation.component.project,
                         language=self.translation.language,
                         ignore=False,
                         check=check,
@@ -986,7 +958,7 @@ class Unit(models.Model, LoggerMixin):
                     # Create new check
                     Check.objects.create(
                         content_hash=self.content_hash,
-                        project=self.translation.subproject.project,
+                        project=self.translation.component.project,
                         language=None,
                         ignore=False,
                         check=check
@@ -1062,9 +1034,11 @@ class Unit(models.Model, LoggerMixin):
         # Update unit and save it
         if isinstance(new_target, six.string_types):
             self.target = new_target
+            not_empty = bool(new_target)
         else:
             self.target = join_plural(new_target)
-        if bool(max(new_target)):
+            not_empty = bool(max(new_target))
+        if not_empty:
             self.state = new_state
         else:
             self.state = STATE_EMPTY
@@ -1078,11 +1052,11 @@ class Unit(models.Model, LoggerMixin):
 
     @cached_property
     def all_flags(self):
-        """Return union of own and subproject flags."""
+        """Return union of own and component flags."""
         flags = set(
             self.flags.split(',') +
             self.source_info.check_flags.split(',') +
-            self.translation.subproject.all_flags
+            self.translation.component.all_flags
         )
         flags.discard('')
         return flags
@@ -1092,7 +1066,7 @@ class Unit(models.Model, LoggerMixin):
         """Return related source string object."""
         return Source.objects.get(
             id_hash=self.id_hash,
-            subproject=self.translation.subproject
+            component=self.translation.component
         )
 
     def get_secondary_units(self, user):
@@ -1104,7 +1078,7 @@ class Unit(models.Model, LoggerMixin):
             Unit.objects.filter(
                 id_hash=self.id_hash,
                 state__gte=STATE_TRANSLATED,
-                translation__subproject=self.translation.subproject,
+                translation__component=self.translation.component,
                 translation__language__in=secondary_langs,
             )
         )
@@ -1122,6 +1096,8 @@ class Unit(models.Model, LoggerMixin):
 
     def get_max_length(self):
         """Returns maximal translation length."""
+        if not self.pk:
+            return 10000
         for flag in self.all_flags:
             if flag.startswith('max-length:'):
                 try:

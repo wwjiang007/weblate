@@ -145,6 +145,13 @@ codebase, you can find them labelled with :guilabel:`good first issue` tag:
 
 https://github.com/WeblateOrg/weblate/labels/good%20first%20issue
 
+If you have Docker and docker-compose installed you can spin up the development
+environment simply by running:
+
+.. code-block:: sh
+
+   ./rundev.sh
+
 Earning money by coding
 -----------------------
 
@@ -173,3 +180,16 @@ as funding goals and rewards you can get for funding.
 
 
 .. _Bountysource: https://salt.bountysource.com/teams/weblate
+
+Releasing Weblate
+-----------------
+
+Releasing checklist:
+
+1. Make sure screenshots are up to date ``make -C docs update-screenshots``
+2. Create a release ``./scripts/create-release --tag``
+3. Push tags to GitHub
+4. Update Docker image
+5. Close GitHub milestone
+6. Enable building version docs on Read rhe Docs
+7. Once Docker image is tested, add tag and push it

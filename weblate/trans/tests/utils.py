@@ -27,12 +27,12 @@ from tempfile import mkdtemp
 from unittest import SkipTest
 
 from django.conf import settings
-from django.contrib.auth.models import User
+from weblate.auth.models import User
 
-from weblate.trans.formats import FILE_FORMATS
-from weblate.trans.models import Project, SubProject
+from weblate.formats.models import FILE_FORMATS
+from weblate.trans.models import Project, Component
 from weblate.trans.search import clean_indexes
-from weblate.trans.vcs import VCS_REGISTRY
+from weblate.vcs.models import VCS_REGISTRY
 
 # Directory holding test data
 TEST_DATA = os.path.join(
@@ -60,7 +60,7 @@ def create_test_user():
         'testuser',
         'weblate@example.org',
         'testpassword',
-        first_name='Weblate Test',
+        full_name='Weblate Test',
     )
 
 
@@ -199,9 +199,9 @@ class RepoTestMixin(object):
             return 'file://{}'.format(path)
         return 'file:///{}'.format(path.replace('\\', '/'))
 
-    def _create_subproject(self, file_format, mask, template='',
-                           new_base='', vcs='git', branch=None, **kwargs):
-        """Create real test subproject."""
+    def _create_component(self, file_format, mask, template='',
+                          new_base='', vcs='git', branch=None, **kwargs):
+        """Create real test component."""
         if file_format not in FILE_FORMATS:
             raise SkipTest(
                 'File format {0} is not supported!'.format(file_format)
@@ -221,12 +221,14 @@ class RepoTestMixin(object):
         if 'push_on_commit' not in kwargs:
             kwargs['push_on_commit'] = False
 
+        if 'name' not in kwargs:
+            kwargs['name'] = 'Test'
+        kwargs['slug'] = kwargs['name'].lower()
+
         if branch is None:
             branch = VCS_REGISTRY[vcs].default_branch
 
-        result = SubProject.objects.create(
-            name='Test',
-            slug='test',
+        result = Component.objects.create(
             repo=repo,
             push=push,
             branch=branch,
@@ -242,35 +244,34 @@ class RepoTestMixin(object):
         result.addons_cache = {}
         return result
 
-    def create_subproject(self):
-        """Wrapper method for providing test subproject."""
-        return self._create_subproject(
+    def create_component(self):
+        """Wrapper method for providing test component."""
+        return self._create_component(
             'auto',
             'po/*.po',
         )
 
-    def create_po(self):
-        return self._create_subproject(
+    def create_po(self, **kwargs):
+        return self._create_component(
             'po',
             'po/*.po',
+            **kwargs
         )
 
     def create_po_branch(self):
-        return self._create_subproject(
+        return self._create_component(
             'po',
             'translations/*.po',
             branch='translations'
         )
 
     def create_po_push(self):
-        return self._create_subproject(
-            'po',
-            'po/*.po',
+        return self.create_po(
             push_on_commit=True
         )
 
     def create_po_empty(self):
-        return self._create_subproject(
+        return self._create_component(
             'po',
             'po-empty/*.po',
             new_base='po-empty/hello.pot',
@@ -278,68 +279,57 @@ class RepoTestMixin(object):
         )
 
     def create_po_mercurial(self):
-        return self._create_subproject(
-            'po',
-            'po/*.po',
+        return self.create_po(
             vcs='mercurial'
         )
 
     def create_po_svn(self):
-        return self._create_subproject(
-            'po',
-            'po/*.po',
+        return self.create_po(
             vcs='subversion'
         )
 
     def create_po_new_base(self, **kwargs):
-        return self._create_subproject(
-            'po',
-            'po/*.po',
+        return self.create_po(
             new_base='po/hello.pot',
             **kwargs
         )
 
     def create_po_link(self):
-        return self._create_subproject(
+        return self._create_component(
             'po',
             'po-link/*.po',
         )
 
     def create_po_mono(self):
-        return self._create_subproject(
+        return self._create_component(
             'po-mono',
             'po-mono/*.po',
             'po-mono/en.po',
         )
 
-    def create_po_mono_unwrapped(self):
-        return self._create_subproject(
-            'po-mono-unwrapped',
-            'po-mono/*.po',
-            'po-mono/en.po',
-        )
-
-    def create_ts(self, suffix=''):
-        return self._create_subproject(
+    def create_ts(self, suffix='', **kwargs):
+        return self._create_component(
             'ts',
             'ts{0}/*.ts'.format(suffix),
+            **kwargs
         )
 
     def create_ts_mono(self):
-        return self._create_subproject(
+        return self._create_component(
             'ts',
             'ts-mono/*.ts',
             'ts-mono/en.ts',
         )
 
-    def create_iphone(self):
-        return self._create_subproject(
+    def create_iphone(self, **kwargs):
+        return self._create_component(
             'strings',
             'iphone/*.lproj/Localizable.strings',
+            **kwargs
         )
 
     def create_android(self, suffix='', **kwargs):
-        return self._create_subproject(
+        return self._create_component(
             'aresource',
             'android{}/values-*/strings.xml'.format(suffix),
             'android{}/values/strings.xml'.format(suffix),
@@ -347,13 +337,13 @@ class RepoTestMixin(object):
         )
 
     def create_json(self):
-        return self._create_subproject(
+        return self._create_component(
             'json',
             'json/*.json',
         )
 
     def create_json_mono(self, suffix='mono', **kwargs):
-        return self._create_subproject(
+        return self._create_component(
             'json',
             'json-{}/*.json'.format(suffix),
             'json-{}/en.json'.format(suffix),
@@ -361,96 +351,96 @@ class RepoTestMixin(object):
         )
 
     def create_json_webextension(self):
-        return self._create_subproject(
+        return self._create_component(
             'webextension',
             'webextension/_locales/*/messages.json',
             'webextension/_locales/en/messages.json',
         )
 
     def create_joomla(self):
-        return self._create_subproject(
+        return self._create_component(
             'joomla',
             'joomla/*.ini',
             'joomla/en-GB.ini',
         )
 
     def create_tsv(self):
-        return self._create_subproject(
+        return self._create_component(
             'csv',
             'tsv/*.txt',
         )
 
     def create_csv(self):
-        return self._create_subproject(
+        return self._create_component(
             'csv',
             'csv/*.txt',
         )
 
     def create_csv_mono(self):
-        return self._create_subproject(
+        return self._create_component(
             'csv',
             'csv-mono/*.csv',
             'csv-mono/en.csv',
         )
 
     def create_php_mono(self):
-        return self._create_subproject(
+        return self._create_component(
             'php',
             'php-mono/*.php',
             'php-mono/en.php',
         )
 
     def create_java(self):
-        return self._create_subproject(
+        return self._create_component(
             'properties',
             'java/swing_messages_*.properties',
             'java/swing_messages.properties',
         )
 
     def create_xliff(self, name='default'):
-        return self._create_subproject(
+        return self._create_component(
             'xliff',
             'xliff/*/{0}.xlf'.format(name),
         )
 
     def create_xliff_mono(self):
-        return self._create_subproject(
+        return self._create_component(
             'xliff',
             'xliff-mono/*.xlf',
             'xliff-mono/en.xlf',
         )
 
     def create_resx(self):
-        return self._create_subproject(
+        return self._create_component(
             'resx',
             'resx/*.resx',
             'resx/en.resx',
         )
 
     def create_yaml(self):
-        return self._create_subproject(
+        return self._create_component(
             'yaml',
             'yml/*.yml',
             'yml/en.yml',
         )
 
     def create_ruby_yaml(self):
-        return self._create_subproject(
+        return self._create_component(
             'ruby-yaml',
             'ruby-yml/*.yml',
             'ruby-yml/en.yml',
         )
 
     def create_dtd(self):
-        return self._create_subproject(
+        return self._create_component(
             'dtd',
             'dtd/*.dtd',
             'dtd/en.dtd',
         )
 
-    def create_link(self):
-        parent = self.create_iphone()
-        return SubProject.objects.create(
+    def create_link(self, **kwargs):
+        parent = self.create_iphone(*kwargs)
+        return Component.objects.create(
             name='Test2',
             slug='test2',
             project=parent.project,

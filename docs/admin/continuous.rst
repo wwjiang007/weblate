@@ -70,9 +70,8 @@ And enable its use by defining proper attributes in given repository (eg. in
 
 .. versionchanged:: 2.9
 
-    This merge driver is automatically installed in case Weblate finds it (this
-    currently works only for Git checkout as distutils package does not include
-    examples).
+    This merge driver is now automatically installed for all Weblate internal
+    repositories.
 
 .. _avoid-merge-conflicts:
 
@@ -127,20 +126,16 @@ Automatically receiving changes from GitHub
 +++++++++++++++++++++++++++++++++++++++++++
 
 Weblate comes with native support for GitHub. To receive notifications on every
-push to GitHub repository, you just need to enable Weblate Service in the
-repository settings (:guilabel:`Integrations & services`) as shown on the image below:
+push to GitHub repository, you just need to add Weblate Webhook in the
+repository settings (:guilabel:`Webhooks`) as shown on the image below:
 
 .. image:: ../images/github-settings.png
 
-To set the base URL of your Weblate installation (for example
-``https://hosted.weblate.org``) and Weblate will be notified about every push
-to GitHub repository:
+For the payload URL append ``/hooks/github/`` to your Weblate URL, for example
+for Hosted Weblate service this is ``https://hosted.weblate.org/hooks/github/``.
 
-.. image:: ../images/github-settings-edit.png
-
-You can also use generic :guilabel:`Webhook`, in that case the
-:guilabel:`Payload URL` would have to be full path to the handler, for example
-``https://hosted.weblate.org/hooks/github/``.
+You can leave other values on the default settings (Weblate can handle both
+content types and consumes just the `push` event).
 
 .. seealso::
    
@@ -241,18 +236,20 @@ Weblate makes it easy to interact with others using its API.
 Lazy commits
 ------------
 
-The default behaviour (configured by :setting:`LAZY_COMMITS`) of Weblate is to group
-commits from the same author into one commit if possible. This greatly reduces the number of
-commits, however you might need to explicitly tell it to do the commits in case
-you want to get the VCS repository in sync, eg. for merge (this is by default
-allowed for Managers group, see :ref:`privileges`).
+The behaviour of Weblate is to group commits from the same author into one
+commit if possible. This greatly reduces the number of commits, however you
+might need to explicitly tell it to do the commits in case you want to get the
+VCS repository in sync, eg. for merge (this is by default allowed for Managers
+group, see :ref:`privileges`).
 
 The changes are in this mode committed once any of following conditions is
 fulfilled:
 
-* somebody else works on the translation
+* somebody else changes already changed string
 * a merge from upstream occurs
 * import of translation happens
+* mass state change is performed
+* search and replace is executed
 * translation for a language is completed
 * explicit commit is requested
 
@@ -264,107 +261,7 @@ delay, see :djadmin:`commit_pending` and :ref:`production-cron`.
 Processing repository with scripts
 ----------------------------------
 
-You can customize how Weblate interacts with the repository through a set of
-scripts. These include :guilabel:`Post-update script`, :guilabel:`Pre-commit
-script`, :guilabel:`Post-commit script`, :guilabel:`Post-add script` and
-:guilabel:`Post-push script` and are briefly described in :ref:`component`.
+The way to customize how Weblate interacts with the repository are
+:ref:`addons`. See :ref:`addon-script` for infomrmation how to execute
+external scripts through addons.
 
-Their naming quite clearly tells when a particular script is executed. The commit
-related scripts always get one parameter with full path to the translation file
-which has been changed.
-
-The script is executed with the current directory set to the root of the VCS repository
-for given component.
-
-Additionally, the following environment variables are available:
-
-.. envvar:: WL_VCS
-
-    Version control system used.
-
-.. envvar:: WL_REPO
-
-    Upstream repository URL.
-
-.. envvar:: WL_PATH
-
-    Absolute path to VCS repository.
-
-.. envvar:: WL_BRANCH
-
-    .. versionadded:: 2.11
-
-    Repository branch configured in the current component.
-
-.. envvar:: WL_FILEMASK
-
-    File mask for current component.
-
-.. envvar:: WL_TEMPLATE
-
-    File name of template for monolingual translations (can be empty).
-
-.. envvar:: WL_NEW_BASE
-
-    .. versionadded:: 2.14
-
-    File name of the file which is used for creating new translations (can be
-    empty).
-
-.. envvar:: WL_FILE_FORMAT
-
-    File format used in current component.
-
-.. envvar:: WL_LANGUAGE
-
-    Language of currently processed translation (not available for component
-    level hooks).
-
-.. envvar:: WL_PREVIOUS_HEAD
-
-    Previous HEAD on update (available only for :setting:`POST_UPDATE_SCRIPTS`).
-
-.. seealso::
-
-    :setting:`POST_UPDATE_SCRIPTS`,
-    :setting:`PRE_COMMIT_SCRIPTS`,
-    :setting:`POST_COMMIT_SCRIPTS`,
-    :setting:`POST_PUSH_SCRIPTS`,
-    :ref:`component`
-
-Post update repository processing
-+++++++++++++++++++++++++++++++++
-
-Post update repository processing can be used to update translation files on
-the source change. To achieve this, please remember that Weblate only sees
-files which are committed to the VCS, so you need to commit changes as a part
-of the script.
-
-For example with gulp you can do it using following code:
-
-.. code-block:: sh
-
-    #! /bin/sh
-    gulp --gulpfile gulp-i18n-extract.js
-    git commit -m 'Update source strings' src/languages/en.lang.json
-
-
-Pre commit processing of translations
-+++++++++++++++++++++++++++++++++++++
-
-In many cases you might want to automatically do some changes to the translation
-before it is committed to the repository. The pre commit script is exactly the
-place to achieve this.
-
-Before using any scripts, you need to list them in the
-:setting:`PRE_COMMIT_SCRIPTS` configuration variable. Then you can enable them
-at :ref:`component` configuration as :guilabel:`Pre commit script`.
-
-It is passed a single parameter consisting of file name of current translation.
-
-The script can also generate additional file to be included in the commit. This
-can be configured as :guilabel:`Extra commit file` at :ref:`component`
-configuration. You can use following format strings in the filename:
-
-``%(language)s``
-    Language code

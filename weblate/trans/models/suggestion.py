@@ -20,19 +20,15 @@
 
 from __future__ import unicode_literals
 
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Count
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext as _
 
-from weblate.accounts.notifications import notify_new_suggestion
 from weblate.lang.models import Language
-from weblate.permissions.helpers import (
-    can_accept_suggestion, can_vote_suggestion
-)
 from weblate.trans.models.change import Change
-from weblate.trans.models.unitdata import UnitData
+from weblate.utils.unitdata import UnitData
 from weblate.trans.mixins import UserDisplayMixin
 from weblate.utils import messages
 from weblate.utils.state import STATE_TRANSLATED
@@ -49,7 +45,7 @@ class SuggestionManager(models.Manager):
             target=target,
             content_hash=unit.content_hash,
             language=unit.translation.language,
-            project=unit.translation.subproject.project,
+            project=unit.translation.component.project,
         )
 
         if same.exists() or (unit.target == target and not unit.fuzzy):
@@ -60,7 +56,7 @@ class SuggestionManager(models.Manager):
             target=target,
             content_hash=unit.content_hash,
             language=unit.translation.language,
-            project=unit.translation.subproject.project,
+            project=unit.translation.component.project,
             user=user
         )
 
@@ -69,7 +65,6 @@ class SuggestionManager(models.Manager):
             Change.objects.create(
                 unit=aunit,
                 action=Change.ACTION_SUGGESTION,
-                translation=aunit.translation,
                 user=user,
                 target=target,
                 author=user
@@ -84,6 +79,7 @@ class SuggestionManager(models.Manager):
             )
 
         # Notify subscribed users
+        from weblate.accounts.notifications import notify_new_suggestion
         notify_new_suggestion(unit, suggestion, user)
 
         # Update suggestion stats
@@ -115,7 +111,8 @@ class SuggestionManager(models.Manager):
 class Suggestion(UnitData, UserDisplayMixin):
     target = models.TextField()
     user = models.ForeignKey(
-        User, null=True, blank=True, on_delete=models.deletion.CASCADE
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.deletion.CASCADE
     )
     language = models.ForeignKey(
         Language, on_delete=models.deletion.CASCADE
@@ -123,7 +120,7 @@ class Suggestion(UnitData, UserDisplayMixin):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     votes = models.ManyToManyField(
-        User,
+        settings.AUTH_USER_MODEL,
         through='Vote',
         related_name='user_votes'
     )
@@ -131,11 +128,6 @@ class Suggestion(UnitData, UserDisplayMixin):
     objects = SuggestionManager()
 
     class Meta(object):
-        permissions = (
-            ('accept_suggestion', "Can accept suggestion"),
-            ('override_suggestion', 'Can override suggestion state'),
-            ('vote_suggestion', 'Can vote for suggestion'),
-        )
         app_label = 'trans'
         ordering = ['-timestamp']
         index_together = [
@@ -149,13 +141,13 @@ class Suggestion(UnitData, UserDisplayMixin):
         )
 
     @transaction.atomic
-    def accept(self, translation, request, check=can_accept_suggestion):
+    def accept(self, translation, request, permission='suggestion.accept'):
         allunits = translation.unit_set.select_for_update().filter(
             content_hash=self.content_hash,
         )
         failure = False
         for unit in allunits:
-            if not check(request.user, unit):
+            if not request.user.has_perm(permission, unit):
                 failure = True
                 messages.error(request, _('Failed to accept suggestion!'))
                 continue
@@ -179,7 +171,6 @@ class Suggestion(UnitData, UserDisplayMixin):
             Change.objects.create(
                 unit=unit,
                 action=change,
-                translation=unit.translation,
                 user=user,
                 target=self.target,
                 author=user
@@ -208,9 +199,9 @@ class Suggestion(UnitData, UserDisplayMixin):
             vote.save()
 
         # Automatic accepting
-        required_votes = translation.subproject.suggestion_autoaccept
+        required_votes = translation.component.suggestion_autoaccept
         if required_votes and self.get_num_votes() >= required_votes:
-            self.accept(translation, request, can_vote_suggestion)
+            self.accept(translation, request, 'suggestion.vote')
 
 
 @python_2_unicode_compatible
@@ -220,7 +211,7 @@ class Vote(models.Model):
         Suggestion, on_delete=models.deletion.CASCADE
     )
     user = models.ForeignKey(
-        User, on_delete=models.deletion.CASCADE
+        settings.AUTH_USER_MODEL, on_delete=models.deletion.CASCADE
     )
     positive = models.BooleanField(default=True)
 

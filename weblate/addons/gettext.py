@@ -26,37 +26,40 @@ import os
 from django.core.management.utils import find_command, popen_wrapper
 from django.utils.translation import ugettext_lazy as _
 
-from weblate.addons.base import BaseAddon, UpdateBaseAddon
+from translate.storage.po import pofile
+
+from weblate.addons.base import BaseAddon, UpdateBaseAddon, StoreBaseAddon
 from weblate.addons.events import EVENT_PRE_COMMIT, EVENT_POST_ADD
-from weblate.trans.exporters import MoExporter
+from weblate.addons.forms import GettextCustomizeForm
+from weblate.formats.exporters import MoExporter
 
 
 class GettextBaseAddon(BaseAddon):
     compat = {
         'file_format': frozenset((
-            'auto', 'po', 'po-unwrapped', 'po-mono', 'po-mono-unwrapped'
+            'auto', 'po', 'po-mono',
         )),
     }
 
     @classmethod
-    def is_compatible(cls, component):
+    def can_install(cls, component, user):
         # Check extension to cover the auto format
         if not component.filemask.endswith('.po'):
             return False
-        return super(GettextBaseAddon, cls).is_compatible(component)
+        return super(GettextBaseAddon, cls).can_install(component, user)
 
 
 class GenerateMoAddon(GettextBaseAddon):
     events = (EVENT_PRE_COMMIT,)
     name = 'weblate.gettext.mo'
-    verbose = _('Generate mo files')
+    verbose = _('Generate MO files')
     description = _(
-        'Automatically generates mo file for every changed po file.'
+        'Automatically generates MO file for every changed PO file.'
     )
 
-    def pre_commit(self, translation):
+    def pre_commit(self, translation, author):
         exporter = MoExporter(translation=translation)
-        exporter.add_units(translation)
+        exporter.add_units(translation.unit_set.all())
         output = translation.get_filename()[:-2] + 'mo'
         with open(output, 'wb') as handle:
             handle.write(exporter.serialize())
@@ -68,7 +71,7 @@ class UpdateLinguasAddon(GettextBaseAddon):
     name = 'weblate.gettext.linguas'
     verbose = _('Update LINGUAS file')
     description = _(
-        'Updates the LINGUAS file when adding new translation.'
+        'Updates the LINGUAS file when a new translation is added.'
     )
 
     @staticmethod
@@ -79,8 +82,8 @@ class UpdateLinguasAddon(GettextBaseAddon):
         return os.path.join(os.path.dirname(base), 'LINGUAS')
 
     @classmethod
-    def is_compatible(cls, component):
-        if not super(UpdateLinguasAddon, cls).is_compatible(component):
+    def can_install(cls, component, user):
+        if not super(UpdateLinguasAddon, cls).can_install(component, user):
             return False
         if not component.can_add_new_language():
             return False
@@ -88,7 +91,7 @@ class UpdateLinguasAddon(GettextBaseAddon):
         return path and os.path.exists(path)
 
     def post_add(self, translation):
-        path = self.get_linguas_path(translation.subproject)
+        path = self.get_linguas_path(translation.component)
         with io.open(path, 'r', encoding='utf-8') as handle:
             lines = handle.readlines()
 
@@ -124,7 +127,7 @@ class UpdateConfigureAddon(GettextBaseAddon):
     verbose = _('Update ALL_LINGUAS variable in the configure file')
     description = _(
         'Updates the ALL_LINGUAS variable in configure, '
-        'configure.in or configure.ac files when adding new translation.'
+        'configure.in or configure.ac files, when a new translation is added.'
     )
 
     @staticmethod
@@ -137,8 +140,8 @@ class UpdateConfigureAddon(GettextBaseAddon):
         ]
 
     @classmethod
-    def is_compatible(cls, component):
-        if not super(UpdateConfigureAddon, cls).is_compatible(component):
+    def can_install(cls, component, user):
+        if not super(UpdateConfigureAddon, cls).can_install(component, user):
             return False
         if not component.can_add_new_language():
             return False
@@ -154,7 +157,7 @@ class UpdateConfigureAddon(GettextBaseAddon):
         return False
 
     def post_add(self, translation):
-        for path in self.get_configure_paths(translation.subproject):
+        for path in self.get_configure_paths(translation.component):
             if not os.path.exists(path):
                 continue
             with io.open(path, 'r', encoding='utf-8') as handle:
@@ -181,19 +184,20 @@ class UpdateConfigureAddon(GettextBaseAddon):
 
 class MsgmergeAddon(GettextBaseAddon, UpdateBaseAddon):
     name = 'weblate.gettext.msgmerge'
-    verbose = _('Update po files to match pot (msgmerge)')
+    verbose = _('Update PO files to match POT (msgmerge)')
     description = _(
-        'Update all po files to match the pot file using msgmerge. This is '
-        'triggered whenever new changes are pulled from upstream repository.'
+        'Update all PO files to match the POT file using msgmerge. This is '
+        'triggered whenever new changes are pulled from the upstream '
+        'repository.'
     )
 
     @classmethod
-    def is_compatible(cls, component):
+    def can_install(cls, component, user):
         if not component.new_base.endswith('.pot'):
             return False
         if find_command('msgmerge') is None:
             return False
-        return super(MsgmergeAddon, cls).is_compatible(component)
+        return super(MsgmergeAddon, cls).can_install(component, user)
 
     def update_translations(self, component, previous_head):
         cmd = [
@@ -201,4 +205,51 @@ class MsgmergeAddon(GettextBaseAddon, UpdateBaseAddon):
         ]
         for translation in component.translation_set.all():
             cmd[2] = translation.get_filename()
-            popen_wrapper(cmd, OSError)
+            popen_wrapper(cmd)
+
+
+class GettextCustomizeAddon(StoreBaseAddon):
+    name = 'weblate.gettext.customize'
+    verbose = _('Customize gettext output')
+    description = _(
+        'Allows customization of gettext output behavior, for example '
+        'line wrapping.'
+    )
+    settings_form = GettextCustomizeForm
+    compat = {
+        'file_format': frozenset((
+            'auto', 'po', 'po-mono',
+        )),
+    }
+
+    @staticmethod
+    def is_store_compatible(store):
+        """Needs PO file and recent Translate Toolkit."""
+        return isinstance(store, pofile) and hasattr(store, 'wrapper')
+
+    def store_post_load(self, translation, store):
+        store.store.wrapper.width = int(
+            self.instance.configuration.get('width', 77)
+        )
+
+
+class GettextAuthorComments(GettextBaseAddon):
+    events = (EVENT_PRE_COMMIT,)
+    name = 'weblate.gettext.authors'
+    verbose = _('Contributors in comment')
+    description = _(
+        'Update comment in the PO file header to include contributor name '
+        'and years of contributions.'
+    )
+
+    def pre_commit(self, translation, author):
+        if '<' in author:
+            name, email = author.split('<')
+            name = name.strip()
+            email = email.rstrip('>')
+        else:
+            name = author
+            email = None
+
+        translation.store.store.updatecontributor(name, email)
+        translation.store.save()

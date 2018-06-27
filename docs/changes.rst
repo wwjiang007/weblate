@@ -1,12 +1,68 @@
 Changes
 =======
 
-weblate 2.20
+weblate 3.1
 ------------
 
 Released on ? 2018.
 
+* Upgrades from older version than 3.0.1 are not supported.
+* Allow to override default commit messages from settings.
+* Improve webhooks compatibility with self hosted environments.
+* Added support for Amazon Translate.
+* Compatibility with Django 2.1.
+
+weblate 3.0.1
+-------------
+
+Released on June 10th 2018.
+
+* Fixed possible migration issue from 2.20.
+* Localization updates.
+* Removed obsolete hook examples.
+* Improved caching documentation.
+* Fixed displaying of admin documentation.
+* Improved handling of long language names.
+
+weblate 3.0
+-----------
+
+Released on June 1st 2018.
+
+* Rewritten access control.
+* Several code cleanups that lead to moved and renamed modules.
+* New addon for automatic component discovery.
+* The import_project management command has now slightly different parameters.
+* Added basic support for Windows RC files.
+* New addon to store contributor names in PO file headers.
+* The per component hook scripts are removed, use addons instead.
+* Add support for collecting contributor agreements.
+* Access control changes are now tracked in history.
+* New addon to ensure all components in a project have same translations.
+* Support for more variables in commit message templates.
+* Add support for providing additional textual context.
+
+weblate 2.20
+------------
+
+Released on April 4th 2018.
+
 * Improved speed of cloning subversion repositories.
+* Changed repository locking to use third party library.
+* Added support for downloading only strings needing action.
+* Added support for searching in several languages at once.
+* New addon to configure Gettext output wrapping.
+* New addon to configure JSON formatting.
+* Added support for authentication in API using RFC 6750 compatible Bearer authentication.
+* Added support for automatic translation using machine translation services.
+* Added support for HTML markup in whiteboard messages.
+* Added support for mass changing state of strings.
+* Translate-toolkit at least 2.3.0 is now required, older versions are no longer supported.
+* Added built in translation memory.
+* Added componentlists overview to dashboard and per component list overview pages.
+* Added support for DeepL machine translation service.
+* Machine translation results are now cached inside Weblate.
+* Added support for reordering commited changes.
 
 weblate 2.19.1
 --------------
@@ -305,7 +361,7 @@ weblate 2.6
 
 Released on Apr 28th 2016.
 
-* Fixed validation of subprojects with language filter.
+* Fixed validation of components with language filter.
 * Improved support for XLIFF files.
 * Fixed machine translation for non English sources.
 * Added REST API.

@@ -19,6 +19,8 @@
 #
 from __future__ import unicode_literals
 
+from textwrap import wrap
+
 from django.core.management.base import BaseCommand
 
 from weblate.addons.models import ADDONS
@@ -32,8 +34,10 @@ class Command(BaseCommand):
         to match current shipped definitions.
         """
         for dummy, obj in sorted(ADDONS.items()):
+            self.stdout.write('.. _addon-{}:'.format(obj.name))
+            self.stdout.write('\n')
             self.stdout.write(obj.verbose)
             self.stdout.write('-' * len(obj.verbose))
             self.stdout.write('\n')
-            self.stdout.write(obj.description)
+            self.stdout.write('\n'.join(wrap(obj.description, 79)))
             self.stdout.write('\n')

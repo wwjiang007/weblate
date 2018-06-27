@@ -233,6 +233,40 @@ Creates ``admin`` account with random password unless it is specified.
 
     Added parameters ``--username``, ``--email``, ``--name`` and ``--update``.
 
+delete_memory
+-------------
+
+.. django-admin:: delete_memory
+
+.. versionadded:: 2.20
+
+Deletes entries in the Weblate Translation Memory.
+
+.. django-admin-option:: --origin ORIGIN
+   
+    Origin to delete, for imported files the origin is filename without path.
+
+.. django-admin-option:: --all
+   
+    Delete complete memory content and recreate the database.
+
+.. seealso::
+
+    :ref:`translation-memory`
+
+dump_memory
+-----------
+
+.. django-admin:: dump_memory
+
+.. versionadded:: 2.20
+
+Export a JSON file with the Weblate Translation Memory content.
+
+.. seealso::
+
+    :ref:`translation-memory`
+
 dumpuserdata
 ------------
 
@@ -286,11 +320,40 @@ Example of JSON file:
 
     :djadmin:`import_project`
 
+import_memory
+-------------
+
+.. django-admin:: import_memory <file>
+
+.. versionadded:: 2.20
+
+Imports a TMX or JSON file into the Weblate Translation Memory.
+
+.. django-admin-option:: --language-map LANGMAP
+
+    Allows to map languages in the TMX to Weblate one. The language codes are
+    mapped after normalization usually done by Weblate.
+
+    For example ``--language-map en_US:en`` will import all ``en_US`` strings
+    as ``en`` ones.
+
+    This can be useful in case your TMX file locales does not match what you
+    use in Weblate.
+
+.. seealso::
+
+    :ref:`translation-memory`
 
 import_project
 --------------
 
 .. django-admin:: import_project <project> <gitrepo> <branch> <filemask>
+
+.. versionchanged:: 3.0
+
+    The import_project command is now based on the
+    :ref:`addon-weblate.discovery.discovery` addon and that has lead to some
+    changes in behavior and accepted parameters.
 
 Batch imports components into project based on file mask.
 
@@ -302,21 +365,29 @@ git branch.
 To import additional translation components, from an existing Weblate component,
 use a `weblate://<project>/<component>` URL for the `<gitrepo>`.
 
-The repository is searched for directories matching a double wildcard
-(`**`) in the `<filemask>`.
-Each of these is then added as a component, named after the matched
-directory.
-Existing components will be skipped.
+The `<filemask>` defines files discovery in the repository. It can be either
+simple using wildcards or it can use full power of regular expressions.
 
+The simple matching uses ``**`` for component name and ``*`` for language, for
+example: ``**/*.po``
+
+The regullar expression has to contain named groups `component` and `language`.
+For example: ``(?P<language>[^/]*)/(?P<component>[^-/]*)\.po``
+
+The import matches existing components based on files and adds the ones which
+do not exist. It does no changes to the already existing ones.
 
 .. django-admin-option:: --name-template TEMPLATE
 
-    Customise the component's name, its parameter is a python formatting
-    string, which will expect the match from `<filemask>`.
+    Customize the component's name, using Django template syntax.
+
+    For example: ``Documentation: {{ component }}``
 
 .. django-admin-option:: --base-file-template TEMPLATE
 
-    Customise base file for monolingual translations.
+    Customize base file for monolingual translations.
+
+    For example: ``{{ component }}/res/values/string.xml``
 
 .. django-admin-option:: --file-format FORMAT
 
@@ -345,23 +416,6 @@ Existing components will be skipped.
 
     In case you need to specify version control system to use, you can do it
     here. The default version control is Git.
-
-.. django-admin-option:: --component-regexp REGEX
-
-    You can override parsing of component name from matched files here. This is
-    a regular expression which will be matched against file name (as matched by
-    `<filemask>`) and has to contain named groups `name` and `language`. This
-    can be also used for excluding files in case they do not match this
-    expression. For example: ``(?P<language>.*)/(?P<name>[^-]*)\.po``
-
-.. django-admin-option:: --no-skip-duplicates
-
-    By default the import does skip already existing projects. This is to allow
-    repeated importing of same repository. However if you want to force
-    importing additional components even if name or slug matches existing one,
-    you can do it by passing ``--no-skip-duplicates``. This is generally useful
-    for components with long names, which will get truncated on import and many
-    of them will get same name or slug.
 
 To give you some examples, let's try importing two projects.
 
@@ -397,10 +451,9 @@ language out of file name like
 .. code-block:: sh
 
     ./manage.py import_project \
-        --component-regexp 'wiki/src/security/(?P<name>.*)\.([^.]*)\.po$' \
         tails \
         git://git.tails.boum.org/tails master \
-        'wiki/src/security/**.*.po'
+        'wiki/src/security/(?P<component>.*)\.(?P<language>[^.]*)\.po$'
 
 Filtering only translations in chosen language:
 
@@ -460,6 +513,23 @@ Lists supported language in MediaWiki markup - language codes, English names
 and localized names.
 
 This is used to generate <http://wiki.l10n.cz/Jazyky>.
+
+list_memory
+-----------
+
+.. django-admin:: list_memory
+
+.. versionadded:: 2.20
+
+Lists contents of the Weblate Translation Memory.
+
+.. django-admin-option:: --type {origin}
+   
+    Type of information to list, defaults to listing used origins.
+
+.. seealso::
+
+    :ref:`translation-memory`
 
 list_translators
 ----------------
@@ -603,10 +673,6 @@ setupgroups
 .. django-admin:: setupgroups
 
 Configures default groups and optionally assigns all users to default group.
-
-.. django-admin-option:: --move
-
-    Assigns all users to the default group.
 
 .. django-admin-option:: --no-privs-update
 

@@ -18,8 +18,17 @@ internationalization framework you end up using should support this.
 Last but not least, sometimes it might be necessary to add some context to the
 translated string. Imagine a translator would get string ``Sun`` to translate.
 Without context most people would translate that as our closest star, but it
-might be actually used as an abbreviation for Sunday..
+might be actually used as an abbreviation for Sunday.
 
+Choosing internationalization framework
+---------------------------------------
+
+Choose whatever is standard on your platform, try to avoid reinventing the
+wheel by creating your own framework to handle localizations. Weblate supports
+most of the widely used frameworks, see :ref:`formats` for more information.
+
+Following chapters describe two use cases - GNU Gettext and Sphinx, but many of
+the steps are quite generic and apply to the other frameworks as well.
 
 Translating software using GNU Gettext
 --------------------------------------
@@ -82,11 +91,17 @@ Extracting translatable strings
 +++++++++++++++++++++++++++++++
 
 Once you have code using the gettext calls, you can use :program:`xgettext` to
-extract messages from it:
+extract messages from it and store them into a `.pot
+<https://www.gnu.org/software/gettext/manual/gettext.html#index-files_002c-_002epot>`_:
 
 .. code-block:: console
 
     $ xgettext main.c -o po/hello.pot
+
+.. note::
+
+    There are alternative programs to extract strings from the code, for example
+    `pybabel`_.
 
 This creates a template file, which you can use for starting new translations
 (using :program:`msginit`) or updating existing ones after code change (you
@@ -175,6 +190,11 @@ can see number of plurals have changed according to that:
     #: main.c:20
     msgid "Thank you for using Weblate."
     msgstr ""
+
+
+This file is compiled into an optimized binary form, the `.mo
+<https://www.gnu.org/software/gettext/manual/gettext.html#MO-Files>`_
+file used by the `GNU Gettext`_ functions at runtime.
 
 Updating strings
 ++++++++++++++++
@@ -275,6 +295,41 @@ direcly supported, you currently have to list them separately:
     The `Odorik`_ python module documentation is built using Sphinx, Read the
     Docs and translated using Weblate.
 
+Integrating with Weblate
+------------------------
+
+Getting translations updates from Weblate
++++++++++++++++++++++++++++++++++++++++++
+
+To fetch updated strings from Weblate you can simply fetch the underlying
+repository (either from filesystem or it can be made available through
+:ref:`git-exporter`). Prior to this, you might want to commit any pending
+changes (see :ref:`lazy-commit`). This can be achieved in the user interface
+(in the :guilabel:`Repository maintenance`) or from command line using :ref:`wlc`.
+
+This can be automated if you grant Weblate push access to your repository and
+configure :guilabel:`Push URL` in the :ref:`component`.
+
+.. seealso::
+
+    :ref:`continuous-translation`
+
+Pushing string changes to Weblate
++++++++++++++++++++++++++++++++++
+
+To push newly updated strings to Weblate, just let it to pull from the upstream
+repo. This can be achieved in the user interface (in the :guilabel:`Repository
+maintenance`) or from command line using :ref:`wlc`.
+
+This can be automated by installing a webhook on your repository to trigger
+Weblate whenever there is new commit, see :ref:`update-vcs` for more details.
+
+.. seealso::
+
+    :ref:`continuous-translation`
+
+
+
 .. _Odorik: https://github.com/nijel/odorik/
 .. _GNU Gettext: http://www.gnu.org/software/gettext/
 .. _Sphinx: http://www.sphinx-doc.org/
@@ -282,3 +337,4 @@ direcly supported, you currently have to list them separately:
 .. _Internationalization Quick Guide: http://www.sphinx-doc.org/en/stable/intl.html#quick-guide
 .. _Localization of Documentation: https://docs.readthedocs.io/en/latest/localization.html
 .. _intltool: https://freedesktop.org/wiki/Software/intltool/
+.. _pybabel: http://babel.pocoo.org/

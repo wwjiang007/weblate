@@ -1,7 +1,7 @@
 *.pyproj
 *.pyc
-*.sw[po]
-/.coverage
+*.sw[pon]
+/.coverage*
 /weblate/repos/
 /weblate/locale/*/*/*.mo
 /weblate/langdata/locale/*/*/*.mo
@@ -21,3 +21,5 @@ weblate-*.tar.*
 /data-test/
 /dist/
 /.vs
+/.tesseract/
+/test-images/
