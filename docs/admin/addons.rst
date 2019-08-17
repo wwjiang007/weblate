@@ -6,9 +6,11 @@ Addons
 .. versionadded:: 2.19
 
 Addons provide ways to customize translation workflow. You can install addons
-to your translation component and they will work behind the scenes.
+to your translation component and they will work behind the scenes. The addon
+management can be found under :guilabel:`Manage` menu of a translation
+component.
 
-.. image:: ../images/addons.png
+.. image:: /images/addons.png
 
 Built in addons
 +++++++++++++++
@@ -49,24 +51,36 @@ act as master and others will use :ref:`internal-urls` to it as a VCS
 configuration. You should choose the one which is less likely to disappear in
 the future here.
 
-Once you have one component from the target VCS, you can configured the
+Once you have one component from the target VCS, you can configure the
 discovery addon to find all translation components in the VCS. The matching is
-done using regular expresion so it can be quite powerful, but it can be complex
+done using regular expression so it can be quite powerful, but it can be complex
 to configure. You can use examples in the addon help for some common use cases.
 
 Once you hit save, you will be presented with a preview of matched components,
 so you can check whether the configuration actually matches your needs:
 
-.. image:: ../images/addon-discovery.png
+.. image:: /images/addon-discovery.png
 
 .. seealso::
 
     :ref:`markup`
 
+.. _addon-weblate.flags.same_edit:
+
+Flag unchanged translations as "Needs editing"
+----------------------------------------------
+
+.. versionadded:: 3.1
+
+Whenever a new translatable string is imported from the VCS and it matches
+source strings, it is flagged as needing editing in Weblate. This is especially
+useful for file formats that include all strings even if they are not
+translated.
+
 .. _addon-weblate.flags.source_edit:
 
-Flag new source strings to need edit
-------------------------------------
+Flag new source strings as "Needs editing"
+------------------------------------------
 
 Whenever a new source string is imported from the VCS, it is flagged as needing
 editing in Weblate. This way you can easily filter and edit source strings
@@ -74,10 +88,10 @@ written by the developers.
 
 .. _addon-weblate.flags.target_edit:
 
-Flag new translations to need edit
-----------------------------------
+Flag new translations as "Needs editing"
+----------------------------------------
 
-Whenever a new translation string is imported from the VCS, it is flagged as
+Whenever a new translatable string is imported from the VCS, it is flagged as
 needing editing in Weblate. This way you can easily filter and edit
 translations created by the developers.
 
@@ -87,7 +101,24 @@ Statistics generator
 --------------------
 
 This addon generates a file containing detailed information about the
-translation.
+translation. You can use Django template in both filename and content, see
+:ref:`markup` for detailed markup description.
+
+For example generating summary file for each translations:
+
+Name of generated file
+   ``locale/{{ language_code }}.json``
+Content
+   .. code-block:: json
+
+      {
+         "language": "{{ language_code }}",
+         "strings": "{{ stats.all }}",
+         "translated": "{{ stats.translated }}",
+         "last_changed": "{{ stats.last_changed }}",
+         "last_author": "{{ stats.last_author }}",
+      }
+
 
 .. seealso::
 
@@ -103,11 +134,11 @@ contributions.
 
 .. _addon-weblate.gettext.configure:
 
-Update ALL_LINGUAS variable in the configure file
--------------------------------------------------
+Update ALL_LINGUAS variable in the "configure" file
+---------------------------------------------------
 
-Updates the ALL_LINGUAS variable in configure, configure.in or configure.ac
-files, when a new translation is added.
+Updates the ALL_LINGUAS variable in :file:`configure`, :file:`configure.in` or
+:file:`configure.ac` files, when a new translation is added.
 
 .. _addon-weblate.gettext.customize:
 
@@ -115,6 +146,19 @@ Customize gettext output
 ------------------------
 
 Allows customization of gettext output behavior, for example line wrapping.
+
+It offers following options:
+
+
+* Wrap lines at 77 chars and at newlines
+* Only wrap lines at newlines
+* No line wrapping
+
+.. note::
+
+   By default gettext wraps lines at 77 chars and newlines. With ``--no-wrap``
+   parameter, it wraps only at newlines.
+
 
 .. _addon-weblate.gettext.linguas:
 
@@ -138,6 +182,20 @@ Update PO files to match POT (msgmerge)
 Update all PO files to match the POT file using msgmerge. This is triggered
 whenever new changes are pulled from the upstream repository.
 
+.. _addon-weblate.git.squash:
+
+Squash Git commits
+------------------
+
+Squash Git commits prior to pushing changes. You can choose one of following modes:
+
+* All commits into one
+* Per language
+* Per file
+* Per author
+
+Original commit messages are kept, but authorship is lost unless "Per author" is selected or the commit message is customized to include it.
+
 .. _addon-weblate.json.customize:
 
 Customize JSON output
@@ -152,6 +210,37 @@ Formats the Java properties file
 
 This addon sorts the Java properties file.
 
+.. _addon-weblate.removal.comments:
+
+Stale comment removal
+---------------------
+
+.. versionadded:: 3.7
+
+Set timeframe for removal of comments. This can be useful to remove old
+comments which might have become outdated. Use with care as comment being old
+does not mean it has lost it's importation.
+
+.. _addon-weblate.removal.suggestions:
+
+Stale suggestion removal
+------------------------
+
+.. versionadded:: 3.7
+
+Set timeframe for removal of suggestions. This can be very useful in connection
+with suggestion voting (see :ref:`peer-review`) to remove suggestions which
+don't receive enough positive votes until certain deadline.
+
+
+Customizing list of addons
+++++++++++++++++++++++++++
+
+List of addons is configured by :setting:`WEBLATE_ADDONS`, to add another addon
+simply include class absolute name in this setting.
+
+
+.. _own-addon:
 
 Writing addon
 +++++++++++++
@@ -170,11 +259,13 @@ Executing scripts from addon
 ++++++++++++++++++++++++++++
 
 You can also use addons to execute external scripts. This used to be
-intergrated in Weblate, but now you have to write little code to wrap your
+integrated in Weblate, but now you have to write little code to wrap your
 script with an addon.
 
 .. literalinclude:: ../../weblate/addons/example_pre.py
     :language: python
+
+For installing instructions see :ref:`custom-addon-modules`.
 
 The script is executed with the current directory set to the root of the VCS repository
 for given component.
@@ -255,4 +346,4 @@ In many cases you might want to automatically do some changes to the translation
 before it is committed to the repository. The pre commit script is exactly the
 place to achieve this.
 
-It is passed a single parameter consisting of file name of current translation.
+It is passed a single parameter consisting of filename of current translation.

@@ -11,7 +11,7 @@ every translation made.
 You can register by following a few simple steps:
 
 1. Fill out the registration form with your credentials
-2. Activate registration by following in email you receive
+2. Activate registration by following in e-mail you receive
 3. Possibly adjust your profile to choose which languages you know
 
 .. _dashboard:
@@ -28,7 +28,7 @@ By default, this will show the components of projects you are watching,
 cross-referenced with your preferred languages.  You can switch to different
 views using the navigation tabs.
 
-.. image:: ../images/dashboard-dropdown.png
+.. image:: /images/dashboard-dropdown.png
 
 The tabs will show several options:
 
@@ -46,12 +46,17 @@ of project components preconfigured by the Weblate administrator, see
 You can configure your preferred view in the :guilabel:`Preferences` section of
 your user profile settings.
 
+.. note::
+
+   When Weblate is configured for single project using
+   :setting:`SINGLE_PROJECT`, the dashboard month not be shown at all.
+
 .. _user-profile:
 
 User profile
 ------------
 
-User profile contains your preferences, name and email. Name and email
+User profile contains your preferences, name and e-mail. Name and e-mail
 are being used in VCS commits, so keep this information accurate.
 
 
@@ -67,7 +72,7 @@ Translated languages
 Choose here which languages you prefer to translate. These will be offered to
 you on main page for watched projects to have easier access to these translations.
 
-.. image:: ../images/your-translations.png
+.. image:: /images/your-translations.png
 
 .. _secondary-languages:
 
@@ -78,7 +83,7 @@ You can define secondary languages, which will be shown you while translating
 together with source language. Example can be seen on following image, where
 Slovak language is shown as secondary:
 
-.. image:: ../images/secondary-language.png
+.. image:: /images/secondary-language.png
 
 Default dashboard view
 ++++++++++++++++++++++
@@ -92,40 +97,12 @@ list`, you have to select which component list will be displayed from the
 
     :ref:`componentlists`
 
-.. _subscriptions:
-
-Subscriptions
-+++++++++++++
-
-You can subscribe to various notifications on :guilabel:`Subscriptions` tab.
-You will receive notifications for selected events on chosen projects for
-languages you have indicated for translation (see above).
-
-If you are an owner of some project, you will always receive some important
-notifications, like merge failures or new language requests.
-
-.. note::
-
-    You will not receive notifications for actions you've done.
-
-.. image:: ../images/profile-subscriptions.png
-
-Authentication
-++++++++++++++
-
-On the :guilabel:`Authentication` tab you can connect various services which
-you can use to login into Weblate. List of services depends on Weblate
-configuration, but can include popular sites such as Google, Facebook, GitHub
-or Bitbucket.
-
-.. image:: ../images/authentication.png
-
 Avatar
 ++++++
 
 Weblate can be configured to show avatar for each user (depending on
-:setting:`ENABLE_AVATARS`). These images are obtained using libravatar protocol
-(see https://www.libravatar.org/) or using https://gravatar.com/.
+:setting:`ENABLE_AVATARS`). These images are obtained using
+https://gravatar.com/.
 
 Editor link
 +++++++++++
@@ -133,13 +110,51 @@ Editor link
 By default Weblate does display source code in web browser configured in the
 :ref:`component`. By setting :guilabel:`Editor link` you can override this to
 use your local editor to open the source code where translated strings is being
-used.
+used. You can use :ref:`markup`.
 
-You can use ``%(branch)s`` for branch, ``%(file)s`` and ``%(line)s`` as
-filename and line placeholders.  Usually something like
-``editor://open/?file=%(file)s&line=%(line)s`` is good option.
+Usually something like ``editor://open/?file={{filename}}&line={{line}}`` is a good
+option.
 
 .. seealso::
 
     You can find more information on registering custom URL protocols for editor in
-    `nette documentation <https://pla.nette.org/en/how-open-files-in-ide-from-debugger>`_.
+    `nette documentation <https://tracy.nette.org/en/open-files-in-ide>`_.
+
+.. _subscriptions:
+
+Notifications
+-------------
+
+You can subscribe to various notifications on :guilabel:`Subscriptions` tab.
+You will receive notifications for selected events on watched or administered
+projects.
+
+Some of the notifications are sent only for events in your languages (for
+example about new strings to translate), while some trigger at component level
+(for example merge errors). These two groups of notifications are visually
+separated in the settings.
+
+You can toggle notifications for watched projects, administered project and it
+can be further tweaked per project and component. To configure (or mute)
+notifications per project or component, visit component page and select
+appropriate choice from the :guilabel:`Watching` menu.
+
+.. note::
+
+    You will not receive notifications for actions you've done.
+
+.. image:: /images/profile-subscriptions.png
+
+Account
+-------
+
+On the :guilabel:`Account` tab you can configure basic aspects of your account,
+connect various services which you can use to login into Weblate, completely
+remove your account or download your user data.
+
+.. note:: 
+   
+   List of services depends on Weblate configuration, but can include popular
+   sites such as Google, Facebook, GitHub or Bitbucket.
+
+.. image:: /images/authentication.png

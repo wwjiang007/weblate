@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,11 +20,24 @@
 
 from __future__ import unicode_literals
 
-from django.apps import apps
+import os
+import subprocess
+from itertools import chain
+
+from django.core.exceptions import ValidationError
 from django.utils.functional import cached_property
 
-from weblate.addons.events import EVENT_POST_UPDATE, EVENT_STORE_POST_LOAD
+from weblate.addons.events import (
+    EVENT_DAILY,
+    EVENT_POST_COMMIT,
+    EVENT_POST_PUSH,
+    EVENT_POST_UPDATE,
+    EVENT_STORE_POST_LOAD,
+)
 from weblate.addons.forms import BaseAddonForm
+from weblate.trans.util import get_clean_env
+from weblate.utils.render import render_template
+from weblate.utils.validators import validate_filename
 
 
 class BaseAddon(object):
@@ -37,10 +50,21 @@ class BaseAddon(object):
     description = 'Base addon'
     icon = 'cog'
     project_scope = False
+    repo_scope = False
+    has_summary = False
+    alert = None
 
     """Base class for Weblate addons."""
     def __init__(self, storage=None):
         self.instance = storage
+        self.alerts = []
+
+    def get_summary(self):
+        return ''
+
+    @cached_property
+    def doc_anchor(self):
+        return 'addon-{}'.format(self.name.replace('.', '-'))
 
     @cached_property
     def has_settings(self):
@@ -51,22 +75,35 @@ class BaseAddon(object):
         return cls.name
 
     @classmethod
-    def create(cls, component, **kwargs):
-        kwargs['project_scope'] = cls.project_scope
-        storage = apps.get_model('addons', 'Addon').objects.create(
-            component=component, name=cls.name, **kwargs
+    def create_object(cls, component, **kwargs):
+        from weblate.addons.models import Addon
+        if cls.repo_scope and component.linked_component:
+            component = component.linked_component
+        # Clear addon cache
+        if component:
+            component.addons_cache = None
+        return Addon(
+            component=component,
+            name=cls.name,
+            project_scope=cls.project_scope,
+            repo_scope=cls.repo_scope,
+            **kwargs
         )
-        storage.configure_events(cls.events)
-        return cls(storage)
+
+    @classmethod
+    def create(cls, component, **kwargs):
+        storage = cls.create_object(component, **kwargs)
+        storage.save(force_insert=True)
+        result = cls(storage)
+        result.post_configure()
+        return result
 
     @classmethod
     def get_add_form(cls, component, **kwargs):
         """Return configuration form for adding new addon."""
         if cls.settings_form is None:
             return None
-        storage = apps.get_model('addons', 'Addon')(
-            component=component, name=cls.name
-        )
+        storage = cls.create_object(component)
         instance = cls(storage)
         # pylint: disable=not-callable
         return cls.settings_form(instance, **kwargs)
@@ -81,13 +118,42 @@ class BaseAddon(object):
         return self.settings_form(self, **kwargs)
 
     def configure(self, settings):
-        """Saves configuration."""
+        """Save configuration."""
         self.instance.configuration = settings
         self.instance.save()
+        self.post_configure()
+
+    def post_configure(self):
+        # Configure events to current status
         self.instance.configure_events(self.events)
 
+        # Trigger post events to ensure direct processing
+        if self.project_scope:
+            components = self.instance.component.project.component_set.all()
+        elif self.repo_scope:
+            if self.instance.component.linked_component:
+                root = self.instance.component.linked_component
+            else:
+                root = self.instance.component
+            components = [root] + list(root.linked_childs)
+        else:
+            components = [self.instance.component]
+        if EVENT_POST_COMMIT in self.events:
+            for component in components:
+                for translation in component.translation_set.iterator():
+                    self.post_commit(translation)
+        if EVENT_POST_UPDATE in self.events:
+            for component in components:
+                self.post_update(component, '')
+        if EVENT_POST_PUSH in self.events:
+            for component in components:
+                self.post_push(component)
+        if EVENT_DAILY in self.events:
+            for component in components:
+                self.daily(component)
+
     def save_state(self):
-        """Saves addon state information."""
+        """Save addon state information."""
         self.instance.save(update_fields=['state'])
 
     @classmethod
@@ -98,7 +164,13 @@ class BaseAddon(object):
                 return False
         return True
 
+    def pre_push(self, component):
+        return
+
     def post_push(self, component):
+        return
+
+    def pre_update(self, component):
         return
 
     def post_update(self, component, previous_head):
@@ -119,9 +191,84 @@ class BaseAddon(object):
     def store_post_load(self, translation, store):
         return
 
+    def daily(self, component):
+        return
+
+    def execute_process(self, component, cmd, env=None):
+        component.log_debug('%s addon exec: %s', self.name, repr(cmd))
+        try:
+            output = subprocess.check_output(
+                cmd,
+                env=get_clean_env(env),
+                cwd=component.full_path,
+                stderr=subprocess.STDOUT,
+            )
+            component.log_debug('exec result: %s', repr(output))
+        except (OSError, subprocess.CalledProcessError) as err:
+            output = getattr(err, 'output', '').decode('utf-8')
+            component.log_error('failed to exec %s: %s', repr(cmd), err)
+            for line in output.splitlines():
+                component.log_error('program output: %s', line)
+            self.alerts.append({
+                'addon': self.name,
+                'command': ' '.join(cmd),
+                'output': output,
+                'error': str(err),
+            })
+
+    def trigger_alerts(self, component):
+        if self.alerts:
+            component.add_alert(self.alert, occurrences=self.alerts)
+            self.alerts = []
+        else:
+            component.delete_alert(self.alert)
+
+    def get_commit_message(self, component):
+        return render_template(
+            component.addon_message,
+            # Compatibility with older
+            hook_name=self.verbose,
+            addon_name=self.verbose,
+            component=component,
+        )
+
+    def render_repo_filename(self, template, translation):
+        component = translation.component
+
+        # Render the template
+        filename = render_template(template, translation=translation)
+
+        # Validate filename (not absolute or linking to parent dir)
+        try:
+            validate_filename(filename)
+        except ValidationError:
+            return None
+
+        # Absolute path
+        filename = os.path.join(component.full_path, filename)
+
+        # Check if parent directory exists
+        dirname = os.path.dirname(filename)
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+
+        # Validate if there is not a symlink out of the tree
+        try:
+            component.repository.resolve_symlinks(dirname)
+            if os.path.exists(filename):
+                component.repository.resolve_symlinks(filename)
+        except ValueError:
+            component.log_error(
+                'refused to write out of repository: %s', filename
+            )
+            return None
+
+        return filename
+
 
 class TestAddon(BaseAddon):
     """Testing addong doing nothing."""
+
     settings_form = BaseAddonForm
     name = 'weblate.base.test'
     verbose = 'Test addon'
@@ -133,10 +280,12 @@ class UpdateBaseAddon(BaseAddon):
 
     It hooks to post update and commits all changed translations.
     """
-    events = (EVENT_POST_UPDATE, )
-    message = '''Update translation files
 
-Updated by {name} hook in Weblate.'''
+    events = (EVENT_POST_UPDATE, )
+
+    def __init__(self, storage=None):
+        super(UpdateBaseAddon, self).__init__(storage)
+        self.extra_files = []
 
     def update_translations(self, component, previous_head):
         raise NotImplementedError()
@@ -145,32 +294,40 @@ Updated by {name} hook in Weblate.'''
         repository = component.repository
         with repository.lock:
             if repository.needs_commit():
-                files = [t.filename for t in component.translation_set.all()]
+                files = list(chain.from_iterable((
+                    translation.filenames
+                    for translation in component.translation_set.iterator()
+                ))) + self.extra_files
                 repository.commit(
-                    self.message.format(name=self.verbose),
+                    self.get_commit_message(component),
                     files=files
                 )
-                if component.push_on_commit:
-                    repository.push()
+                component.push_if_needed(None)
 
     def post_update(self, component, previous_head):
+        component.commit_pending('addon', None, skip_push=True)
         self.update_translations(component, previous_head)
         self.commit_and_push(component)
 
 
+class TestException(Exception):
+    pass
+
+
+class TestCrashAddon(UpdateBaseAddon):
+    """Testing addong doing nothing."""
+
+    name = 'weblate.base.crash'
+    verbose = 'Crash test addon'
+    description = 'Crash test addon'
+
+    def update_translations(self, component, previous_head):
+        if previous_head:
+            raise TestException('Test error')
+
+
 class StoreBaseAddon(BaseAddon):
     """Base class for addons tweaking store."""
+
     events = (EVENT_STORE_POST_LOAD,)
     icon = 'wrench'
-
-    @staticmethod
-    def is_store_compatible(store):
-        return False
-
-    @classmethod
-    def can_install(cls, component, user):
-        if (not super(StoreBaseAddon, cls).can_install(component, user) or
-                not component.translation_set.exists()):
-            return False
-        translation = component.translation_set.all()[0]
-        return cls.is_store_compatible(translation.store.store)

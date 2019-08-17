@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,21 +18,22 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-import tempfile
 import os
 import re
 import shutil
+import tempfile
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from weblate.lang.models import Language
-from weblate.trans.models import Component, Project
-from weblate.trans.discovery import ComponentDiscovery
 from weblate.formats.models import FILE_FORMATS
-from weblate.trans.util import is_repo_link
-from weblate.vcs.models import VCS_REGISTRY
+from weblate.lang.models import Language
 from weblate.logger import LOGGER
+from weblate.trans.discovery import ComponentDiscovery
+from weblate.trans.models import Component, Project
+from weblate.trans.util import is_repo_link
+from weblate.vcs.base import RepositoryException
+from weblate.vcs.models import VCS_REGISTRY
 
 
 class Command(BaseCommand):
@@ -43,9 +44,9 @@ class Command(BaseCommand):
         super(Command, self).add_arguments(parser)
         parser.add_argument(
             '--name-template',
-            default='%s',
+            default='{{ component }}',
             help=(
-                'Python formatting string, transforming the filemask '
+                'Template string, transforming the filemask '
                 'match to a project name'
             )
         )
@@ -53,14 +54,22 @@ class Command(BaseCommand):
             '--base-file-template',
             default='',
             help=(
-                'Python formatting string, transforming the filemask '
-                'match to a monolingual base file name'
+                'Template string, transforming the filemask '
+                'match to a monolingual base filename'
+            )
+        )
+        parser.add_argument(
+            '--new-base-template',
+            default='',
+            help=(
+                'Template string, transforming the filemask '
+                'match to a base filename for new translations'
             )
         )
         parser.add_argument(
             '--file-format',
-            default='auto',
-            help='File format type, defaults to autodetection',
+            default='po',
+            help='File format type, defaults to Gettext PO',
         )
         parser.add_argument(
             '--language-regex',
@@ -146,6 +155,7 @@ class Command(BaseCommand):
         self.main_component = None
         self.name_template = None
         self.base_file_template = None
+        self.new_base_template = None
         self.vcs = None
         self.push_url = None
         self.logger = LOGGER
@@ -161,7 +171,10 @@ class Command(BaseCommand):
 
         # Initialize git repository
         self.logger.info('Cloning git repository...')
-        gitrepo = VCS_REGISTRY[self.vcs].clone(repo, workdir)
+        try:
+            gitrepo = VCS_REGISTRY[self.vcs].clone(repo, workdir)
+        except RepositoryException as error:
+            raise CommandError('Failed clone: {}'.format(error))
         self.logger.info('Updating working copy in git repository...')
         with gitrepo.lock:
             gitrepo.configure_branch(branch)
@@ -188,6 +201,7 @@ class Command(BaseCommand):
         self.license_url = options['license_url']
         self.push_on_commit = options['push_on_commit']
         self.base_file_template = options['base_file_template']
+        self.new_base_template = options['new_base_template']
         if '%s' in self.base_file_template:
             self.base_file_template = self.base_file_template.replace(
                 '%s', '{{ component }}'
@@ -225,8 +239,8 @@ class Command(BaseCommand):
                         self.filemask, error
                     )
                 )
-            if ('component' not in compiled.groupindex or
-                    'language' not in compiled.groupindex):
+            if ('component' not in compiled.groupindex
+                    or 'language' not in compiled.groupindex):
                 raise CommandError(
                     'Component regular expression lacks named group '
                     '"component" and/or "language"'
@@ -276,11 +290,12 @@ class Command(BaseCommand):
         else:
             self.discovery = ComponentDiscovery(
                 component,
-                self.filemask,
-                self.name_template,
-                self.language_regex,
-                self.base_file_template,
-                self.file_format,
+                match=self.filemask,
+                name_template=self.name_template,
+                language_regex=self.language_regex,
+                base_file_template=self.base_file_template,
+                new_base_template=self.new_base_template,
+                file_format=self.file_format,
                 path=path
             )
             self.logger.info(

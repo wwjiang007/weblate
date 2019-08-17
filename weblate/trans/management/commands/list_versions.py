@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,28 +18,54 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+import platform
+
+from django import db
 from django.conf import settings
 from django.core.management.base import BaseCommand
-from django import db
-from weblate import get_versions_string
+
+from weblate.utils.requirements import get_versions_string
 
 
 class Command(BaseCommand):
     help = 'lists versions of required software components'
 
+    def write_item(self, prefix, value):
+        self.stdout.write(' * {}: {}'.format(prefix, value))
+
     def handle(self, *args, **options):
         """Print versions of dependencies."""
         self.stdout.write(get_versions_string())
-        self.stdout.write(
-            ' * Database backends: ' +
+        self.write_item(
+            'Database backends',
             ', '.join(
                 [conn['ENGINE'] for conn in db.connections.databases.values()]
             )
         )
-        self.stdout.write(
-            ' * Cache backends: ' +
+        self.write_item(
+            'Cache backends',
             ', '.join(
                 '{}:{}'.format(key, value['BACKEND'].split('.')[-1])
                 for key, value in settings.CACHES.items()
+            )
+        )
+        self.write_item(
+            'Email setup',
+            '{}: {}'.format(settings.EMAIL_BACKEND, settings.EMAIL_HOST)
+        )
+        self.write_item(
+            'Celery',
+            '{}, {}, {}'.format(
+                getattr(settings, 'CELERY_BROKER_URL', 'N/A'),
+                getattr(settings, 'CELERY_RESULT_BACKEND', 'N/A'),
+                'eager' if settings.CELERY_TASK_ALWAYS_EAGER else 'regular',
+            )
+        )
+        self.write_item(
+            'Platform',
+            '{} {} ({})'.format(
+                platform.system(),
+                platform.release(),
+                platform.machine(),
             )
         )

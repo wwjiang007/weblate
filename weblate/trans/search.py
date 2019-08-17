@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,26 +20,25 @@
 
 """Whoosh based full text search."""
 
+from __future__ import absolute_import, unicode_literals
+
 import functools
-import shutil
+import logging
+from collections import defaultdict
+from time import sleep
 
-from whoosh.fields import SchemaClass, TEXT, NUMERIC
-from whoosh.filedb.filestore import FileStorage
-from whoosh.query import Or, Term
-from whoosh.writing import AsyncWriter, BufferedWriter
-from whoosh import qparser
-
-from django.conf import settings
-from django.dispatch import receiver
-from django.db.models.signals import post_migrate
-from django.db.utils import IntegrityError
+from celery_batches import Batches
 from django.utils.encoding import force_text
-from django.db import transaction
+from whoosh import qparser
+from whoosh.fields import NUMERIC, TEXT, SchemaClass
+from whoosh.index import LockError
+from whoosh.query import Or, Term
 
-from weblate.lang.models import Language
-from weblate.trans.data import data_dir
+from weblate.celery import app
+from weblate.utils.celery import extract_batch_args, extract_batch_kwargs
+from weblate.utils.index import WhooshIndex
 
-STORAGE = FileStorage(data_dir('whoosh'))
+LOGGER = logging.getLogger('weblate.search')
 
 
 class TargetSchema(SchemaClass):
@@ -57,275 +56,242 @@ class SourceSchema(SchemaClass):
     location = TEXT()
 
 
-def clean_indexes():
-    """Clean all indexes."""
-    shutil.rmtree(data_dir('whoosh'))
-    create_index()
+class Fulltext(WhooshIndex):
+    LOCATION = 'whoosh'
+    FAKE = False
 
+    def get_source_index(self):
+        return self.open_index(SourceSchema, 'source')
 
-@receiver(post_migrate)
-def create_index(sender=None, **kwargs):
-    """Automatically creates storage directory."""
-    STORAGE.create()
+    def get_target_index(self, lang):
+        """Return target index object."""
+        name = 'target-{0}'.format(lang)
+        return self.open_index(TargetSchema, name)
 
-
-def create_source_index():
-    """Create source string index."""
-    create_index()
-    return STORAGE.create_index(SourceSchema(), 'source')
-
-
-def create_target_index(lang):
-    """Create traget string index for given language."""
-    create_index()
-    return STORAGE.create_index(TargetSchema(), 'target-{0}'.format(lang))
-
-
-def update_source_unit_index(writer, unit):
-    """Update source index for given unit."""
-    writer.update_document(
-        pk=unit.pk,
-        source=force_text(unit.source),
-        context=force_text(unit.context),
-        location=force_text(unit.location),
-    )
-
-
-def update_target_unit_index(writer, unit):
-    """Update target index for given unit."""
-    writer.update_document(
-        pk=unit.pk,
-        target=force_text(unit.target),
-        comment=force_text(unit.comment),
-    )
-
-
-def get_source_index():
-    """Return source index object."""
-    try:
-        exists = STORAGE.index_exists('source')
-    except OSError:
-        create_index()
-        exists = False
-    if not exists:
-        create_source_index()
-    index = STORAGE.open_index('source')
-    if 'location' not in index.schema:
-        index.add_field('location', TEXT())
-    if 'pk' not in index.schema:
-        index.add_field('pk', NUMERIC(stored=True, unique=True))
-    if 'checksum' in index.schema:
-        index.remove_field('checksum')
-    return index
-
-
-def get_target_index(lang):
-    """Return target index object."""
-    name = 'target-{0}'.format(lang)
-    try:
-        exists = STORAGE.index_exists(name)
-    except OSError:
-        create_index()
-        exists = False
-    if not exists:
-        create_target_index(lang)
-    index = STORAGE.open_index(name)
-    if 'comment' not in index.schema:
-        index.add_field('comment', TEXT())
-    if 'pk' not in index.schema:
-        index.add_field('pk', NUMERIC(stored=True, unique=True))
-    if 'checksum' in index.schema:
-        index.remove_field('checksum')
-    return index
-
-
-def update_index(units):
-    """Update fulltext index for given set of units."""
-    languages = Language.objects.have_translation()
-
-    # Update source index
-    if units.exists():
-        index = get_source_index()
-        writer = BufferedWriter(index)
-        try:
-            for unit in units.iterator():
-                update_source_unit_index(writer, unit)
-        finally:
-            writer.close()
-
-    # Update per language indices
-    for lang in languages:
-        language_units = units.filter(
-            translation__language=lang
-        ).exclude(
-            target=''
+    @staticmethod
+    def update_source_unit_index(writer, searcher, unit):
+        """Update source index for given unit."""
+        if not isinstance(unit, dict):
+            unit = {
+                'source': unit.source,
+                'context': unit.context,
+                'location': unit.location,
+                'pk': unit.pk,
+            }
+        writer.delete_by_term('pk', unit['pk'], searcher)
+        writer.add_document(
+            pk=unit['pk'],
+            source=force_text(unit['source']),
+            context=force_text(unit['context']),
+            location=force_text(unit['location']),
         )
 
-        if language_units.exists():
-            index = get_target_index(lang.code)
-            writer = BufferedWriter(index)
-            try:
-
-                for unit in language_units.iterator():
-                    update_target_unit_index(writer, unit)
-            finally:
-                writer.close()
-
-
-def add_index_update(unit_id, to_delete, language_code):
-    from weblate.trans.models.search import IndexUpdate
-    try:
-        with transaction.atomic():
-            IndexUpdate.objects.create(
-                unitid=unit_id,
-                to_delete=to_delete,
-                language_code=language_code,
-            )
-    except IntegrityError:
-        try:
-            update = IndexUpdate.objects.get(unitid=unit_id)
-            if to_delete and not update.to_delete:
-                update.to_delete = True
-                update.save()
-        except IndexUpdate.DoesNotExist:
-            # It did exist, but was deleted meanwhile
-            return
-
-
-def update_index_unit(unit):
-    """Add single unit to index."""
-    # Should this happen in background?
-    if settings.OFFLOAD_INDEXING:
-        add_index_update(unit.id, False, unit.translation.language.code)
-        return
-
-    # Update source
-    index = get_source_index()
-    with AsyncWriter(index) as writer:
-        update_source_unit_index(writer, unit)
-
-    # Update target
-    if unit.target:
-        index = get_target_index(unit.translation.language.code)
-        with AsyncWriter(index) as writer:
-            update_target_unit_index(writer, unit)
-
-
-def base_search(index, query, params, search, schema):
-    """Wrapper for fulltext search."""
-    with index.searcher() as searcher:
-        queries = []
-        for param in params:
-            if search[param]:
-                parser = qparser.QueryParser(param, schema)
-                queries.append(
-                    parser.parse(query)
-                )
-        terms = functools.reduce(lambda x, y: x | y, queries)
-        return [result['pk'] for result in searcher.search(terms, limit=None)]
-
-
-def fulltext_search(query, langs, params):
-    """Perform fulltext search in given areas, returns set of primary keys."""
-    pks = set()
-
-    search = {
-        'source': False,
-        'context': False,
-        'target': False,
-        'comment': False,
-        'location': False,
-    }
-    search.update(params)
-
-    if search['source'] or search['context'] or search['location']:
-        pks.update(
-            base_search(
-                get_source_index(),
-                query,
-                ('source', 'context', 'location'),
-                search,
-                SourceSchema()
-            )
+    @staticmethod
+    def update_target_unit_index(writer, searcher, unit):
+        """Update target index for given unit."""
+        if not isinstance(unit, dict):
+            unit = {
+                'pk': unit.pk,
+                'target': unit.target,
+                'comment': unit.comment,
+            }
+        writer.delete_by_term('pk', unit['pk'], searcher)
+        writer.add_document(
+            pk=unit['pk'],
+            target=force_text(unit['target']),
+            comment=force_text(unit['comment']),
         )
 
-    if search['target'] or search['comment']:
-        for lang in langs:
+    def update_index(self, units):
+        """Update fulltext index for given set of units."""
+
+        # Update source index
+        index = self.get_source_index()
+        with index.writer() as writer:
+            with writer.searcher() as searcher:
+                for unit in units:
+                    self.update_source_unit_index(writer, searcher, unit)
+
+        languages = {unit['language'] for unit in units}
+
+        # Update per language indices
+        for language in languages:
+            index = self.get_target_index(language)
+            with index.writer() as writer:
+                with writer.searcher() as searcher:
+                    for unit in units:
+                        if unit['language'] != language:
+                            continue
+                        self.update_target_unit_index(writer, searcher, unit)
+
+    @classmethod
+    def update_index_unit(cls, unit):
+        """Add single unit to index."""
+        if not cls.FAKE:
+            update_fulltext.delay(
+                pk=unit.pk,
+                source=force_text(unit.source),
+                context=force_text(unit.context),
+                location=force_text(unit.location),
+                target=force_text(unit.target),
+                comment=force_text(unit.comment),
+                language=force_text(unit.translation.language.code),
+            )
+
+    @staticmethod
+    def base_search(index, query, params, search, schema):
+        """Wrapper for fulltext search."""
+        with index.searcher() as searcher:
+            queries = []
+            for param in params:
+                if search[param]:
+                    parser = qparser.QueryParser(param, schema)
+                    queries.append(
+                        parser.parse(query)
+                    )
+            terms = functools.reduce(lambda x, y: x | y, queries)
+            return [
+                result['pk'] for result in searcher.search(terms, limit=None)
+            ]
+
+    def search(self, query, langs, params):
+        """Perform fulltext search in given areas.
+
+        Returns set of primary keys.
+        """
+        pks = set()
+
+        search = {
+            'source': False,
+            'context': False,
+            'target': False,
+            'comment': False,
+            'location': False,
+        }
+        search.update(params)
+
+        if search['source'] or search['context'] or search['location']:
             pks.update(
-                base_search(
-                    get_target_index(lang),
+                self.base_search(
+                    self.get_source_index(),
                     query,
-                    ('target', 'comment'),
+                    ('source', 'context', 'location'),
                     search,
-                    TargetSchema()
+                    SourceSchema()
                 )
             )
 
-    return pks
+        if search['target'] or search['comment']:
+            for lang in langs:
+                pks.update(
+                    self.base_search(
+                        self.get_target_index(lang),
+                        query,
+                        ('target', 'comment'),
+                        search,
+                        TargetSchema()
+                    )
+                )
 
+        return pks
 
-def more_like(pk, source, top=5):
-    """Find similar units."""
-    index = get_source_index()
-    with index.searcher() as searcher:
-        # Extract key terms
-        kts = searcher.key_terms_from_text(
-            'source', source,
-            numterms=10,
-            normalize=False
+    def more_like(self, pk, source, top=5):
+        """Find similar units."""
+        index = self.get_source_index()
+        with index.searcher() as searcher:
+            # Extract key terms
+            kts = searcher.key_terms_from_text(
+                'source', source,
+                numterms=10,
+                normalize=False
+            )
+            # Create an Or query from the key terms
+            query = Or(
+                [Term('source', word, boost=weight) for word, weight in kts]
+            )
+            LOGGER.debug('more like query: %r', query)
+
+            # Grab fulltext results
+            results = [
+                (h['pk'], h.score) for h in searcher.search(query, limit=top)
+            ]
+            LOGGER.debug('found %d matches', len(results))
+            if not results:
+                return []
+
+            # Filter bad results
+            threshold = max((h[1] for h in results)) / 2
+            results = [h[0] for h in results if h[1] > threshold]
+            LOGGER.debug(
+                'filter %d matches over threshold %d', len(results), threshold
+            )
+
+            return results
+
+    @classmethod
+    def clean_search_unit(cls, pk, lang):
+        """Cleanup search index on unit deletion."""
+        if not cls.FAKE:
+            delete_fulltext.delay(pk, lang)
+
+    @staticmethod
+    def delete_units_index(index, units):
+        with index.writer() as writer:
+            with writer.searcher() as searcher:
+                for pk in units:
+                    writer.delete_by_term('pk', pk, searcher)
+
+    def delete_search_units(self, source_units, languages):
+        """Delete fulltext index for given set of units."""
+        # Update source index
+        self.delete_units_index(
+            self.get_source_index(),
+            source_units
         )
-        # Create an Or query from the key terms
-        query = Or(
-            [Term('source', word, boost=weight) for word, weight in kts]
-        )
 
-        # Grab fulltext results
-        results = [
-            (h['pk'], h.score) for h in searcher.search(query, limit=top)
-        ]
-        if not results:
-            return []
-        # Normalize scores to 0-100
-        max_score = max([h[1] for h in results])
-        scores = {h[0]:  h[1] * 100 / max_score for h in results}
-
-        # Filter results with score above 50 and not current unit
-        return [h[0] for h in results if scores[h[0]] > 50 and h[0] != pk]
+        for lang, units in languages.items():
+            self.delete_units_index(
+                self.get_target_index(lang),
+                units
+            )
 
 
-def clean_search_unit(pk, lang):
-    """Cleanup search index on unit deletion."""
-    if settings.OFFLOAD_INDEXING:
-        add_index_update(pk, True, lang)
-    else:
-        delete_search_unit(pk, lang)
+@app.task(base=Batches, flush_every=1000, flush_interval=300, bind=True)
+def update_fulltext(self, *args, **kwargs):
+    unitdata = extract_batch_kwargs(*args, **kwargs)
+    fulltext = Fulltext()
 
-
-def delete_search_unit(pk, lang):
+    # Update index
     try:
-        for index in (get_source_index(), get_target_index(lang)):
-            with AsyncWriter(index) as writer:
-                writer.delete_by_term('pk', pk)
-    except IOError:
-        return
+        fulltext.update_index(unitdata)
+    except LockError:
+        LOGGER.info('retrying update batch of len %d', len(unitdata))
+        # Manually handle retries, it doesn't work
+        # with celery-batches
+        sleep(10)
+        for unit in unitdata:
+            update_fulltext.delay(**unit)
 
 
-def delete_search_units(source_units, languages):
-    """Delete fulltext index for given set of units."""
-    # Update source index
-    index = get_source_index()
-    writer = index.writer()
+@app.task(base=Batches, flush_every=1000, flush_interval=300, bind=True)
+def delete_fulltext(self, *args):
+    ids = extract_batch_args(*args)
+    fulltext = Fulltext()
+
+    units = set()
+    languages = defaultdict(set)
+    for unit, language in ids:
+        units.add(unit)
+        if language is None:
+            continue
+        languages[language].add(unit)
+
     try:
-        for pk in source_units:
-            writer.delete_by_term('pk', pk)
-    finally:
-        writer.commit()
-
-    for lang, units in languages.items():
-        index = get_target_index(lang)
-        writer = index.writer()
-        try:
-            for pk in units:
-                writer.delete_by_term('pk', pk)
-        finally:
-            writer.commit()
+        fulltext.delete_search_units(units, languages)
+    except LockError:
+        LOGGER.info('retrying delete batch of len %d', len(ids))
+        # Manually handle retries, it doesn't work
+        # with celery-batches
+        sleep(10)
+        for unit in ids:
+            delete_fulltext.delay(*unit)

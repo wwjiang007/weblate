@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,13 +23,13 @@ from __future__ import unicode_literals
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import redirect
-from django.views.decorators.cache import never_cache
 from django.utils.translation import ugettext as _
+from django.views.decorators.cache import never_cache
 
 from weblate.trans.forms import ComponentSettingsForm, ProjectSettingsForm
 from weblate.trans.util import render
-from weblate.trans.views.helper import get_project, get_component
 from weblate.utils import messages
+from weblate.utils.views import get_component, get_project
 
 
 @never_cache
@@ -41,7 +41,9 @@ def change_project(request, project):
         raise Http404()
 
     if request.method == 'POST':
-        settings_form = ProjectSettingsForm(request.POST, instance=obj)
+        settings_form = ProjectSettingsForm(
+            request, request.POST, instance=obj
+        )
         if settings_form.is_valid():
             settings_form.save()
             messages.success(request, _('Settings saved'))
@@ -52,7 +54,7 @@ def change_project(request, project):
                 _('Invalid settings, please check the form for errors!')
             )
     else:
-        settings_form = ProjectSettingsForm(instance=obj)
+        settings_form = ProjectSettingsForm(request, instance=obj)
 
     return render(
         request,
@@ -73,7 +75,7 @@ def change_component(request, project, component):
         raise Http404()
 
     if request.method == 'POST':
-        form = ComponentSettingsForm(request.POST, instance=obj)
+        form = ComponentSettingsForm(request, request.POST, instance=obj)
         if form.is_valid():
             form.save()
             messages.success(request, _('Settings saved'))
@@ -86,7 +88,7 @@ def change_component(request, project, component):
                 _('Invalid settings, please check the form for errors!')
             )
     else:
-        form = ComponentSettingsForm(instance=obj)
+        form = ComponentSettingsForm(request, instance=obj)
 
     return render(
         request,

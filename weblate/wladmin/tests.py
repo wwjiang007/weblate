@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,14 +23,16 @@ import os
 from django.conf import settings
 from django.urls import reverse
 
-from weblate.trans.tests.test_views import FixtureTestCase
-from weblate.trans.util import add_configuration_error
+from weblate.trans.tests.test_views import ViewTestCase
 from weblate.trans.tests.utils import get_test_file
-from weblate.trans.data import check_data_writable
+from weblate.trans.util import add_configuration_error, delete_configuration_error
+from weblate.utils.checks import check_data_writable
 from weblate.utils.unittest import tempdir_setting
+from weblate.wladmin.models import ConfigurationError
+from weblate.wladmin.tasks import configuration_health_check
 
 
-class AdminTest(FixtureTestCase):
+class AdminTest(ViewTestCase):
     """Test for customized admin interface."""
     def setUp(self):
         super(AdminTest, self).setUp()
@@ -41,37 +43,41 @@ class AdminTest(FixtureTestCase):
         response = self.client.get(reverse('admin:index'))
         self.assertContains(response, 'SSH')
 
+    def test_manage_index(self):
+        response = self.client.get(reverse('manage'))
+        self.assertContains(response, 'SSH')
+
     def test_ssh(self):
-        response = self.client.get(reverse('admin:ssh'))
+        response = self.client.get(reverse('manage-ssh'))
         self.assertContains(response, 'SSH keys')
 
     @tempdir_setting('DATA_DIR')
     def test_ssh_generate(self):
-        check_data_writable()
-        response = self.client.get(reverse('admin:ssh'))
+        self.assertEqual(check_data_writable(), [])
+        response = self.client.get(reverse('manage-ssh'))
         self.assertContains(response, 'Generate SSH key')
 
         response = self.client.post(
-            reverse('admin:ssh'),
+            reverse('manage-ssh'),
             {'action': 'generate'}
         )
         self.assertContains(response, 'Created new SSH key')
 
     @tempdir_setting('DATA_DIR')
     def test_ssh_add(self):
-        check_data_writable()
+        self.assertEqual(check_data_writable(), [])
         try:
             oldpath = os.environ['PATH']
             os.environ['PATH'] = ':'.join(
                 (get_test_file(''), os.environ['PATH'])
             )
             # Verify there is button for adding
-            response = self.client.get(reverse('admin:ssh'))
+            response = self.client.get(reverse('manage-ssh'))
             self.assertContains(response, 'Add host key')
 
             # Add the key
             response = self.client.post(
-                reverse('admin:ssh'),
+                reverse('manage-ssh'),
                 {'action': 'add-host', 'host': 'github.com'}
             )
             self.assertContains(response, 'Added host key for github.com')
@@ -84,16 +90,19 @@ class AdminTest(FixtureTestCase):
             self.assertIn('github.com', handle.read())
 
     def test_performace(self):
-        response = self.client.get(reverse('admin:performance'))
-        self.assertContains(response, 'Django caching')
+        response = self.client.get(reverse('manage-performance'))
+        self.assertContains(response, 'weblate.E007')
 
     def test_error(self):
         add_configuration_error('Test error', 'FOOOOOOOOOOOOOO')
-        response = self.client.get(reverse('admin:performance'))
+        response = self.client.get(reverse('manage-performance'))
         self.assertContains(response, 'FOOOOOOOOOOOOOO')
+        delete_configuration_error('Test error')
+        response = self.client.get(reverse('manage-performance'))
+        self.assertNotContains(response, 'FOOOOOOOOOOOOOO')
 
     def test_report(self):
-        response = self.client.get(reverse('admin:report'))
+        response = self.client.get(reverse('manage-repos'))
         self.assertContains(response, 'On branch master')
 
     def test_create_project(self):
@@ -131,3 +140,13 @@ class AdminTest(FixtureTestCase):
                 }
             )
             self.assertRedirects(response, url)
+
+    def test_configuration_health_check(self):
+        add_configuration_error('TEST', 'Message', True)
+        add_configuration_error('TEST2', 'Message', True)
+        configuration_health_check(False)
+        self.assertEqual(ConfigurationError.objects.count(), 2)
+        delete_configuration_error('TEST2', True)
+        configuration_health_check(False)
+        self.assertEqual(ConfigurationError.objects.count(), 1)
+        configuration_health_check()

@@ -4,41 +4,19 @@
 
 {% block content %}
 <p>
-{% trans "Hi,"%}
+{% blocktrans with user=user.username %}There has been a new comment on {{ component }} at {{ site_title }} by {{ user }}.{% endblocktrans %}
 </p>
+
+{% include "mail/snippets/source-string.html" %}
+
+<h2>{% trans "Comment" %}</h2>
 
 <p>
-{% blocktrans %}There has been a new comment on {{ component }} at {{ site_title }}.{% endblocktrans %}
-</p>
-
-<table>
-<tr>
-<th>
-{% trans "Source string:" %}
-</th>
-
-<td>
-{% format_translation unit.source unit.translation.component.project.source_language %}
-</td>
-</tr>
-
-
-<tr>
-<th>
-{% trans "Comment:" %}
-</th>
-
-<td>
 {{ comment.comment }}
-</td>
-</tr>
-</table>
-
-<p>
-{% trans "You can edit this string at:" %}
 </p>
 
-<p><a href="{{ current_site_url }}{{ unit.get_absolute_url }}#comments">{{ current_site_url }}{{ unit.get_absolute_url }}#comments</a></p>
+<div class="line buttons">
+    <a class="button" href="{{ current_site_url }}{{ unit.get_absolute_url }}">{% trans "Edit this string" %}</a>
+</div>
 
-{% include "mail/footer.html" %}
 {% endblock %}

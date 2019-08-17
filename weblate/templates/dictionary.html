@@ -6,8 +6,8 @@
 
 {% block breadcrumbs %}
 <li><a href="{{ project.get_absolute_url }}">{{ project }}</a></li>
-<li><a href="{% url 'show_dictionaries' project=project.slug %}">{% trans "glossaries" %}</a></li>
-<li><a href="{% url 'show_dictionary' project=project.slug lang=language.code %}">{{ language }}</a></li>
+<li><a href="{% url 'project-language' project=project.slug lang=language.code %}">{{ language }}</a></li>
+<li><a href="{% url 'show_dictionary' project=project.slug lang=language.code %}">{% trans "Glossary" %}</a></li>
 {% endblock %}
 
 {% block content %}
@@ -31,7 +31,7 @@
     </a>
     <ul class="dropdown-menu">
 <li><a href="{% url 'download_dictionary' project=project.slug lang=language.code %}?format=csv">{% trans "Comma separated values (CSV)" %}</a></li>
-<li><a href="{% url 'download_dictionary' project=project.slug lang=language.code %}?format=po">{% trans "Gettext (PO)" %}</a></li>
+<li><a href="{% url 'download_dictionary' project=project.slug lang=language.code %}?format=po">{% trans "gettext (PO)" %}</a></li>
 <li><a href="{% url 'download_dictionary' project=project.slug lang=language.code %}?format=xliff">{% trans "XML Localization Interchange File Format (XLIFF)" %}</a></li>
 <li><a href="{% url 'download_dictionary' project=project.slug lang=language.code %}?format=tbx">{% trans "TermBase eXchange (TBX)" %}</a></li>
 </ul>
@@ -64,15 +64,15 @@
 <td>
 {% if user_can_change_dictionary %}
 <form action="{% url 'edit_dictionary' project=project.slug lang=language.code pk=word.id %}" method="get" class="inlineform">
-<button type="submit" class="btn btn-xs btn-info"><i class="fa fa-pencil"></i> {% trans "Edit" %}</button>
+<button type="submit" class="btn btn-xs btn-primary"><i class="fa fa-pencil"></i> {% trans "Edit" %}</button>
 </form>
 {% endif %}
 {% if user_can_delete_dictionary %}
 <form action="{% url 'delete_dictionary' project=project.slug lang=language.code pk=word.id %}" method="post" class="inlineform">
 {% csrf_token %}
 <input type="hidden" name="letter" value="{{ letter }}" />
-<input type="hidden" name="limit" value="{{ limit }}" />
-<input type="hidden" name="page" value="{{ page }}" />
+<input type="hidden" name="limit" value="{{ page_obj.paginator.per_page }}" />
+<input type="hidden" name="page" value="{{ page_obj.number }}" />
 <button type="submit" class="btn btn-xs btn-danger"><i class="fa fa-trash"></i> {% trans "Delete" %}</button>
 </form>
 {% endif %}
@@ -81,9 +81,14 @@
 {% endfor %}
 </tbody>
 </table>
+{% include "paginator.html" %}
 {% else %}
 <p>{% trans "No words found!" %}</p>
 {% endif %}
+<form class="searchform" action="{% url 'show_dictionary' project=project.slug lang=language.code %}">
+{{ searchform | crispy }}
+<button type="submit" class="btn btn-ok"> {% trans "Search" %} </button>
+</form>
 </div>
 
 {% if user_can_add_dictionary %}
@@ -92,7 +97,7 @@
 <form action="{% url 'show_dictionary' project=project.slug lang=language.code %}" method="POST">
 {% csrf_token %}
 {{ form|crispy }}
-<input type="submit" value="{% trans "Add" %}" class="btn btn-default" />
+<input type="submit" value="{% trans "Add" %}" class="btn btn-primary" />
 </form>
 
 </div>
@@ -104,7 +109,7 @@
 
 {% csrf_token %}
 {{ uploadform|crispy }}
-<input type="submit" class="btn btn-default" value="{% trans "Import" %}" />
+<input type="submit" class="btn btn-primary" value="{% trans "Import" %}" />
 </form>
 
 </div>
@@ -112,7 +117,7 @@
 
 <div class="tab-pane" id="changes">
 {% include "last-changes-content.html" %}
-<a class="btn btn-default" href="{% url 'changes' %}?{{ last_changes_url }}">{% trans "Browse all glossary changes" %}</a>
+<a class="btn btn-primary" href="{% url 'changes' %}?{{ last_changes_url }}">{% trans "Browse all glossary changes" %}</a>
 </div>
 
 </div>

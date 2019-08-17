@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,18 +21,20 @@
 from __future__ import unicode_literals
 
 from django.http import HttpResponse
-
+from django.utils.functional import cached_property
+from django.utils.translation import ugettext_lazy as _
 from translate.misc.multistring import multistring
+from translate.storage.csvl10n import csvfile
+from translate.storage.mo import mofile
 from translate.storage.po import pofile
-from translate.storage.mo import mofile, mounit
 from translate.storage.poxliff import PoXliffFile
-from translate.storage.xliff import xlifffile
 from translate.storage.tbx import tbxfile
 from translate.storage.tmx import tmxfile
-from translate.storage.csvl10n import csvfile
+from translate.storage.xliff import xlifffile
 
 import weblate
-from weblate.formats.base import FileFormat
+from weblate.formats.external import XlsxFormat
+from weblate.formats.ttkit import TTKitFormat
 from weblate.utils.site import get_site_url
 
 # Map to remove control chars except newlines and tabs
@@ -54,30 +56,49 @@ def get_exporter(name):
     return EXPORTERS[name]
 
 
+def list_exporters(translation):
+    return [
+        {'name': x.name, 'verbose': x.verbose}
+        for x in sorted(EXPORTERS.values(), key=lambda x: x.name)
+        if x.supports(translation)
+    ]
+
+
 class BaseExporter(object):
     content_type = 'text/plain'
     extension = 'txt'
     name = ''
+    verbose = ''
     set_id = False
 
     def __init__(self, project=None, language=None, url=None,
                  translation=None, fieldnames=None):
         if translation is not None:
+            self.plural = translation.plural
             self.project = translation.component.project
             self.language = translation.language
             self.url = get_site_url(translation.get_absolute_url())
         else:
             self.project = project
             self.language = language
+            self.plural = language.plural
             self.url = url
         self.fieldnames = fieldnames
-        self.storage = self.get_storage()
-        self.storage.setsourcelanguage(
+
+    @staticmethod
+    def supports(translation):
+        return True
+
+    @cached_property
+    def storage(self):
+        storage = self.get_storage()
+        storage.setsourcelanguage(
             self.project.source_language.code
         )
-        self.storage.settargetlanguage(
+        storage.settargetlanguage(
             self.language.code
         )
+        return storage
 
     def string_filter(self, text):
         return text
@@ -110,25 +131,48 @@ class BaseExporter(object):
             self.handle_plurals(unit.get_source_plurals())
         )
         self.add(output, self.handle_plurals(unit.get_target_plurals()))
-        context = self.string_filter(unit.context)
-        if context:
-            output.setcontext(context)
-            if isinstance(output, mounit):
-                output.msgctxt = [context]
-            if self.set_id:
-                output.setid(context)
+        # Location needs to be set prior to ID to avoid overwrite
+        # on some formats (eg. xliff)
         for location in unit.location.split():
             if location:
                 output.addlocation(location)
+
+        # Store context as context and ID
+        context = self.string_filter(unit.context)
+        if context:
+            output.setcontext(context)
+            if self.set_id:
+                output.setid(context)
+        elif self.set_id:
+            # Use checksum based ID on formats requiring it
+            output.setid(unit.checksum)
+
+        # Store note
         note = self.string_filter(unit.comment)
         if note:
             output.addnote(note, origin='developer')
-        if hasattr(output, 'settypecomment'):
-            for flag in unit.flags.split(','):
-                if flag:
-                    output.settypecomment(flag)
+        # In Weblate context
+        note = self.string_filter(unit.source_info.context)
+        if context:
+            output.addnote(note, origin='developer')
+        # Comments
+        for comment in unit.get_comments():
+            output.addnote(comment.comment, origin='translator')
+        # Suggestions
+        for suggestion in unit.suggestions:
+            output.addnote(
+                'Suggested in Weblate: {}'.format(suggestion.target),
+                origin='translator'
+            )
+
+        # Store flags
+        if unit.all_flags:
+            self.store_flags(output, unit.all_flags)
+
+        # Store fuzzy flag
         if unit.fuzzy:
             output.markfuzzy(True)
+
         self.storage.addunit(output)
 
     def get_response(self, filetemplate='{project}-{language}.{extension}'):
@@ -146,13 +190,16 @@ class BaseExporter(object):
         )
 
         # Save to response
-        response.write(FileFormat.serialize(self.storage))
+        response.write(self.serialize())
 
         return response
 
     def serialize(self):
         """Return storage content"""
-        return FileFormat.serialize(self.storage)
+        return TTKitFormat.serialize(self.storage)
+
+    def store_flags(self, output, flags):
+        return
 
 
 @register_exporter
@@ -160,10 +207,16 @@ class PoExporter(BaseExporter):
     name = 'po'
     content_type = 'text/x-po'
     extension = 'po'
+    verbose = _('gettext PO')
+    _storage = pofile
+
+    def store_flags(self, output, flags):
+        for flag in flags.items():
+            output.settypecomment(flag)
 
     def get_storage(self):
-        store = pofile()
-        plural = self.language.plural
+        store = self._storage()
+        plural = self.plural
 
         # Set po file header
         store.updateheader(
@@ -201,17 +254,25 @@ class PoXliffExporter(XMLExporter):
     content_type = 'application/x-xliff+xml'
     extension = 'xlf'
     set_id = True
+    verbose = _('XLIFF with gettext extensions')
 
     def get_storage(self):
         return PoXliffFile()
 
+    def store_flags(self, output, flags):
+        if flags.has_value('max-length'):
+            output.xmlelement.set("maxwidth", str(flags.get_value('max-length')))
+
+        output.xmlelement.set("weblate-flags", flags.format())
+
 
 @register_exporter
-class XliffExporter(XMLExporter):
+class XliffExporter(PoXliffExporter):
     name = 'xliff11'
     content_type = 'application/x-xliff+xml'
     extension = 'xlf'
     set_id = True
+    verbose = _('XLIFF 1.1')
 
     def get_storage(self):
         return xlifffile()
@@ -222,6 +283,7 @@ class TBXExporter(XMLExporter):
     name = 'tbx'
     content_type = 'application/x-tbx'
     extension = 'tbx'
+    verbose = _('TBX')
 
     def get_storage(self):
         return tbxfile()
@@ -232,41 +294,64 @@ class TMXExporter(XMLExporter):
     name = 'tmx'
     content_type = 'application/x-tmx'
     extension = 'tmx'
+    verbose = _('TMX')
 
     def get_storage(self):
         return tmxfile()
 
 
 @register_exporter
-class MoExporter(BaseExporter):
+class MoExporter(PoExporter):
     name = 'mo'
     content_type = 'application/x-gettext-catalog'
     extension = 'mo'
+    verbose = _('gettext MO')
+    _storage = mofile
 
-    def get_storage(self):
-        store = mofile()
-        plural = self.language.plural
-
-        # Set po file header
-        store.updateheader(
-            add=True,
-            language=self.language.code,
-            x_generator='Weblate {0}'.format(weblate.VERSION),
-            project_id_version='{0} ({1})'.format(
-                self.language.name, self.project.name
-            ),
-            plural_forms=plural.plural_form,
-            language_team='{0} <{1}>'.format(
-                self.language.name,
-                self.url
-            )
+    def __init__(self, project=None, language=None, url=None,
+                 translation=None, fieldnames=None):
+        super(MoExporter, self).__init__(
+            project, language, url, translation, fieldnames
         )
-        return store
+        # Detect storage properties
+        self.monolingual = False
+        self.use_context = False
+        if translation:
+            self.monolingual = translation.component.has_template()
+            if self.monolingual:
+                unit = next(translation.store.translatable_units, None)
+                self.use_context = unit is not None and not unit.template.source
+
+    def store_flags(self, output, flags):
+        return
 
     def add_unit(self, unit):
+        # We do not store not translated units
         if not unit.translated:
             return
-        super(MoExporter, self).add_unit(unit)
+        # Parse properties from unit
+        if self.monolingual:
+            if self.use_context:
+                source = ''
+                context = unit.context
+            else:
+                source = unit.context
+                context = ''
+        else:
+            source = self.handle_plurals(unit.get_source_plurals())
+            context = unit.context
+        # Actually create the unit and set attributes
+        output = self.storage.UnitClass(source)
+        output.target = self.handle_plurals(unit.get_target_plurals())
+        if context:
+            # The setcontext doesn't work on mounit
+            output.msgctxt = [context]
+        # Add unit to the storage
+        self.storage.addunit(output)
+
+    @staticmethod
+    def supports(translation):
+        return translation.component.file_format == 'po'
 
 
 @register_exporter
@@ -274,6 +359,7 @@ class CSVExporter(BaseExporter):
     name = 'csv'
     content_type = 'text/csv'
     extension = 'csv'
+    verbose = _('CSV')
 
     def get_storage(self):
         return csvfile(fieldnames=self.fieldnames)
@@ -281,12 +367,27 @@ class CSVExporter(BaseExporter):
     def string_filter(self, text):
         """Avoid Excel interpreting text as formula.
 
-        This is really bad idea implemented in Excel as this change leads
+        This is really bad idea, implemented in Excel, as this change leads
         to displaying additional ' in all other tools, but this seems to be
-        what most people are get used to. Hopefully these chars are not widely
-        used at first position of translatable strings, so the harm is not
-        that big.
+        what most people have gotten used to. Hopefully these chars are not
+        widely used at first position of translatable strings, so that harm is
+        reduced.
         """
         if text and text[0] in ('=', '+', '-', '@', '|', '%'):
             return "'{0}'".format(text.replace('|', '\\|'))
         return text
+
+
+@register_exporter
+class XlsxExporter(BaseExporter):
+    name = 'xlsx'
+    content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    extension = 'xlsx'
+    verbose = _('Excel Open XML')
+
+    def get_storage(self):
+        return csvfile(fieldnames=self.fieldnames)
+
+    def serialize(self):
+        """Return storage content"""
+        return XlsxFormat.serialize(self.storage)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,27 +18,23 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.http.response import HttpResponseServerError
-from django.core.paginator import Paginator, EmptyPage
-from django.core.exceptions import PermissionDenied
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404
+from django.utils.encoding import force_text
 from django.utils.http import urlencode
 from django.utils.translation import ugettext as _
-from django.utils.encoding import force_text
 from django.views.decorators.http import require_POST
 
 from weblate.lang.models import Language
+from weblate.trans.forms import CheckFlagsForm, ContextForm, MatrixLanguageForm
+from weblate.trans.models import Source, Translation, Unit
+from weblate.trans.util import redirect_next, render
 from weblate.utils import messages
-from weblate.trans.views.helper import get_component
-from weblate.trans.models import Translation, Source, Unit
-from weblate.trans.forms import (
-    PriorityForm, CheckFlagsForm, MatrixLanguageForm, ContextForm,
-)
-from weblate.trans.util import render, redirect_next
 from weblate.utils.hash import checksum_to_hash
-from weblate.utils.views import get_page_limit
+from weblate.utils.views import get_component, get_paginator, show_form_errors
 
 
 def get_source(request, project, component):
@@ -59,7 +55,6 @@ def review_source(request, project, component):
 
     # Grab search type and page number
     rqtype = request.GET.get('type', 'all')
-    page, limit = get_page_limit(request, 50)
     try:
         id_hash = checksum_to_hash(request.GET.get('checksum', ''))
     except ValueError:
@@ -82,13 +77,7 @@ def review_source(request, project, component):
             ignored
         )
 
-    paginator = Paginator(sources, limit)
-
-    try:
-        sources = paginator.page(page)
-    except EmptyPage:
-        # If page is out of range (e.g. 9999), deliver last page of results.
-        sources = paginator.page(paginator.num_pages)
+    sources = get_paginator(request, sources.order())
 
     return render(
         request,
@@ -125,24 +114,6 @@ def show_source(request, project, component):
 
 @require_POST
 @login_required
-def edit_priority(request, pk):
-    """Change source string priority."""
-    source = get_object_or_404(Source, pk=pk)
-
-    if not request.user.has_perm('source.edit', source.component):
-        raise PermissionDenied()
-
-    form = PriorityForm(request.POST)
-    if form.is_valid():
-        source.priority = form.cleaned_data['priority']
-        source.save()
-    else:
-        messages.error(request, _('Failed to change a priority!'))
-    return redirect_next(request.POST.get('next'), source.get_absolute_url())
-
-
-@require_POST
-@login_required
 def edit_context(request, pk):
     """Change source string context."""
     source = get_object_or_404(Source, pk=pk)
@@ -156,13 +127,14 @@ def edit_context(request, pk):
         source.save()
     else:
         messages.error(request, _('Failed to change a context!'))
+        show_form_errors(request, form)
     return redirect_next(request.POST.get('next'), source.get_absolute_url())
 
 
 @require_POST
 @login_required
 def edit_check_flags(request, pk):
-    """Change source string check flags."""
+    """Change source string flags."""
     source = get_object_or_404(Source, pk=pk)
 
     if not request.user.has_perm('source.edit', source.component):
@@ -173,7 +145,8 @@ def edit_check_flags(request, pk):
         source.check_flags = form.cleaned_data['flags']
         source.save()
     else:
-        messages.error(request, _('Failed to change check flags!'))
+        messages.error(request, _('Failed to change translation flags!'))
+        show_form_errors(request, form)
     return redirect_next(request.POST.get('next'), source.get_absolute_url())
 
 
@@ -195,7 +168,7 @@ def matrix(request, project, component):
     if show:
         languages = Language.objects.filter(
             code__in=form.cleaned_data['lang']
-        )
+        ).order()
         language_codes = ','.join(languages.values_list('code', flat=True))
 
     return render(

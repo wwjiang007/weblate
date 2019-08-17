@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,10 +18,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from functools import update_wrapper
-
 from django.conf import settings
-from django.conf.urls import url
 from django.contrib import admin
 from django.contrib.admin import AdminSite
 from django.contrib.auth.views import LogoutView
@@ -31,44 +28,58 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.cache import never_cache
-
-
 from rest_framework.authtoken.admin import TokenAdmin
 from rest_framework.authtoken.models import Token
+from social_django.admin import AssociationOption, NonceOption, UserSocialAuthOption
+from social_django.models import Association, Nonce, UserSocialAuth
 
-from social_django.admin import (
-    UserSocialAuthOption, NonceOption, AssociationOption,
-)
-from social_django.models import UserSocialAuth, Nonce, Association
-
-from weblate.accounts.admin import (
-    ProfileAdmin, VerifiedEmailAdmin, AuditLogAdmin,
-)
+from weblate.accounts.admin import AuditLogAdmin, ProfileAdmin, VerifiedEmailAdmin
 from weblate.accounts.forms import LoginForm
-from weblate.accounts.models import Profile, VerifiedEmail, AuditLog
+from weblate.accounts.models import AuditLog, Profile, VerifiedEmail
 from weblate.auth.admin import (
-    WeblateUserAdmin, WeblateGroupAdmin, AutoGroupAdmin, RoleAdmin,
+    AutoGroupAdmin,
+    RoleAdmin,
+    WeblateGroupAdmin,
+    WeblateUserAdmin,
 )
-from weblate.auth.models import User, Group, Role, AutoGroup
+from weblate.auth.models import AutoGroup, Group, Role, User
 from weblate.checks.admin import CheckAdmin
 from weblate.checks.models import Check
+from weblate.fonts.admin import FontAdmin, FontGroupAdmin
+from weblate.fonts.models import Font, FontGroup
 from weblate.lang.admin import LanguageAdmin
 from weblate.lang.models import Language
 from weblate.screenshots.admin import ScreenshotAdmin
 from weblate.screenshots.models import Screenshot
 from weblate.trans.admin import (
-    ProjectAdmin, ComponentAdmin, TranslationAdmin,
-    UnitAdmin, SuggestionAdmin, CommentAdmin, DictionaryAdmin,
-    ChangeAdmin, SourceAdmin, WhiteboardMessageAdmin, ComponentListAdmin,
+    ChangeAdmin,
+    CommentAdmin,
+    ComponentAdmin,
+    ComponentListAdmin,
     ContributorAgreementAdmin,
+    DictionaryAdmin,
+    ProjectAdmin,
+    SourceAdmin,
+    SuggestionAdmin,
+    TranslationAdmin,
+    UnitAdmin,
+    WhiteboardMessageAdmin,
 )
 from weblate.trans.models import (
-    Project, Component, Translation, ContributorAgreement,
-    Unit, Suggestion, Comment, Dictionary, Change,
-    Source, WhiteboardMessage, ComponentList,
+    Change,
+    Comment,
+    Component,
+    ComponentList,
+    ContributorAgreement,
+    Dictionary,
+    Project,
+    Source,
+    Suggestion,
+    Translation,
+    Unit,
+    WhiteboardMessage,
 )
 from weblate.utils import messages
-import weblate.wladmin.views
 from weblate.wladmin.models import ConfigurationError
 
 
@@ -77,6 +88,12 @@ class WeblateAdminSite(AdminSite):
     site_header = _('Weblate administration')
     site_title = _('Weblate administration')
     index_template = 'admin/weblate-index.html'
+
+    @property
+    def site_url(self):
+        if settings.URL_PREFIX:
+            return settings.URL_PREFIX
+        return '/'
 
     def discover(self):
         """Manual discovery."""
@@ -95,6 +112,10 @@ class WeblateAdminSite(AdminSite):
         # Screenshots
         self.register(Screenshot, ScreenshotAdmin)
 
+        # Fonts
+        self.register(Font, FontAdmin)
+        self.register(FontGroup, FontGroupAdmin)
+
         # Translations
         self.register(Project, ProjectAdmin)
         self.register(Component, ComponentAdmin)
@@ -103,7 +124,7 @@ class WeblateAdminSite(AdminSite):
         self.register(ContributorAgreement, ContributorAgreementAdmin)
 
         # Show some controls only in debug mode
-        if settings.DEBUG and False:
+        if settings.DEBUG:
             self.register(Translation, TranslationAdmin)
             self.register(Unit, UnitAdmin)
             self.register(Suggestion, SuggestionAdmin)
@@ -113,16 +134,25 @@ class WeblateAdminSite(AdminSite):
             self.register(Change, ChangeAdmin)
             self.register(Source, SourceAdmin)
 
-        # Billing
-        if 'weblate.billing' in settings.INSTALLED_APPS:
-            # pylint: disable=wrong-import-position
-            from weblate.billing.admin import (
-                PlanAdmin, BillingAdmin, InvoiceAdmin,
-            )
-            from weblate.billing.models import Plan, Billing, Invoice
-            self.register(Plan, PlanAdmin)
-            self.register(Billing, BillingAdmin)
-            self.register(Invoice, InvoiceAdmin)
+        if settings.BILLING_ADMIN:
+            # Billing
+            if 'weblate.billing' in settings.INSTALLED_APPS:
+                # pylint: disable=wrong-import-position
+                from weblate.billing.admin import (
+                    PlanAdmin, BillingAdmin, InvoiceAdmin,
+                )
+                from weblate.billing.models import Plan, Billing, Invoice
+                self.register(Plan, PlanAdmin)
+                self.register(Billing, BillingAdmin)
+                self.register(Invoice, InvoiceAdmin)
+
+            # Hosted
+            if 'wlhosted' in settings.INSTALLED_APPS:
+                # pylint: disable=wrong-import-position
+                from wlhosted.payments.admin import CustomerAdmin, PaymentAdmin
+                from wlhosted.payments.models import Customer, Payment
+                self.register(Customer, CustomerAdmin)
+                self.register(Payment, PaymentAdmin)
 
         # Legal
         if 'weblate.legal' in settings.INSTALLED_APPS:
@@ -142,10 +172,16 @@ class WeblateAdminSite(AdminSite):
         # Django core
         self.register(Site, SiteAdmin)
 
+        # Simple SSO
+        if 'simple_sso.sso_server' in settings.INSTALLED_APPS:
+            from simple_sso.sso_server.server import ConsumerAdmin
+            from simple_sso.sso_server.models import Consumer
+            self.register(Consumer, ConsumerAdmin)
+
     @never_cache
     def logout(self, request, extra_context=None):
         if request.method == 'POST':
-            messages.info(request, _('Thanks for using Weblate!'))
+            messages.info(request, _('Thank you for using Weblate.'))
             request.current_app = self.name
             return LogoutView.as_view(
                 next_page=reverse('admin:login')
@@ -156,41 +192,13 @@ class WeblateAdminSite(AdminSite):
 
     def each_context(self, request):
         result = super(WeblateAdminSite, self).each_context(request)
-        empty = [_('Object listing disabled')]
+        empty = [_('Object listing turned off')]
         result['empty_selectable_objects_list'] = [empty]
         result['empty_objects_list'] = empty
         result['configuration_errors'] = ConfigurationError.objects.filter(
             ignored=False
         )
         return result
-
-    def get_urls(self):
-        def wrap(view, cacheable=False):
-            def wrapper(*args, **kwargs):
-                return self.admin_view(view, cacheable)(
-                    *args, admin_site=self, **kwargs
-                )
-            return update_wrapper(wrapper, view)
-
-        urls = super(WeblateAdminSite, self).get_urls()
-        urls += [
-            url(
-                r'^report/$',
-                wrap(weblate.wladmin.views.report),
-                name='report'
-            ),
-            url(
-                r'^ssh/$',
-                wrap(weblate.wladmin.views.ssh),
-                name='ssh'
-            ),
-            url(
-                r'^performance/$',
-                wrap(weblate.wladmin.views.performance),
-                name='performance'
-            ),
-        ]
-        return urls
 
     @property
     def urls(self):

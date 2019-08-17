@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,12 +20,11 @@
 
 """Test for management commands."""
 
+from django.core.management import call_command
 from six import StringIO
 
-from django.core.management import call_command
-
-from weblate.trans.tests.test_models import RepoTestCase
 from weblate.trans.tests.test_commands import CheckGitTest
+from weblate.trans.tests.test_models import RepoTestCase
 
 
 class PeriodicCommandTest(RepoTestCase):

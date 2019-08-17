@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,12 +17,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+from unittest import SkipTest
+
 from django.urls import reverse
 
+import weblate.screenshots.views
 from weblate.screenshots.models import Screenshot
 from weblate.trans.tests.test_views import FixtureTestCase
 from weblate.trans.tests.utils import get_test_file
-import weblate.screenshots.views
 
 TEST_SCREENSHOT = get_test_file('screenshot.png')
 
@@ -137,6 +139,8 @@ class ViewTest(FixtureTestCase):
         self.assertEqual(screenshot.sources.count(), 0)
 
     def test_ocr(self):
+        if not weblate.screenshots.views.HAS_OCR:
+            raise SkipTest('OCR not supported')
         self.make_manager()
         self.do_upload()
         screenshot = Screenshot.objects.all()[0]
@@ -147,10 +151,24 @@ class ViewTest(FixtureTestCase):
         )
         data = response.json()
 
-        if not weblate.screenshots.views.HAS_OCR:
-            self.assertEqual(data['responseCode'], 500)
-            return
-
         self.assertEqual(data['responseCode'], 200)
         # We should find at least one string
         self.assertGreaterEqual(len(data['results']), 1)
+
+    def test_ocr_disabled(self):
+        orig = weblate.screenshots.views.HAS_OCR
+        weblate.screenshots.views.HAS_OCR = False
+        try:
+            self.make_manager()
+            self.do_upload()
+            screenshot = Screenshot.objects.all()[0]
+
+            # Search for string
+            response = self.client.post(
+                reverse('screenshot-js-ocr', kwargs={'pk': screenshot.pk})
+            )
+            data = response.json()
+
+            self.assertEqual(data['responseCode'], 500)
+        finally:
+            weblate.screenshots.views.HAS_OCR = orig

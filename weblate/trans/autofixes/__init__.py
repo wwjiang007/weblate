@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -33,7 +33,7 @@ def fix_target(target, unit):
     if target == []:
         return target, []
     fixups = []
-    for dummy, fix in AUTOFIXES.items():
+    for _unused, fix in AUTOFIXES.items():
         target, fixed = fix.fix_target(target, unit)
         if fixed:
             fixups.append(fix.name)

@@ -1,16 +1,286 @@
 Changes
 =======
 
+weblate 3.9
+------------
+
+Not yet released.
+
+* Include Weblate metadata in downloaded files.
+
+weblate 3.8
+-----------
+
+Released on August 15th 2019.
+
+* Added support for simplified creating of similar components.
+* Added support for parsing translation flags from the XML based file formats.
+* Log exceptions into Celery log.
+* Improve performance of repository scoped addons.
+* Improved look of notification e-mails.
+* Fixed password reset behavior.
+* Improved performance on most of translation pages.
+* Fixed listing of languages not known to Weblate.
+* Add support for cloning addons to discovered components.
+* Add support for replacing file content with uploaded.
+* Add support for translating non VCS based content.
+* Added OpenGraph widget image to use on social networks.
+* Added support for animated screenshots.
+* Improved handling of monolingual Xliff files.
+* Avoid sending multiple notifications for single event.
+* Add support for filtering changes.
+* Extended predefined periods for reporting.
+* Added support for Azure Repos webhooks.
+* New opt-in notifications on pending suggestions or untranslated strings.
+* Add one click unsubscribe link to notification e-mails.
+* Fixed false positives with Has been translated check.
+* New management interface for admins.
+* String priority can now be specified using flags.
+* Added language management views.
+* Add checks for Qt library and Ruby format strings.
+* Added configuration to better fit single project installations.
+* Notify about new string on source string change on monolingual translations.
+* Added separate view for translation memory with search capability.
+
+weblate 3.7.1
+-------------
+
+Released on June 28th 2019.
+
+* Documentation updates.
+* Fixed some requirements constraints.
+* Updated language database.
+* Localization updates.
+* Various user interface tweaks.
+* Improved handling of unsupported but discovered translation files.
+* More verbosely report missing file format requirements.
+
+weblate 3.7
+-----------
+
+Released on June 21st 2019.
+
+* Added separate Celery queue for notifications.
+* Use consistent look with application for API browsing.
+* Include approved stats in the reports.
+* Report progress when updating translation component.
+* Allow to abort running background component update.
+* Extend template language for filename manipulations.
+* Use templates for editor link and repository browser URL.
+* Indicate max length and current chars count when editing translation.
+* Improved handling of abbreviations in unchanged translation check.
+* Refreshed landing page for new contributors.
+* Add support for configuring msgmerge addon.
+* Delay opening SMTP connection when sending notifications.
+* Improved error logging.
+* Allow custom location in MO generating addon.
+* Added addons to cleanup old suggestions or comments.
+* Added option to enable horizontal mode in the zen editor.
+* Improved import perfomance with many linked components.
+* Fixed examples installation in some cases.
+* Improved rendering of alerts in changes.
+* Added new horizontal stats widget.
+* Improved format strings check on plurals.
+* Added font management tool.
+* New check for rendered text dimensions.
+* Added support for subtitle formats.
+* Include overall completion stats for languages.
+* Added reporting at project and global scope.
+* Improved user interface when showing translation status.
+* New Weblate logo and color scheme.
+* New look of bitmap badges.
+
+weblate 3.6.1
+-------------
+
+Released on April 26th 2019.
+
+* Improved handling of monolingual Xliff files.
+* Fixed digest notifications in some corner cases.
+* Fixed addon script error alert.
+* Fixed generating MO file for monolingual PO files.
+* Fixed display of uninstalled checks.
+* Indicate administered projects on project listing.
+* Allow update to recover from missing VCS repository.
+
+weblate 3.6
+-----------
+
+Released on April 20th 2019.
+
+* Add support for downloading user data.
+* Addons are now automatically triggered upon installation.
+* Improved instructions for resolving merge conflicts.
+* Cleanup addon is now compatible with app store metadata translations.
+* Configurable language code syntax when adding new translations.
+* Warn about using Python 2 with planned termination of support in April 2020.
+* Extract special chars from the source string for visual keyboard.
+* Extended contributor stats to reflect both source and target counts.
+* Admins and consistency addons can now add translations even if disabled for users.
+* Fixed description of toggle disabling ``Language-Team`` header manipulation.
+* Notify users mentioned in comments.
+* Removed file format autodetection from component setup.
+* Fixed generating MO file for monolingual PO files.
+* Added digest notifications.
+* Added support for muting component notifications.
+* Added notifications for new alerts, whiteboard messages or components.
+* Notifications for administered projects can now be configured.
+* Improved handling of three letter language codes.
+
+weblate 3.5.1
+-------------
+
+Released on March 10th 2019.
+
+* Fixed Celery systemd unit example.
+* Fixed notifications from http repositories with login.
+* Fixed race condition in editing source string for monolingual translations.
+* Include output of failed addon execution in the logs.
+* Improved validation of choices for adding new language.
+* Allow to edit file format in component settings.
+* Update installation instructions to prefer Python 3.
+* Performance and consistency improvements for loading translations.
+* Make Microsoft Terminology service compatible with current zeep releases.
+* Localization updates.
+
+weblate 3.5
+------------
+
+Released on March 3rd 2019.
+
+* Improved performance of built in translation memory.
+* Added interface to manage global translation memory.
+* Improved alerting on bad component state.
+* Added user interface to manage whiteboard messages.
+* Addon commit message now can be configured.
+* Reduce number of commits when updating upstream repository.
+* Fixed possible metadata loss when moving component between projects.
+* Improved navigation in the zen mode.
+* Added several new quality checks (Markdown related and URL).
+* Added support for app store metadata files.
+* Added support for toggling GitHub or Gerrit integration.
+* Added check for Kashida letters.
+* Added option to squash commits based on authors.
+* Improved support for xlsx file format.
+* Compatibility with tesseract 4.0.
+* Billing addon now removes projects for unpaid billings after 45 days.
+
+weblate 3.4
+-----------
+
+Released on January 22nd 2019.
+
+* Added support for XLIFF placeholders.
+* Celery can now utilize multiple task queues.
+* Added support for renaming and moving projects and components.
+* Include chars counts in reports.
+* Added guided adding of translation components with automatic detection of translation files.
+* Customizable merge commit messages for Git.
+* Added visual indication of component alerts in navigation.
+* Improved performance of loading translation files.
+* New addon to squash commits prior to push.
+* Improved displaying of translation changes.
+* Changed default merge style to rebase and made that configurable.
+* Better handle private use subtags in language code.
+* Improved performance of fulltext index updates.
+* Extended file upload API to support more parameters.
+
+weblate 3.3
+-----------
+
+Released on November 30th 2018.
+
+* Added support for component and project removal.
+* Improved performance for some monolingual translations.
+* Added translation component alerts to highlight problems with a translation.
+* Expose XLIFF string resname as context when available.
+* Added support for XLIFF states.
+* Added check for non writable files in DATA_DIR.
+* Improved CSV export for changes.
+
+weblate 3.2.2
+-------------
+
+Released on October 20th 2018.
+
+* Remove no longer needed Babel dependency.
+* Updated language definitions.
+* Improve documentation for addons, LDAP and Celery.
+* Fixed enabling new dos-eol and auto-java-messageformat flags.
+* Fixed running setup.py test from PyPI package.
+* Improved plurals handling.
+* Fixed translation upload API failure in some corner cases.
+* Fixed updating Git configuration in case it was changed manually.
+
+weblate 3.2.1
+-------------
+
+Released on October 10th 2018.
+
+* Document dependency on backports.csv on Python 2.7.
+* Fix running tests under root.
+* Improved error handling in gitexport module.
+* Fixed progress reporting for newly added languages.
+* Correctly report Celery worker errors to Sentry.
+* Fixed creating new translations with Qt Linguist.
+* Fixed occasional fulltext index update failures.
+* Improved validation when creating new components.
+* Added support for cleanup of old suggestions.
+
+weblate 3.2
+------------
+
+Released on October 6th 2018.
+
+* Add install_addon management command for automated addon installation.
+* Allow more fine grained ratelimit settings.
+* Added support for export and import of Excel files.
+* Improve component cleanup in case of multiple component discovery addons.
+* Rewritten Microsoft Terminology machine translation backend.
+* Weblate now uses Celery to offload some processing.
+* Improved search capabilities and added regular expression search.
+* Added support for Youdao Zhiyun API machine translation.
+* Added support for Baidu API machine translation.
+* Integrated maintenance and cleanup tasks using Celery.
+* Improved performance of loading translations by almost 25%.
+* Removed support for merging headers on upload.
+* Removed support for custom commit messages.
+* Configurable editing mode (zen/full).
+* Added support for error reporting to Sentry.
+* Added support for automated daily update of repositories.
+* Added support for creating projects and components by users.
+* Built in translation memory now automatically stores translations done.
+* Users and projects can import their existing translation memories.
+* Better management of related strings for screenshots.
+* Added support for checking Java MessageFormat.
+
+See `3.2 milestone on GitHub <https://github.com/WeblateOrg/weblate/milestone/36?closed=1>`_
+for detailed list of addressed issues.
+
+weblate 3.1.1
+-------------
+
+Released on July 27th 2018.
+
+* Fix testsuite failure on some setup.
+
 weblate 3.1
 ------------
 
-Released on ? 2018.
+Released on July 27th 2018.
 
 * Upgrades from older version than 3.0.1 are not supported.
 * Allow to override default commit messages from settings.
 * Improve webhooks compatibility with self hosted environments.
 * Added support for Amazon Translate.
 * Compatibility with Django 2.1.
+* Django system checks are now used to diagnose problems with installation.
+* Removed support for soon shutdown libravatar service.
+* New addon to mark unchanged translations as needing edit.
+* Add support for jumping to specific location while translating.
+* Downloaded translations can now be customized.
+* Improved calculation of string similarity in translation memory matches.
+* Added support by signing Git commits by GnuPG.
 
 weblate 3.0.1
 -------------
@@ -105,12 +375,12 @@ Released on December 15th 2017.
 * Improved configuration of special chars virtual keyboard.
 * Added support for DTD file format.
 * Changed keyboard shortcuts to less likely collide with browser/system ones.
-* Improved support for approved flag in Xliff files.
+* Improved support for approved flag in XLIFF files.
 * Added support for not wrapping long strings in Gettext po files.
 * Added button to copy permalink for current translation.
 * Dropped support for Django 1.10 and added support for Django 2.0.
 * Removed locking of translations while translating.
-* Added support for adding new units to monolingual translations.
+* Added support for adding new strings to monolingual translations.
 * Added support for translation workflows with dedicated reviewers.
 
 weblate 2.17.1
@@ -128,7 +398,7 @@ Released on October 13th 2017.
 
 * Weblate by default does shallow Git clones now.
 * Improved performance when updating large translation files.
-* Added support for blocking certain emails from registration.
+* Added support for blocking certain e-mails from registration.
 * Users can now delete their own comments.
 * Added preview step to search and replace feature.
 * Client side persistence of settings in search and upload forms.
@@ -161,7 +431,7 @@ weblate 2.15
 Released on June 30th 2017.
 
 * Show more related translations in other translations.
-* Add option to see translations of current unit to other languages.
+* Add option to see translations of current string to other languages.
 * Use 4 plural forms for Lithuanian by default.
 * Fixed upload for monolingual files of different format.
 * Improved error messages on failed authentication.
@@ -193,7 +463,7 @@ Released on May 17th 2017.
 * Weblate sets Content-Security-Policy by default.
 * The local editor URL is validated to avoid self-XSS.
 * The password is now validated against common flaws by default.
-* Notify users about imporant activity with their account such as password change.
+* Notify users about important activity with their account such as password change.
 * The CSV exports now escape potential formulas.
 * Various minor improvements in security.
 * The authentication attempts are now rate limited.
@@ -294,7 +564,7 @@ Released on Dec 15th 2016.
 * Added support for CSV export.
 * Added CSV download for stats.
 * Added matrix view for quick overview of all translations
-* Added basic API for changes and units.
+* Added basic API for changes and strings.
 * Added support for Apertium APy server for machine translations.
 
 weblate 2.9
@@ -351,7 +621,7 @@ Released on Jul 10th 2016.
 * Fixed Google Translate API for Hebrew language.
 * Compatibility with Mercurial 3.8.
 * Added import_json management command.
-* Correct ordering of listed traslations.
+* Correct ordering of listed translations.
 * Show full suggestion text, not only a diff.
 * Extend API (detailed repository status, statistics, ...).
 * Testsuite no longer requires network access to test repositories.
@@ -384,7 +654,7 @@ Released on Mar 10th 2016.
 * Site wide search can search only in one language.
 * Improve quality checks for Armenian.
 * Support for starting translation components without existing translations.
-* Support for adding new transations in Qt TS.
+* Support for adding new translations in Qt TS.
 * Improved support for translating PHP files.
 * Performance improvements for quality checks.
 * Fixed sitewide search for failing checks.
@@ -406,7 +676,7 @@ Released on Mar 10th 2016.
 * Dropped support for Django 1.7.
 * Dropped dependency on msginit for creating new Gettext po files.
 * Added configurable dashboard views.
-* Improved notifications on parse erorrs.
+* Improved notifications on parse errors.
 * Added option to import components with duplicate name to import_project.
 * Improved support for translating PHP files
 * Added XLIFF export for dictionary.
@@ -429,7 +699,7 @@ Released on Sep 20th 2015.
 * Tigher control on fuzzy strings on translation upload.
 * Several URLs have changed, you might have to update your bookmarks.
 * Hook scripts are executed with VCS root as current directory.
-* Hook scripts are executed with environment variables descriping current component.
+* Hook scripts are executed with environment variables describing current component.
 * Add management command to optimize fulltext index.
 * Added support for error reporting to Rollbar.
 * Projects now can have multiple owners.
@@ -447,7 +717,7 @@ Released on Sep 20th 2015.
 * Direct login/registration links to third party service if that's the only one.
 * Commit pending changes on account removal.
 * Add management command to change site name.
-* Add option to confiugure default committer.
+* Add option to configure default committer.
 * Add hook after adding new translation.
 * Add option to specify multiple files to add to commit.
 
@@ -483,7 +753,7 @@ Released on Feb 19th 2015.
 * Support for deleting comments.
 * Added own SVG badge.
 * Added support for Google Analytics.
-* Improved handling of translation file names.
+* Improved handling of translation filenames.
 * Added support for monolingual JSON translations.
 * Record component locking in a history.
 * Support for editing source (template) language for monolingual translations.
@@ -523,7 +793,7 @@ Released on Nov 6th 2014.
 * Added support for disabling translation suggestions.
 * Django 1.7 support.
 * ACL projects now have user management.
-* Extended search possibilites.
+* Extended search possibilities.
 * Give more hints to translators about plurals.
 * Fixed Git repository locking.
 * Compatibility with older Git versions.
@@ -556,10 +826,10 @@ Released on November 7th 2013.
 * Better visible options for sharing.
 * More control over anonymous users privileges.
 * Supports login using third party services, check manual for more details.
-* Users can login by email instead of username.
+* Users can login by e-mail instead of username.
 * Documentation improvements.
 * Improved source strings review.
-* Searching across all units.
+* Searching across all strings.
 * Better tracking of source strings.
 * Captcha protection for registration.
 
@@ -572,7 +842,7 @@ Released on October 7th 2013.
 * Support for checking Python brace format string.
 * Per component customization of quality checks.
 * Detailed per translation stats.
-* Changed way of linking suggestions, checks and comments to units.
+* Changed way of linking suggestions, checks and comments to strings.
 * Users can now add text to commit message.
 * Support for subscribing on new language requests.
 * Support for adding new translations.
@@ -621,7 +891,7 @@ Released on April 16th 2013.
 * Added possibility to pretty print JSON export.
 * Various performance improvements.
 * Indicate failing checks or fuzzy strings in progress bars for projects or languages as well.
-* Added support for custom pre-commit hooks and commiting additional files.
+* Added support for custom pre-commit hooks and committing additional files.
 * Rewritten search for better performance and user experience.
 * New interface for machine translations.
 * Added support for monolingual po files.
@@ -633,12 +903,12 @@ weblate 1.4
 
 Released on January 23rd 2013.
 
-* Fixed deleting of checks/comments on unit deletion.
+* Fixed deleting of checks/comments on string deletion.
 * Added option to disable automatic propagation of translations.
 * Added option to subscribe for merge failures.
 * Correctly import on projects which needs custom ttkit loader.
 * Added sitemaps to allow easier access by crawlers.
-* Provide direct links to string in notification emails or feeds.
+* Provide direct links to string in notification e-mails or feeds.
 * Various improvements to admin interface.
 * Provide hints for production setup in admin interface.
 * Added per language widgets and engage page.
@@ -652,7 +922,7 @@ Released on January 23rd 2013.
 * Added support for substring search.
 * Various quality checks improvements.
 * Support for per project ACL.
-* Basic unit tests coverage.
+* Basic string tests coverage.
 
 weblate 1.3
 -----------
@@ -695,14 +965,14 @@ Released on August 14th 2012.
 * Simple antispam protection.
 * Better layout of main page.
 * Support for automatically pushing changes on every commit.
-* Support for email notifications of translators.
+* Support for e-mail notifications of translators.
 * List only used languages in preferences.
 * Improved handling of not known languages when importing project.
 * Support for locking translation by translator.
 * Optionally maintain Language-Team header in po file.
 * Include some statistics in about page.
 * Supports (and requires) django-registration 0.8.
-* Caching of counted units with failing checks.
+* Caching of counted strings with failing checks.
 * Checking of requirements during setup.
 * Documentation improvements.
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,31 +18,29 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-import sys
-
-from django.db.models.functions import Lower
-from django.shortcuts import get_object_or_404, redirect
-from django.utils.encoding import force_text
-from django.utils.translation import ugettext as _, ungettext
-from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.core.paginator import Paginator, EmptyPage
-from django.urls import reverse
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
+from django.urls import reverse
+from django.utils.encoding import force_text
 from django.utils.http import urlencode
+from django.utils.translation import ugettext as _
+from django.utils.translation import ungettext
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
-from weblate.utils import messages
 from weblate.formats.exporters import get_exporter
-from weblate.trans.models import Translation, Dictionary, Change, Unit
 from weblate.lang.models import Language
-from weblate.utils.site import get_site_url
+from weblate.trans.forms import DictUploadForm, LetterForm, OneWordForm, WordForm
+from weblate.trans.models import Change, Dictionary, Unit
+from weblate.trans.util import redirect_next, redirect_param, render, sort_objects
+from weblate.utils import messages
 from weblate.utils.errors import report_error
-from weblate.trans.util import render, redirect_next, redirect_param
-from weblate.trans.forms import WordForm, DictUploadForm, LetterForm
-from weblate.trans.views.helper import get_project, import_message
-from weblate.utils.views import get_page_limit
+from weblate.utils.ratelimit import session_ratelimit_post
+from weblate.utils.site import get_site_url
+from weblate.utils.views import get_paginator, get_project, import_message
 
 
 def dict_title(prj, lang):
@@ -56,16 +54,14 @@ def dict_title(prj, lang):
 @never_cache
 def show_dictionaries(request, project):
     obj = get_project(request, project)
-    dicts = Translation.objects.filter(
-        component__project=obj
-    ).values_list('language', flat=True).distinct()
-
     return render(
         request,
         'dictionaries.html',
         {
             'title': _('Dictionaries'),
-            'dicts': Language.objects.filter(id__in=dicts),
+            'dicts': sort_objects(
+                Language.objects.filter(translation__component__project=obj).distinct()
+            ),
             'project': obj,
         }
     )
@@ -115,16 +111,19 @@ def edit_dictionary(request, project, lang, pk):
             'language': lang,
             'form': form,
             'last_changes': last_changes,
-            'last_changes_url': urlencode({
-                'project': prj.slug,
-                'lang': lang.code,
-                'glossary': 1
-            }),
+            'last_changes_url': urlencode((
+                ('project', prj.slug),
+                ('lang', lang.code),
+                ('action', Change.ACTION_DICTIONARY_NEW),
+                ('action', Change.ACTION_DICTIONARY_EDIT),
+                ('action', Change.ACTION_DICTIONARY_UPLOAD),
+            )),
         }
     )
 
 
 @require_POST
+@login_required
 def delete_dictionary(request, project, lang, pk):
     prj = get_project(request, project)
     if not request.user.has_perm('glossary.delete', prj):
@@ -159,6 +158,8 @@ def delete_dictionary(request, project, lang, pk):
 
 
 @require_POST
+@login_required
+@session_ratelimit_post('glossary')
 def upload_dictionary(request, project, lang):
     prj = get_project(request, project)
     if not request.user.has_perm('glossary.upload', prj):
@@ -185,7 +186,7 @@ def upload_dictionary(request, project, lang):
                 )
             )
         except Exception as error:
-            report_error(error, sys.exc_info(), request)
+            report_error(error, request, prefix='Failed to handle upload')
             messages.error(
                 request, _('File upload has failed: %s') % force_text(error)
             )
@@ -215,7 +216,7 @@ def download_dictionary(request, project, lang):
     words = Dictionary.objects.filter(
         project=prj,
         language=lang
-    ).order_by(Lower('source'))
+    ).order()
 
     # Translate toolkit based export
     exporter = get_exporter(export_format)(
@@ -237,6 +238,9 @@ def download_dictionary(request, project, lang):
     )
 
 
+@require_POST
+@login_required
+@session_ratelimit_post('glossary')
 def add_dictionary(request, unit_id):
     unit = get_object_or_404(Unit, pk=int(unit_id))
     request.user.check_access(unit.translation.component.project)
@@ -248,7 +252,7 @@ def add_dictionary(request, unit_id):
     results = ''
     words = []
 
-    if request.method == 'POST' and request.user.has_perm('glossary.add', prj):
+    if request.user.has_perm('glossary.add', prj):
         form = WordForm(request.POST)
         if form.is_valid():
             word = Dictionary.objects.create(
@@ -265,8 +269,8 @@ def add_dictionary(request, unit_id):
                 'glossary-embed.html',
                 {
                     'glossary': (
-                        Dictionary.objects.get_words(unit) |
-                        Dictionary.objects.filter(project=prj, pk__in=words)
+                        Dictionary.objects.get_words(unit).order()
+                        | Dictionary.objects.filter(project=prj, pk__in=words).order()
                     ),
                     'unit': unit,
                     'user': request.user,
@@ -283,6 +287,7 @@ def add_dictionary(request, unit_id):
 
 
 @never_cache
+@session_ratelimit_post('glossary')
 def show_dictionary(request, project, lang):
     prj = get_project(request, project)
     lang = get_object_or_404(Language, code=lang)
@@ -300,18 +305,25 @@ def show_dictionary(request, project, lang):
         return redirect_next(
             request.POST.get('next'), request.get_full_path()
         )
-    else:
-        form = WordForm()
+    form = WordForm()
 
     uploadform = DictUploadForm()
 
     words = Dictionary.objects.filter(
         project=prj, language=lang
-    ).order_by(Lower('source'))
-
-    page, limit = get_page_limit(request, 25)
+    ).order()
 
     letterform = LetterForm(request.GET)
+
+    searchform = OneWordForm(request.GET)
+
+    if searchform.is_valid() and searchform.cleaned_data['term'] != '':
+        words = words.filter(
+            source__icontains=searchform.cleaned_data['term']
+        )
+        search = searchform.cleaned_data['term']
+    else:
+        search = ''
 
     if letterform.is_valid() and letterform.cleaned_data['letter'] != '':
         words = words.filter(
@@ -321,13 +333,7 @@ def show_dictionary(request, project, lang):
     else:
         letter = ''
 
-    paginator = Paginator(words, limit)
-
-    try:
-        words = paginator.page(page)
-    except EmptyPage:
-        # If page is out of range (e.g. 9999), deliver last page of results.
-        words = paginator.page(paginator.num_pages)
+    words = get_paginator(request, words)
 
     last_changes = Change.objects.last_changes(request.user).filter(
         dictionary__project=prj,
@@ -343,17 +349,21 @@ def show_dictionary(request, project, lang):
             'language': lang,
             'page_obj': words,
             'form': form,
-            'query_string': 'letter={}'.format(letter) if letter else '',
+            'query_string': urlencode({
+                'term': search,
+                'letter': letter
+            }),
             'uploadform': uploadform,
             'letterform': letterform,
+            'searchform': searchform,
             'letter': letter,
-            'limit': limit,
-            'page': page,
             'last_changes': last_changes,
-            'last_changes_url': urlencode({
-                'project': prj.slug,
-                'lang': lang.code,
-                'glossary': 1
-            }),
+            'last_changes_url': urlencode((
+                ('project', prj.slug),
+                ('lang', lang.code),
+                ('action', Change.ACTION_DICTIONARY_NEW),
+                ('action', Change.ACTION_DICTIONARY_EDIT),
+                ('action', Change.ACTION_DICTIONARY_UPLOAD),
+            )),
         }
     )

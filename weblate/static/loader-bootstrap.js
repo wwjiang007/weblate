@@ -1,5 +1,6 @@
 var loading = 0;
 var machineTranslationLoaded = false;
+var translationMemoryLoaded = false;
 var activityDataLoaded = false;
 var lastEditor = null;
 
@@ -182,13 +183,15 @@ function screenshotResultSet(results) {
         var row = $(
             '<tr><td class="text"></td>' +
             '<td class="context"></td>' +
-            '<td><a class="add-string btn btn-success"><i class="fa fa-plus"></i> ' +
+            '<td class="location"></td>' +
+            '<td><a class="add-string btn btn-primary"><i class="fa fa-plus"></i> ' +
             gettext('Add to screenshot') +
             '</a><i class="fa fa-spinner fa-spin"></i></tr>'
         );
 
         row.find('.text').text(value.text);
         row.find('.context').text(value.context);
+        row.find('.location').text(value.location);
         row.find('.add-string').data('pk', value.pk);
         row.find('.fa-spin').hide().attr('id', 'adding-' + value.pk);
         $('#search-results').append(row);
@@ -211,6 +214,22 @@ function initEditor() {
     /* Autosizing */
     autosize($('.translation-editor'));
 
+    /* Count chars */
+    $(".translation-editor").keyup(function() {
+        var $this = $(this);
+        var counter = $this.parent().find('.length-indicator');
+        var limit = parseInt(counter.data('max'));
+        var length = $this.val().length;
+        counter.text(length);
+        if (length >= limit) {
+            counter.parent().addClass('badge-danger').removeClass('badge-warning');
+        } else if (length + 10 >= limit) {
+            counter.parent().addClass('badge-warning').removeClass('badge-danger');
+        } else {
+            counter.parent().removeClass('badge-warning').removeClass('badge-danger');
+        }
+    });
+
     /* Copy source text */
     $('.copy-text').click(function (e) {
         var $this = $(this);
@@ -218,7 +237,7 @@ function initEditor() {
         $this.button('loading');
         $this.parents('.translation-item').find('.translation-editor').val(
             $.parseJSON($this.data('content'))
-        );
+        ).change();
         autosize.update($('.translation-editor'));
         $('#id_' + $this.data('checksum') + '_fuzzy').prop('checked', true);
         $this.button('reset');
@@ -240,7 +259,7 @@ function initEditor() {
         var $this = $(this);
         var text = $this.data('value');
 
-        $this.parents('.translation-item').find('.translation-editor').insertAtCaret(text);
+        $this.parents('.translation-item').find('.translation-editor').insertAtCaret(text).change();
         autosize.update($('.translation-editor'));
         e.preventDefault();
     });
@@ -254,17 +273,36 @@ function testChangeHandler(e) {
     $(this).parents('form').find('[name=fuzzy]').prop('checked', false);
 }
 
-function processMachineTranslation(data) {
-    decreaseLoading('#mt-loading');
+function processMachineTranslation(data, scope) {
+    decreaseLoading('#' + scope + '-loading');
     if (data.responseStatus === 200) {
         data.translations.forEach(function (el, idx) {
             var newRow = $('<tr/>').data('quality', el.quality);
             var done = false;
-            var $machineTranslations = $('#machine-translations');
+            var $machineTranslations = $('#' + scope + '-translations');
 
             newRow.append($('<td/>').attr('class', 'target').attr('lang', data.lang).attr('dir', data.dir).text(el.text));
             newRow.append($('<td/>').text(el.source));
-            newRow.append($('<td/>').text(el.service));
+            if (scope === "mt") {
+                var service = $('<td/>').text(el.service);
+                if (typeof el.origin !== 'undefined') {
+                    service.append(' (');
+                    var origin;
+                    if (typeof el.origin_detail !== 'undefined') {
+                        origin = $('<abbr/>').text(el.origin).attr('title', el.origin_detail);
+                    } else if (typeof el.origin_url !== 'undefined') {
+                        origin = $('<a/>').text(el.origin).attr('href', el.origin_url);
+                    } else {
+                        origin = el.origin;
+                    }
+                    service.append(origin);
+                    service.append(')');
+                    // newRow.append($('<td/>').text(interpolate('%s (%s)', [el.service, ])));
+                }
+                newRow.append(service);
+            } else {
+                newRow.append($('<td/>').text(el.origin));
+            }
             /* Quality score as bar with the text */
             newRow.append($(
                 '<td>' +
@@ -286,7 +324,7 @@ function processMachineTranslation(data) {
                 '</a>' +
                 '</td>' +
                 '<td>' +
-                '<a class="copymt-save btn btn-xs btn-success">' +
+                '<a class="copymt-save btn btn-xs btn-primary">' +
                 '<i class="fa fa-save"></i> ' +
                 gettext('Copy and save') +
                 '</a>' +
@@ -305,20 +343,26 @@ function processMachineTranslation(data) {
         $('a.copymt').click(function () {
             var text = $(this).parent().parent().find('.target').text();
 
-            $('.translation-editor').val(text);
+            $('.translation-editor').val(text).change();
             autosize.update($('.translation-editor'));
-            $('#id_fuzzy').prop('checked', true);
+            /* Standard worflow */
+            $('.translation-form input[name="fuzzy"]').prop('checked', true);
+            /* Review workflow */
+            $('.translation-form input[name="review"][value="10"]').prop('checked', true);
         });
         $('a.copymt-save').click(function () {
             var text = $(this).parent().parent().find('.target').text();
 
-            $('.translation-editor').val(text);
+            $('.translation-editor').val(text).change();
             autosize.update($('.translation-editor'));
-            $('#id_fuzzy').prop('checked', false);
+            /* Standard worflow */
+            $('.translation-form input[name="fuzzy"]').prop('checked', false);
+            /* Review workflow */
+            $('.translation-form input[name="review"][value="20"]').prop('checked', true);
             submitForm({target:$('.translation-editor')});
         });
 
-        for (var i = 1; i < 10; i++){
+        for (var i = 1; i < 10; i++) {
             Mousetrap.bindGlobal(
                 ['ctrl+m ' + i, 'command+m ' + i],
                 function() {
@@ -327,23 +371,23 @@ function processMachineTranslation(data) {
             );
         }
 
-        var $machineTranslations = $('#machine-translations');
+        var $machineTranslations = $('#' + scope + '-translations');
 
         $machineTranslations.children('tr').each(function (idx) {
             if (idx < 10) {
                 var key = getNumericKey(idx);
 
                 $(this).find('.mt-number').html(
-                    ' <span class="badge kbd-badge" title="' +
+                    ' <kbd title="' +
                     interpolate(gettext('Ctrl+M then %s'), [key]) +
                     '">' +
                     key +
-                    '</span>'
+                    '</kbd>'
                 );
                 Mousetrap.bindGlobal(
                     ['ctrl+m ' + key, 'command+m ' + key],
-                    function(e) {
-                        $($('#machine-translations').children('tr')[idx]).find('a.copymt').click();
+                    function() {
+                        $($('#' + scope + '-translations').children('tr')[idx]).find('a.copymt').click();
                         return false;
                     }
                 );
@@ -358,28 +402,33 @@ function processMachineTranslation(data) {
             [data.service]
         );
 
-        $('#mt-errors').append(
+        $('#' + scope + '-errors').append(
             $('<li>' + msg + ' ' + data.responseDetails + '</li>')
         );
     }
 }
 
-function failedMachineTranslation(jqXHR, textStatus, errorThrown) {
-    decreaseLoading('#mt-loading');
-    $('#mt-errors').append(
-        $('<li>' + gettext('The request for machine translation has failed:') + ' ' + textStatus + '</li>')
+function failedMachineTranslation(jqXHR, textStatus, errorThrown, scope) {
+    decreaseLoading('#' + scope + '-loading');
+    $('#' + scope + '-errors').append(
+        $('<li>' + gettext('The request for machine translation has failed:') + ' ' + textStatus + ': ' + errorThrown + '</li>')
     );
 }
 
 function loadMachineTranslations(data, textStatus) {
+    var $form = $('#link-post');
     decreaseLoading('#mt-loading');
     data.forEach(function (el, idx) {
         increaseLoading('#mt-loading');
         $.ajax({
-            url: $('#js-translate').attr('href') + '?service=' + el,
-            success: processMachineTranslation,
-            error: failedMachineTranslation,
-            dataType: 'json'
+            type: 'POST',
+            url: $('#js-translate').attr('href').replace('__service__', el),
+            success: function (data) {processMachineTranslation(data, 'mt');},
+            error: function (jqXHR, textStatus, errorThrown) {failedMachineTranslation(jqXHR, textStatus, errorThrown, 'mt');},
+            dataType: 'json',
+            data: {
+                csrfmiddlewaretoken: $form.find('input').val(),
+            },
         });
     });
 }
@@ -434,9 +483,17 @@ function loadTableSorting() {
                 th.click(function () {
 
                     tbody.find('tr').sort(function(a, b) {
+                        var $a = $(a), $b = $(b);
+                        var a_parent = $a.data('parent'), b_parent = $b.data('parent');
+                        if (a_parent) {
+                            $a = tbody.find('#' + a_parent);
+                        }
+                        if (b_parent) {
+                            $b = tbody.find('#' + b_parent);
+                        }
                         return inverse * compareCells(
-                            $.text($(a).find('td,th')[myIndex]),
-                            $.text($(b).find('td,th')[myIndex])
+                            $.text($a.find('td,th')[myIndex]),
+                            $.text($b.find('td,th')[myIndex])
                         );
                     }).appendTo(tbody);
                     thead.find('i.sort-button').removeClass('fa-chevron-down fa-chevron-up').addClass('fa-chevron-down sort-none');
@@ -457,7 +514,7 @@ function loadTableSorting() {
     });
 }
 
-function zenEditor(e) {
+function zenEditor() {
     var $this = $(this);
     var $row = $this.parents('tr');
     var checksum = $row.find('[name=checksum]').val();
@@ -523,7 +580,7 @@ function insertEditor(text, element)
         }
     }
 
-    editor.insertAtCaret($.trim(text));
+    editor.insertAtCaret($.trim(text)).change();
     autosize.update(editor);
 }
 
@@ -544,7 +601,7 @@ function interpolate(fmt, obj, named) {
     if (typeof django !== 'undefined') {
         return django.interpolate(fmt, obj, named);
     }
-    return fmt.replace(/%s/g, function(match){return String(obj.shift())});
+    return fmt.replace(/%s/g, function() {return String(obj.shift())});
 }
 
 function load_matrix() {
@@ -582,10 +639,10 @@ $(function () {
         };
         $content.load(
             $target.data('href'),
-            function (response, status, xhr) {
-                if ( status === 'error' ) {
+            function (responseText, status, xhr) {
+                if ( status !== 'success' ) {
                     var msg = gettext('Error while loading page:');
-                    $content.html( msg + ' '  + xhr.status + ' ' + xhr.statusText );
+                    $content.text(msg + ' ' + xhr.statusText + ' (' + xhr.status + '): ' + responseText);
                 }
                 $target.data('loaded', 1);
                 loadTableSorting();
@@ -626,10 +683,49 @@ $(function () {
         });
     });
 
+    /* Translation memory */
+    $document.on('show.bs.tab', '[data-load="memory"]', function (e) {
+        if (translationMemoryLoaded) {
+            return;
+        }
+        translationMemoryLoaded = true;
+        increaseLoading('#memory-loading');
+        var $form = $('#link-post');
+        $.ajax({
+            type: 'POST',
+            url: $('#js-translate').attr('href').replace('__service__', 'weblate-translation-memory'),
+            success: function (data) {processMachineTranslation(data, 'memory');},
+            error: function (jqXHR, textStatus, errorThrown) {failedMachineTranslation(jqXHR, textStatus, errorThrown, 'memory');},
+            dataType: 'json',
+            data: {
+                csrfmiddlewaretoken: $form.find('input').val(),
+            },
+        });
+    });
+
+    $('#memory-search').submit(function () {
+        var form = $(this);
+
+        increaseLoading('#memory-loading');
+        $('#memory-translations').empty();
+        $.ajax({
+            type: 'POST',
+            url: form.attr('action'),
+            data: form.serialize(),
+            dataType: 'json',
+            success: function (data) {processMachineTranslation(data, 'memory');},
+            error: function (jqXHR, textStatus, errorThrown) {failedMachineTranslation(jqXHR, textStatus, errorThrown, 'memory');},
+        });
+        return false;
+    });
+
     /* Git commit tooltip */
-    $document.tooltip({
-        selector: '.html-tooltip',
-        html: true
+    $('.html-tooltip').each(function () {
+        var $this = $(this);
+        $this.tooltip({
+            html: true,
+            title: $this.find('.tooltip-content').html()
+        });
     });
     $('.text-tooltip').tooltip();
 
@@ -675,12 +771,6 @@ $(function () {
         }
     });
 
-    /* Priority editor */
-    $('.edit-priority').click(function (e) {
-        e.preventDefault();
-        $(this).closest('tr').find('.expander').first().click();
-    });
-
     /* Auto expand expander */
     $('.auto-expand').each(function () {
         $(this).click();
@@ -691,6 +781,13 @@ $(function () {
     /* Load correct tab */
     if (location.hash !== '') {
         /* From URL hash */
+        var separator = location.hash.indexOf('__');
+        if (separator != -1) {
+            activeTab = $('[data-toggle=tab][href="' + location.hash.substr(0, separator) + '"]');
+            if (activeTab.length) {
+                activeTab.tab('show');
+            }
+        }
         activeTab = $('[data-toggle=tab][href="' + location.hash + '"]');
         if (activeTab.length) {
             activeTab.tab('show');
@@ -808,6 +905,25 @@ $(function () {
     /* Generic tooltips */
     $('.tooltip-control').tooltip();
 
+    /* Whiteboard message discard */
+    $('.alert').on('close.bs.alert', function () {
+        var $this = $(this);
+        var $form = $('#link-post');
+
+        if ($this.data('action')) {
+            $.ajax({
+                type: 'POST',
+                url: $this.data('action'),
+                data: {
+                    csrfmiddlewaretoken: $form.find('input').val(),
+                    id: $this.data('id'),
+                },
+            });
+        }
+        $this.tooltip('destroy');
+    });
+
+
     /* Check ignoring */
     $('.check').on('close.bs.alert', function () {
         var $this = $(this);
@@ -826,8 +942,8 @@ $(function () {
     });
 
     /* Copy from dictionary */
-    $('.copydict').click(function (e) {
-        var text = $(this).parents('tr').find('.target').text();
+    $document.on('click', '.glossary-embed', function (e) {
+        var text = $(this).find('.target').text();
 
         insertEditor(text);
         e.preventDefault();
@@ -835,7 +951,7 @@ $(function () {
 
 
     /* Copy from source text highlight check */
-    $('.hlcheck').click(function (e) {
+    $document.on('click', '.hlcheck', function (e) {
         var text = $(this).clone();
 
         text.find('.highlight-number').remove();
@@ -853,19 +969,14 @@ $(function () {
         );
     }
     if ($('.hlcheck').length>0) {
-        $('.hlcheck').each(function(idx){
+        $('.hlcheck').each(function(idx) {
             var $this = $(this);
 
             if (idx < 10) {
                 let key = getNumericKey(idx);
 
-                $(this).find('.highlight-number').html(
-                    '<span class="badge kbd-badge" title="' +
-                    interpolate(gettext('Ctrl/Command+%s'), [key]) +
-                    '">' +
-                    key +
-                    '</span>'
-                );
+                $(this).attr('title', interpolate(gettext('Ctrl/Command+%s'), [key]));
+                $(this).find('.highlight-number').html('<kbd>' + key + '</kbd>');
 
                 Mousetrap.bindGlobal(
                     ['ctrl+' + key, 'command+' + key],
@@ -878,7 +989,14 @@ $(function () {
                 $this.find('.highlight-number').html('');
             }
         });
+        $('.highlight-number').hide();
     }
+    Mousetrap.bindGlobal(['ctrl', 'command'], function (e) {
+        $('.highlight-number').show();
+    }, 'keydown');
+    Mousetrap.bindGlobal(['ctrl', 'command'], function (e) {
+        $('.highlight-number').hide();
+    }, 'keyup');
 
     /* Widgets selector */
     $('.select-tab').on('change', function (e) {
@@ -895,9 +1013,12 @@ $(function () {
     loadTableSorting();
 
     /* Table column changing */
-    var columnsMenu = $('#columns-menu');
-    if (columnsMenu.length > 0) {
+    $('.columns-menu').each(function () {
+        var columnsMenu = $(this);
         var columnsPanel = columnsMenu.closest('div.tab-pane');
+        if (columnsPanel.length === 0) {
+            columnsPanel = columnsMenu.closest('div.content');
+        }
         var width = columnsPanel.width();
 
         columnsMenu.on('click', function(e) {
@@ -914,7 +1035,9 @@ $(function () {
             e.stopPropagation();
             e.preventDefault();
         });
-
+        if (width < 800) {
+            columnsMenu.find('#toggle-comments').click();
+        }
         if (width < 700) {
             columnsMenu.find('#toggle-suggestions').click();
         }
@@ -925,14 +1048,18 @@ $(function () {
             columnsMenu.find('#toggle-fuzzy').click();
         }
         if (width < 500) {
+            columnsMenu.find('#toggle-words-total').click();
+            columnsMenu.find('#toggle-strings-total').click();
+        }
+        if (width < 300) {
             columnsMenu.find('#toggle-words').click();
         }
-    }
+    });
 
     /* Matrix mode handling */
     if ($('.matrix').length > 0) {
         load_matrix();
-        $window.scroll(function(){
+        $window.scroll(function() {
             if ($window.scrollTop() >= $document.height() - (2 * $window.height())) {
                 load_matrix();
             }
@@ -942,7 +1069,7 @@ $(function () {
 
     /* Zen mode handling */
     if ($('.zen').length > 0) {
-        $window.scroll(function(){
+        $window.scroll(function() {
             var $loadingNext = $('#loading-next');
             var loader = $('#zen-load');
 
@@ -964,6 +1091,21 @@ $(function () {
                         initEditor();
                     }
                 );
+            }
+        });
+
+        /*
+         * Ensure current editor is reasonably located in the window
+         * - show whole element if moving back
+         * - scroll down if in bottom half of the window
+         */
+        $document.on('focus', '.zen .translation-editor', function() {
+            var current = $window.scrollTop();
+            var row_offset = $(this).parents('tbody').offset().top;
+            if (row_offset < current || row_offset - current > $window.height() / 2) {
+                $([document.documentElement, document.body]).animate({
+                    scrollTop: row_offset
+                }, 100);
             }
         });
 
@@ -1000,7 +1142,7 @@ $(function () {
             return false;
         });
 
-        $window.on('beforeunload', function(){
+        $window.on('beforeunload', function() {
             if ($('.translation-modified').length > 0) {
                 return gettext('There are some unsaved changes, are you sure you want to leave?');
             }
@@ -1090,18 +1232,18 @@ $(function () {
     }
 
     if ($('.check').length > 0) {
-        $($('.check')[0].parentNode).children('.check').each(function(idx){
+        $($('.check')[0].parentNode).children('.check').each(function(idx) {
             var $this = $(this);
 
             if (idx < 10) {
                 let key = getNumericKey(idx);
 
                 $(this).find('.check-number').html(
-                    ' <span class="badge kbd-badge" title="' +
+                    ' <kbd title="' +
                     interpolate(gettext('Ctrl+I then %s'), [key]) +
                     '">' +
                     key +
-                    '</span>'
+                    '</kbd>'
                 );
 
                 Mousetrap.bindGlobal(
@@ -1118,7 +1260,7 @@ $(function () {
     }
 
     /* Labels in dropdown menu in Dashboard */
-    $('#views-menu li a').click(function(){
+    $('#views-menu li a').click(function() {
       $('#views-title').html($(this).text()+' <span class="caret"></span>');
     });
 
@@ -1232,7 +1374,7 @@ $(function () {
     });
 
     /* Avoid double submission of non AJAX forms */
-    $('form:not(.double-submission)').on('submit', function(e){
+    $('form:not(.double-submission)').on('submit', function(e) {
         var $form = $(this);
 
         if ($form.data('submitted') === true) {
@@ -1299,7 +1441,7 @@ $(function () {
     }
 
     /* Copy to clipboard */
-    var clipboard = new Clipboard('[data-clipboard-text]');
+    var clipboard = new ClipboardJS('[data-clipboard-text]');
     clipboard.on('success', function(e) {
         var $trigger = $(e.trigger);
         // Backup current text
@@ -1345,4 +1487,61 @@ $(function () {
             window.localStorage.translation_autosave = JSON.stringify(data.get());
         }
     });
+
+    /* Slugify name */
+    $('input[name="slug"]').each(function () {
+        var $slug = $(this);
+        var $form = $slug.parents('form');
+        $form.find('input[name="name"]').on('change keypress keydown paste', function () {
+            $slug.val(slugify($(this).val()).toLowerCase());
+        });
+
+    });
+
+    /* Component update progress */
+    $('[data-progress-url]').each(function () {
+        var $progress = $(this);
+        var $pre = $progress.find('pre'), $bar = $progress.find('.progress-bar');
+
+        $pre.animate({scrollTop: $pre.get(0).scrollHeight});
+
+        var progress_interval = setInterval(function() {
+            $.get($progress.data('progress-url'), function (data) {
+                $bar.width(data.progress + '%');
+                $pre.text(data.log);
+                $pre.animate({scrollTop: $pre.get(0).scrollHeight});
+                if (! data.in_progress) {
+                    clearInterval(progress_interval);
+                    if ($('#progress-redirect').prop('checked')) {
+                        window.location = $('#progress-return').attr('href');
+                    }
+                }
+            });
+        }, 1000);
+    });
+
+    /* Disable invalid file format choices */
+    $('.invalid-format').each(function () {
+        $(this).parent().find('input').attr('disabled', '1');
+    });
+
+    /* Branch loading */
+    $('.branch-loader select[name=component]').change(function () {
+        var $this = $(this);
+        var $form = $this.parents('form');
+        var branches = $form.data('branches');
+        var $select = $form.find('select[name=branch]');
+        $select.empty();
+        $.each(branches[$this.val()], function(key, value) {
+            $select.append($("<option></option>").attr("value", value).text(value));
+        });
+    });
+
+    /* Warn users that they do not want to use developer console in most cases */
+    console.log("%cStop!", "color: red; font-weight: bold; font-size: 50px;");
+    console.log( "%cThis is a console for developers. If someone has asked you to open this "
+               + "window, they are likely trying to compromise your Weblate account."
+               , "color: red;"
+                );
+    console.log("%cPlease close this window now.", "color: blue;");
 });

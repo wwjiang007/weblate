@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -26,12 +26,16 @@ from django.utils.html import strip_tags
 from django.utils.translation import ugettext_lazy as _
 
 from weblate.checks.base import TargetCheck
-from weblate.checks.format import (
-    PYTHON_PRINTF_MATCH, PHP_PRINTF_MATCH, C_PRINTF_MATCH,
-    PYTHON_BRACE_MATCH,
-)
 from weblate.checks.data import SAME_BLACKLIST
+from weblate.checks.format import (
+    C_PRINTF_MATCH,
+    PHP_PRINTF_MATCH,
+    PYTHON_BRACE_MATCH,
+    PYTHON_PRINTF_MATCH,
+)
 from weblate.checks.languages import LANGUAGES
+from weblate.checks.qt import QT_FORMAT_MATCH, QT_PLURAL_MATCH
+from weblate.checks.ruby import RUBY_FORMAT_MATCH
 
 # Email address to ignore
 EMAIL_RE = re.compile(
@@ -60,16 +64,19 @@ DOMAIN_RE = re.compile(
 
 PATH_RE = re.compile(r'(^|[ ])(/[a-zA-Z0-9=:?._-]+)+')
 
-TEMPLATE_RE = re.compile(r'{[a-z_-]+}|@[A-Z_]@')
+TEMPLATE_RE = re.compile(r'{[a-z_-]+}|@[A-Z_]@', re.IGNORECASE)
 
 RST_MATCH = re.compile(
     r'(?::(ref|config:option|file|guilabel):`[^`]+`|``[^`]+``)'
 )
 
 SPLIT_RE = re.compile(
-    r'(?:\&(?:nbsp|rsaquo|lt|gt|amp|ldquo|rdquo|times|quot);|' +
-    r'[() ,.^`"\'\\/_<>!?;:|{}*^@%#&~=+\r\n✓—‑…\[\]0-9-])+'
+    r'(?:\&(?:nbsp|rsaquo|lt|gt|amp|ldquo|rdquo|times|quot);|'
+    + r'[() ,.^`"\'\\/_<>!?;:|{}*^@%#&~=+\r\n✓—‑…\[\]0-9-])+',
+    re.IGNORECASE
 )
+
+EMOJI_RE = re.compile(u'[\U00002600-\U000027BF]|[\U0001f000-\U0001fffd]')
 
 # Docbook tags to ignore
 DB_TAGS = (
@@ -92,6 +99,12 @@ def strip_format(msg, flags):
         regex = PHP_PRINTF_MATCH
     elif 'c-format' in flags:
         regex = C_PRINTF_MATCH
+    elif 'qt-format' in flags:
+        regex = QT_FORMAT_MATCH
+    elif 'qt-plural-format' in flags:
+        regex = QT_PLURAL_MATCH
+    elif 'ruby-format' in flags:
+        regex = RUBY_FORMAT_MATCH
     elif 'rst-text' in flags:
         regex = RST_MATCH
     else:
@@ -107,6 +120,9 @@ def strip_string(msg, flags):
 
     # Strip format strings
     stripped = strip_format(stripped, flags)
+
+    # Remove emojis
+    stripped = EMOJI_RE.sub(' ', stripped)
 
     # Remove email addresses
     stripped = EMAIL_RE.sub('', stripped)
@@ -152,42 +168,39 @@ class SameCheck(TargetCheck):
         lower_source = source.lower()
 
         # Check special things like 1:4 1/2 or copyright
-        if (len(source.strip('0123456789:/,.')) <= 1 or
-                '(c) copyright' in lower_source or
-                '©' in source):
-            result = True
+        if (len(source.strip('0123456789:/,.')) <= 1
+                or '(c) copyright' in lower_source
+                or '©' in source):
+            return True
         else:
             # Strip format strings
-            stripped = strip_string(lower_source, unit.all_flags)
+            stripped = strip_string(source, unit.all_flags)
 
             # Ignore strings which don't contain any string to translate
             # or just single letter (usually unit or something like that)
-            if len(stripped) <= 1:
-                result = True
+            # or are whole uppercase (abbreviations)
+            if len(stripped) <= 1 or stripped.isupper():
+                return True
             else:
                 # Check if we have any word which is not in blacklist
                 # (words which are often same in foreign language)
-                for word in SPLIT_RE.split(stripped):
+                for word in SPLIT_RE.split(stripped.lower()):
                     if not test_word(word):
                         return False
                 return True
-
-        return result
 
     def should_skip(self, unit):
         if super(SameCheck, self).should_skip(unit):
             return True
 
         source_language = unit.translation.component.project.\
-            source_language.code.split('_')[0]
+            source_language.base_code
 
-        # Ignore the check for source language
-        if self.is_language(unit, source_language):
-            return True
-
+        # Ignore the check for source language,
         # English variants will have most things not translated
         # Interlingua is also quite often similar to English
-        elif source_language == 'en' and self.is_language(unit, ('en', 'ia')):
+        if (self.is_language(unit, source_language)
+                or (source_language == 'en' and self.is_language(unit, ('en', 'ia')))):
             return True
 
         return False
@@ -195,10 +208,6 @@ class SameCheck(TargetCheck):
     def check_single(self, source, target, unit):
         # One letter things are usually labels or decimal/thousand separators
         if len(source) <= 1 and len(target) <= 1:
-            return False
-
-        # Probably shortcut
-        if source.isupper() and target.isupper():
             return False
 
         # Check for ignoring

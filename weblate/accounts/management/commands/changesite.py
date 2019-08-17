@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,10 +19,10 @@
 #
 
 
-from django.core.management.base import BaseCommand, CommandError
 from django.contrib.sites.models import Site
+from django.core.management.base import BaseCommand, CommandError
 
-from weblate.trans.util import check_domain
+from weblate.utils.site import check_domain
 
 
 class Command(BaseCommand):

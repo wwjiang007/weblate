@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,44 +18,29 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from io import BytesIO
+import gettext
 import os
 import re
 import sys
-
-from PIL import Image
+from io import BytesIO
 
 import six
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email as validate_email_django
 from django.utils.translation import ugettext as _
-
-from weblate.utils.render import render_template
-
+from PIL import Image
 
 USERNAME_MATCHER = re.compile(r'^[\w@+-][\w.@+-]*$')
 
-# Reject some suspicious email addresses, based on checks enforced by Exim MTA
+# Reject some suspicious e-mail addresses, based on checks enforced by Exim MTA
 EMAIL_BLACKLIST = re.compile(r'^([./|]|.*([@%!`#&?]|/\.\./))')
 
 ALLOWED_IMAGES = frozenset((
     'image/jpeg',
     'image/png',
-))
-
-# List of schemes not allowed in editor URL
-# This list is not intededed to be complete, just block
-# the possibly dangerous ones.
-FORBIDDEN_URL_SCHEMES = frozenset((
-    'javascript',
-    'data',
-    'vbscript',
-    'mailto',
-    'ftp',
-    'sms',
-    'tel',
+    'image/apng',
+    'image/gif',
 ))
 
 # File formats we do not accept on translation/glossary upload
@@ -68,7 +53,6 @@ FORBIDDEN_EXTENSIONS = frozenset((
     '.rtf',
     '.xls',
     '.docx',
-    '.xlsx',
     '.html',
     '.py',
     '.js',
@@ -151,44 +135,6 @@ def validate_bitmap(value):
         )
 
 
-def validate_repoweb(val):
-    """Validate whether URL for repository browser is valid.
-
-    It checks whether it can be filled in using format string.
-    """
-    try:
-        val % {
-            'file': 'file.po',
-            '../file': 'file.po',
-            '../../file': 'file.po',
-            '../../../file': 'file.po',
-            'line': '9',
-            'branch': 'master'
-        }
-    except Exception as error:
-        raise ValidationError(_('Bad format string (%s)') % str(error))
-
-
-def validate_editor(val):
-    """Validate URL for custom editor link.
-
-    - Check whether it correctly uses format strings.
-    - Check whether scheme is sane.
-    """
-    if not val:
-        return
-    validate_repoweb(val)
-
-    if ':' not in val:
-        raise ValidationError(_('The editor link lacks URL scheme!'))
-
-    scheme = val.split(':', 1)[0]
-
-    # Block forbidden schemes as well as format strings
-    if scheme.strip().lower() in FORBIDDEN_URL_SCHEMES or '%' in scheme:
-        raise ValidationError(_('Forbidden URL scheme!'))
-
-
 def clean_fullname(val):
     """Remove special chars from user full name."""
     if not val:
@@ -215,16 +161,6 @@ def validate_file_extension(value):
     return value
 
 
-def validate_render(value, **kwargs):
-    """Validates rendered template."""
-    try:
-        render_template(value, **kwargs)
-    except Exception as err:
-        raise ValidationError(
-            _('Failed to render template: {}').format(err)
-        )
-
-
 def validate_username(value):
     if value.startswith('.'):
         raise ValidationError(
@@ -238,9 +174,30 @@ def validate_username(value):
 
 
 def validate_email(value):
-    validate_email_django(value)
+    try:
+        validate_email_django(value)
+    except ValidationError:
+        raise ValidationError(_('Enter a valid e-mail address.'))
     user_part = value.rsplit('@', 1)[0]
     if EMAIL_BLACKLIST.match(user_part):
-        raise ValidationError(_('Enter a valid email address.'))
+        raise ValidationError(_('Enter a valid e-mail address.'))
     if not re.match(settings.REGISTRATION_EMAIL_MATCH, value):
-        raise ValidationError(_('This email address is not allowed.'))
+        raise ValidationError(_('This e-mail address is not allowed.'))
+
+
+def validate_pluraleq(value):
+    try:
+        gettext.c2py(value if value else '0')
+    except ValueError as error:
+        raise ValidationError(
+            _('Failed to evaluate plural equation: {}').format(error)
+        )
+
+
+def validate_filename(value):
+    if '../' in value or '..\\' in value:
+        raise ValidationError(
+            _('Filename can not contain reference to a parent directory.')
+        )
+    if os.path.isabs(value):
+        raise ValidationError(_('Filename can not be an absolute path.'))

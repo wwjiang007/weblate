@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,17 +20,24 @@
 
 from __future__ import unicode_literals
 
+from django.conf import settings
 from django.db import models
 from django.urls import reverse
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
 
-from weblate.trans.models import Source, Component
 from weblate.screenshots.fields import ScreenshotField
+from weblate.trans.mixins import UserDisplayMixin
+from weblate.trans.models import Component, Source
+
+
+class ScreenshotQuerySet(models.QuerySet):
+    def order(self):
+        return self.order_by('name')
 
 
 @python_2_unicode_compatible
-class Screenshot(models.Model):
+class Screenshot(models.Model, UserDisplayMixin):
     name = models.CharField(
         verbose_name=_('Screenshot name'),
         max_length=200,
@@ -49,9 +56,13 @@ class Screenshot(models.Model):
         blank=True,
         related_name='screenshots',
     )
+    timestamp = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.deletion.SET_NULL
+    )
 
-    class Meta(object):
-        ordering = ['name']
+    objects = ScreenshotQuerySet.as_manager()
 
     def __str__(self):
         return self.name

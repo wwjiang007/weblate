@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,39 +23,44 @@ import difflib
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import ugettext as _
 from django.views.decorators.http import require_POST
-from django.views.generic import ListView, DetailView
-from django.shortcuts import get_object_or_404, redirect, render
-
+from django.views.generic import DetailView, ListView
 from PIL import Image
-
-try:
-    from tesserocr import PyTessBaseAPI, RIL
-    HAS_OCR = True
-except ImportError:
-    HAS_OCR = False
 
 from weblate.screenshots.forms import ScreenshotForm
 from weblate.screenshots.models import Screenshot
 from weblate.trans.models import Source
 from weblate.utils import messages
+from weblate.utils.locale import c_locale
 from weblate.utils.views import ComponentViewMixin
+
+try:
+    with c_locale():
+        from tesserocr import PyTessBaseAPI, RIL
+    HAS_OCR = True
+except ImportError:
+    HAS_OCR = False
 
 
 def try_add_source(request, obj):
-    if 'source' not in request.POST or not request.POST['source'].isdigit():
+    if 'source' not in request.POST:
         return False
 
     try:
         source = Source.objects.get(
-            pk=request.POST['source'],
+            pk=int(request.POST['source']),
             component=obj.component
         )
-        obj.sources.add(source)
-        return True
-    except Source.DoesNotExist:
+    except (Source.DoesNotExist, ValueError):
         return False
+
+    if obj.component_id != source.component_id:
+        return False
+
+    obj.sources.add(source)
+    return True
 
 
 class ScreenshotList(ListView, ComponentViewMixin):
@@ -65,7 +70,7 @@ class ScreenshotList(ListView, ComponentViewMixin):
 
     def get_queryset(self):
         self.kwargs['component'] = self.get_component()
-        return Screenshot.objects.filter(component=self.kwargs['component'])
+        return Screenshot.objects.filter(component=self.kwargs['component']).order()
 
     def get_context_data(self):
         result = super(ScreenshotList, self).get_context_data()
@@ -86,8 +91,12 @@ class ScreenshotList(ListView, ComponentViewMixin):
         if self._add_form.is_valid():
             obj = Screenshot.objects.create(
                 component=component,
+                user=request.user,
                 **self._add_form.cleaned_data
             )
+            request.user.profile.uploaded += 1
+            request.user.profile.save(update_fields=['uploaded'])
+
             try_add_source(request, obj)
             messages.success(
                 request,
@@ -130,6 +139,10 @@ class ScreenshotDetail(DetailView):
                 request.POST, request.FILES, instance=obj
             )
             if self._edit_form.is_valid():
+                if request.FILES:
+                    obj.user = request.user
+                    request.user.profile.uploaded += 1
+                    request.user.profile.save(update_fields=['uploaded'])
                 self._edit_form.save()
             else:
                 return self.get(request, **kwargs)
@@ -185,7 +198,12 @@ def search_results(code, obj, units=None):
         )
 
     results = [
-        {'text': unit.get_source_plurals()[0], 'pk': unit.source_info.pk}
+        {
+            'text': unit.get_source_plurals()[0],
+            'pk': unit.source_info.pk,
+            'context': unit.context,
+            'location': unit.location
+        }
         for unit in units
     ]
 
@@ -229,6 +247,7 @@ def ocr_extract(api, image, strings):
         for part in parts:
             for match in difflib.get_close_matches(part, strings, cutoff=0.9):
                 yield match
+    api.Clear()
 
 
 @login_required
@@ -259,7 +278,7 @@ def ocr_search(request, pk):
     results = set()
 
     # Extract and match strings
-    with PyTessBaseAPI() as api:
+    with c_locale(), PyTessBaseAPI() as api:
         for image in (original_image, scaled_image):
             for match in ocr_extract(api, image, strings):
                 results.add(sources[match])

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -27,7 +27,7 @@ def get_project_stats(project):
     """Return stats for project"""
     return [
         {
-            'language': force_text(tup.language.name),
+            'language': force_text(tup.language),
             'code': tup.language.code,
             'total': tup.all,
             'translated': tup.translated,

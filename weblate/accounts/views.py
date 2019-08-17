@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,59 +20,85 @@
 
 from __future__ import unicode_literals
 
-from django.db import transaction
-from django.shortcuts import render, get_object_or_404, redirect
-from django.http import HttpResponse, HttpResponseRedirect
-from django.contrib.auth import logout
+import re
+from collections import defaultdict
+
+import social_django.utils
 from django.conf import settings
-from django.middleware.csrf import rotate_token
-from django.utils.translation import ugettext as _
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LoginView, LogoutView
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail.message import EmailMultiAlternatives
+from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
+from django.db import transaction
+from django.db.models import Q
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.middleware.csrf import rotate_token
+from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import translation
 from django.utils.cache import patch_response_headers
 from django.utils.crypto import get_random_string
 from django.utils.decorators import method_decorator
-from django.utils.translation import get_language
-from django.contrib.auth.views import LoginView, LogoutView
-from django.views.generic import TemplateView, ListView
-from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_exempt
-from django.urls import reverse
 from django.utils.http import urlencode
-from django.template.loader import render_to_string
-
+from django.utils.translation import get_language
+from django.utils.translation import ugettext as _
+from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from django.views.generic import ListView, TemplateView
 from rest_framework.authtoken.models import Token
-
 from social_core.backends.utils import load_backends
 from social_core.exceptions import (
-    AuthMissingParameter, InvalidEmail, AuthFailed, AuthCanceled,
-    AuthStateMissing, AuthStateForbidden, AuthAlreadyAssociated,
+    AuthAlreadyAssociated,
+    AuthCanceled,
+    AuthFailed,
     AuthForbidden,
+    AuthMissingParameter,
+    AuthStateForbidden,
+    AuthStateMissing,
+    InvalidEmail,
 )
-import social_django.utils
-from social_django.views import complete, auth
+from social_django.views import auth, complete
 
-from weblate.auth.models import User
-from weblate.accounts.forms import (
-    RegistrationForm, PasswordConfirmForm, EmailForm, ResetForm,
-    LoginForm, HostingForm, CaptchaForm, SetPasswordForm,
-    EmptyConfirmForm,
-)
-from weblate.accounts.ratelimit import check_rate_limit
-from weblate.logger import LOGGER
 from weblate.accounts.avatar import get_avatar_image, get_fallback_avatar_url
-from weblate.accounts.models import set_lang, Profile
-from weblate.accounts.utils import remove_user
-from weblate.utils import messages
-from weblate.trans.models import Change, Project, Component, Suggestion
-from weblate.trans.views.helper import get_project
 from weblate.accounts.forms import (
-    ProfileForm, SubscriptionForm, UserForm, ContactForm,
-    SubscriptionSettingsForm, UserSettingsForm, DashboardSettingsForm
+    CaptchaForm,
+    ContactForm,
+    DashboardSettingsForm,
+    EmailForm,
+    EmptyConfirmForm,
+    HostingForm,
+    LoginForm,
+    NotificationForm,
+    PasswordConfirmForm,
+    ProfileForm,
+    RegistrationForm,
+    ResetForm,
+    SetPasswordForm,
+    SubscriptionForm,
+    UserForm,
+    UserSettingsForm,
 )
-from weblate.accounts.notifications import notify_account_activity
+from weblate.accounts.models import AuditLog, Subscription, set_lang
+from weblate.accounts.notifications import (
+    FREQ_NONE,
+    NOTIFICATIONS,
+    SCOPE_ADMIN,
+    SCOPE_COMPONENT,
+    SCOPE_DEFAULT,
+    SCOPE_PROJECT,
+)
+from weblate.accounts.utils import remove_user
+from weblate.auth.models import User
+from weblate.logger import LOGGER
+from weblate.trans.models import Change, Component, Project, Suggestion
+from weblate.utils import messages
+from weblate.utils.errors import report_error
+from weblate.utils.ratelimit import check_rate_limit, session_ratelimit_post
+from weblate.utils.views import get_component, get_project
 
 CONTACT_TEMPLATE = '''
 Message from %(name)s <%(email)s>:
@@ -101,9 +127,13 @@ CONTACT_SUBJECTS = {
     'account': 'Suspicious account activity',
 }
 
+ANCHOR_RE = re.compile(r'^#[a-z]+$')
+
+NOTIFICATION_PREFIX_TEMPLATE = 'notifications__{}'
+
 
 class EmailSentView(TemplateView):
-    """Class for rendering email sent page."""
+    """Class for rendering e-mail sent page."""
     template_name = 'accounts/email-sent.html'
 
     def get_context_data(self, **kwargs):
@@ -113,6 +143,8 @@ class EmailSentView(TemplateView):
         )
         context['is_reset'] = False
         context['is_remove'] = False
+        # This view is not visible for invitation that's
+        # why don't handle user_invite here
         if kwargs['password_reset']:
             context['title'] = _('Password reset')
             context['is_reset'] = True
@@ -130,6 +162,7 @@ class EmailSentView(TemplateView):
 
         kwargs['password_reset'] = request.session['password_reset']
         kwargs['account_remove'] = request.session['account_remove']
+        kwargs['user_invite'] = request.session['user_invite']
         # Remove session for not authenticated user here.
         # It is no longer needed and will just cause problems
         # with multiple registrations from single browser.
@@ -176,58 +209,100 @@ def mail_admins_contact(request, subject, message, context, sender, to):
     )
 
 
-def deny_demo(request):
-    """Deny editing of demo account on demo server."""
-    messages.warning(
-        request,
-        _('You cannot change demo account on the demo server.')
-    )
-    return redirect_profile(request.POST.get('activetab'))
-
-
-def avoid_demo(function):
-    """Avoid page being served to demo account."""
-    def demo_wrap(request, *args, **kwargs):
-        if request.user.is_demo:
-            return deny_demo(request)
-        return function(request, *args, **kwargs)
-    return demo_wrap
-
-
-def session_ratelimit_post(function):
-    """Session based rate limiting for POST requests."""
-    def rate_wrap(request, *args, **kwargs):
-        attempts = request.session.get('auth_attempts', 0)
-        if request.method == 'POST':
-            if attempts >= settings.AUTH_MAX_ATTEMPTS:
-                rotate_token(request)
-                if request.user.is_authenticated:
-                    logout(request)
-                messages.error(
-                    request,
-                    _('Too many attempts, you have been logged out!')
-                )
-                return redirect('login')
-            request.session['auth_attempts'] = attempts + 1
-        return function(request, *args, **kwargs)
-    return rate_wrap
-
-
-def session_ratelimit_reset(request):
-    request.session['auth_attempts'] = 0
-
-
 def redirect_profile(page=''):
     url = reverse('profile')
-    if page and page.startswith('#'):
+    if page and ANCHOR_RE.match(page):
         url = url + page
     return HttpResponseRedirect(url)
+
+
+def get_notification_forms(request):
+    user = request.user
+    if request.method == 'POST':
+        for i in range(1000):
+            prefix = NOTIFICATION_PREFIX_TEMPLATE.format(i)
+            if prefix + '-scope' in request.POST:
+                yield NotificationForm(
+                    request.user,
+                    i > 0,
+                    {},
+                    i == 0,
+                    prefix=prefix,
+                    data=request.POST
+                )
+    else:
+        subscriptions = defaultdict(dict)
+        initials = {}
+
+        # Ensure default and admin scopes are visible
+        for needed in (SCOPE_DEFAULT, SCOPE_ADMIN):
+            key = (needed, None, None)
+            subscriptions[key] = {}
+            initials[key] = {
+                'scope': needed, 'project': None, 'component': None
+            }
+        active = (SCOPE_DEFAULT, None, None)
+
+        # Include additional scopes from request
+        if 'notify_project' in request.GET:
+            try:
+                project = user.allowed_projects.get(
+                    pk=request.GET['notify_project']
+                )
+                active = key = (SCOPE_PROJECT, project.pk, None)
+                subscriptions[key] = {}
+                initials[key] = {
+                    'scope': SCOPE_PROJECT,
+                    'project': project,
+                    'component': None
+                }
+            except (ObjectDoesNotExist, ValueError):
+                pass
+        if 'notify_component' in request.GET:
+            try:
+                component = Component.objects.get(
+                    project__in=user.allowed_projects,
+                    pk=request.GET['notify_component']
+                )
+                active = key = (SCOPE_COMPONENT, None, component.pk)
+                subscriptions[key] = {}
+                initials[key] = {
+                    'scope': SCOPE_COMPONENT,
+                    'project': None,
+                    'component': component
+                }
+            except (ObjectDoesNotExist, ValueError):
+                pass
+
+        # Popupate scopes from the database
+        for subscription in user.subscription_set.iterator():
+            key = (
+                subscription.scope,
+                subscription.project_id,
+                subscription.component_id,
+            )
+            subscriptions[key][subscription.notification] = subscription.frequency
+            initials[key] = {
+                'scope': subscription.scope,
+                'project': subscription.project,
+                'component': subscription.component,
+            }
+
+        # Generate forms
+        for i, details in enumerate(sorted(subscriptions.items())):
+            yield NotificationForm(
+                user,
+                i > 0,
+                details[1],
+                details[0] == active,
+                initial=initials[details[0]],
+                prefix=NOTIFICATION_PREFIX_TEMPLATE.format(i),
+            )
 
 
 @never_cache
 @login_required
 def user_profile(request):
-
     profile = request.user.profile
 
     if not profile.language:
@@ -237,20 +312,15 @@ def user_profile(request):
     form_classes = [
         ProfileForm,
         SubscriptionForm,
-        SubscriptionSettingsForm,
         UserSettingsForm,
         DashboardSettingsForm,
+        UserForm,
     ]
+    forms = [form.from_request(request) for form in form_classes]
+    forms.extend(get_notification_forms(request))
     all_backends = set(load_backends(social_django.utils.BACKENDS).keys())
 
     if request.method == 'POST':
-        # Parse POST params
-        forms = [form(request.POST, instance=profile) for form in form_classes]
-        forms.append(UserForm(request.POST, instance=request.user))
-
-        if request.user.is_demo:
-            return deny_demo(request)
-
         if all(form.is_valid() for form in forms):
             # Save changes
             for form in forms:
@@ -271,9 +341,6 @@ def user_profile(request):
 
             return response
     else:
-        forms = [form(instance=profile) for form in form_classes]
-        forms.append(UserForm(instance=request.user))
-
         if not request.user.has_usable_password() and 'email' in all_backends:
             messages.warning(
                 request,
@@ -290,34 +357,25 @@ def user_profile(request):
         project__in=request.user.allowed_projects
     ).exclude(
         license=''
-    )
-
-    billings = None
-    if 'weblate.billing' in settings.INSTALLED_APPS:
-        # pylint: disable=wrong-import-position
-        from weblate.billing.models import Billing
-        billings = Billing.objects.filter(
-            projects__in=request.user.projects_with_perm('billing.view')
-        ).distinct()
+    ).order_project()
 
     result = render(
         request,
         'accounts/profile.html',
         {
-            'form': forms[0],
+            'languagesform': forms[0],
             'subscriptionform': forms[1],
-            'subscriptionsettingsform': forms[2],
-            'usersettingsform': forms[3],
-            'dashboardsettingsform': forms[4],
-            'userform': forms[5],
+            'usersettingsform': forms[2],
+            'dashboardsettingsform': forms[3],
+            'userform': forms[4],
+            'notification_forms': forms[5:],
+            'all_forms': forms,
             'profile': profile,
             'title': _('User profile'),
             'licenses': license_projects,
             'associated': social,
             'new_backends': new_backends,
-            'managed_projects': request.user.owned_projects,
-            'auditlog': request.user.auditlog_set.all()[:20],
-            'billings': billings,
+            'auditlog': request.user.auditlog_set.order()[:20],
         }
     )
     result.set_cookie(
@@ -328,8 +386,7 @@ def user_profile(request):
 
 
 @login_required
-@avoid_demo
-@session_ratelimit_post
+@session_ratelimit_post('remove')
 @never_cache
 def user_remove(request):
     is_confirmation = 'remove_confirm' in request.session
@@ -343,13 +400,11 @@ def user_remove(request):
                 _('Your account has been removed.')
             )
             return redirect('home')
-        else:
-            confirm_form = EmptyConfirmForm(request)
+        confirm_form = EmptyConfirmForm(request)
 
     elif request.method == 'POST':
         confirm_form = PasswordConfirmForm(request, request.POST)
         if confirm_form.is_valid():
-            session_ratelimit_reset(request)
             store_userid(request, remove=True)
             request.GET = {'email': request.user.email}
             return social_complete(request, 'email')
@@ -366,8 +421,7 @@ def user_remove(request):
     )
 
 
-@avoid_demo
-@session_ratelimit_post
+@session_ratelimit_post('confirm')
 @never_cache
 def confirm(request):
     details = request.session.get('reauthenticate')
@@ -380,7 +434,6 @@ def confirm(request):
     if request.method == 'POST':
         confirm_form = PasswordConfirmForm(request, request.POST)
         if confirm_form.is_valid():
-            session_ratelimit_reset(request)
             request.session.pop('reauthenticate')
             request.session['reauthenticate_done'] = True
             return redirect('social:complete', backend=details['backend'])
@@ -412,8 +465,7 @@ def get_initial_contact(request):
 def contact(request):
     captcha = None
     show_captcha = (
-        settings.REGISTRATION_CAPTCHA and
-        not request.user.is_authenticated
+        settings.REGISTRATION_CAPTCHA and not request.user.is_authenticated
     )
 
     if request.method == 'POST':
@@ -455,7 +507,7 @@ def contact(request):
 
 
 @login_required
-@session_ratelimit_post
+@session_ratelimit_post('hosting')
 @never_cache
 def hosting(request):
     """Form for hosting request."""
@@ -493,7 +545,6 @@ def hosting(request):
 def user_page(request, user):
     """User details page."""
     user = get_object_or_404(User, username=user)
-    profile = Profile.objects.get_or_create(user=user)[0]
 
     # Filter all user activity
     all_changes = Change.objects.last_changes(request.user).filter(
@@ -513,7 +564,7 @@ def user_page(request, user):
         request,
         'accounts/user.html',
         {
-            'page_profile': profile,
+            'page_profile': user.profile,
             'page_user': user,
             'last_changes': last_changes,
             'last_changes_url': urlencode(
@@ -547,7 +598,7 @@ def redirect_single(request, backend):
 
 
 class WeblateLoginView(LoginView):
-    """Login handler, just wrapper around standard Django login."""
+    """Login handler, just a wrapper around standard Django login."""
     form_class = LoginForm
     template_name = 'accounts/login.html'
     redirect_authenticated_user = True
@@ -579,11 +630,14 @@ class WeblateLoginView(LoginView):
         if len(auth_backends) == 1 and auth_backends[0] != 'email':
             return redirect_single(request, auth_backends[0])
 
+        if 'next' in request.GET:
+            messages.info(request, _('Log in to use Weblate.'))
+
         return super(WeblateLoginView, self).dispatch(request, *args, **kwargs)
 
 
 class WeblateLogoutView(LogoutView):
-    """Logout handler, just wrapper around standard Django logout."""
+    """Logout handler, just a wrapper around standard Django logout."""
     @method_decorator(require_POST)
     @method_decorator(login_required)
     @method_decorator(never_cache)
@@ -593,19 +647,19 @@ class WeblateLogoutView(LogoutView):
         )
 
     def get_next_page(self):
-        messages.info(self.request, _('Thanks for using Weblate!'))
+        messages.info(self.request, _('Thank you for using Weblate.'))
         return reverse('home')
 
 
 def fake_email_sent(request, reset=False):
-    """Fake redirect to email sent page."""
+    """Fake redirect to e-mail sent page."""
     request.session['registration-email-sent'] = True
     request.session['password_reset'] = reset
     request.session['account_remove'] = False
+    request.session['user_invite'] = False
     return redirect('email-sent')
 
 
-@session_ratelimit_post
 @never_cache
 def register(request):
     """Registration form."""
@@ -615,10 +669,10 @@ def register(request):
         form = RegistrationForm(request, request.POST)
         if settings.REGISTRATION_CAPTCHA:
             captcha = CaptchaForm(request, form, request.POST)
-        if ((captcha is None or captcha.is_valid()) and
-                form.is_valid() and settings.REGISTRATION_OPEN):
+        if ((captcha is None or captcha.is_valid())
+                and form.is_valid() and settings.REGISTRATION_OPEN):
             if form.cleaned_data['email_user']:
-                notify_account_activity(
+                AuditLog.objects.create(
                     form.cleaned_data['email_user'],
                     request,
                     'connect'
@@ -642,7 +696,7 @@ def register(request):
         'accounts/register.html',
         {
             'registration_email': 'email' in backends,
-            'registration_backends': backends - set(['email']),
+            'registration_backends': backends - {'email'},
             'title': _('User registration'),
             'form': form,
             'captcha_form': captcha,
@@ -651,10 +705,9 @@ def register(request):
 
 
 @login_required
-@avoid_demo
 @never_cache
 def email_login(request):
-    """Connect email."""
+    """Connect e-mail."""
     captcha = None
 
     if request.method == 'POST':
@@ -664,7 +717,7 @@ def email_login(request):
         if (captcha is None or captcha.is_valid()) and form.is_valid():
             email_user = form.cleaned_data['email_user']
             if email_user and email_user != request.user:
-                notify_account_activity(
+                AuditLog.objects.create(
                     form.cleaned_data['email_user'],
                     request,
                     'connect'
@@ -681,7 +734,7 @@ def email_login(request):
         request,
         'accounts/email.html',
         {
-            'title': _('Register email'),
+            'title': _('Register e-mail'),
             'form': form,
             'captcha_form': captcha,
         }
@@ -689,8 +742,7 @@ def email_login(request):
 
 
 @login_required
-@avoid_demo
-@session_ratelimit_post
+@session_ratelimit_post('password')
 @never_cache
 def password(request):
     """Password change / set form."""
@@ -705,10 +757,8 @@ def password(request):
     if request.method == 'POST':
         form = SetPasswordForm(request.user, request.POST)
         if form.is_valid() and do_change:
-            session_ratelimit_reset(request)
-
             # Clear flag forcing user to set password
-            redirect_page = '#auth'
+            redirect_page = '#account'
             if 'show_set_password' in request.session:
                 del request.session['show_set_password']
                 redirect_page = ''
@@ -770,7 +820,7 @@ def reset_password(request):
     if 'email' not in load_backends(social_django.utils.BACKENDS).keys():
         messages.error(
             request,
-            _('Can not reset password, email authentication is disabled!')
+            _('Cannot reset password, e-mail authentication is turned off.')
         )
         return redirect('login')
 
@@ -779,18 +829,18 @@ def reset_password(request):
     # We're already in the reset phase
     if 'perform_reset' in request.session:
         return reset_password_set(request)
-    elif request.method == 'POST':
+    if request.method == 'POST':
         form = ResetForm(request.POST)
         if settings.REGISTRATION_CAPTCHA:
             captcha = CaptchaForm(request, form, request.POST)
         if (captcha is None or captcha.is_valid()) and form.is_valid():
             if form.cleaned_data['email_user']:
-                rate_limited = notify_account_activity(
+                audit = AuditLog.objects.create(
                     form.cleaned_data['email_user'],
                     request,
                     'reset-request'
                 )
-                if not rate_limited:
+                if not audit.check_rate_limit(request):
                     store_userid(request, True)
                     return social_complete(request, 'email')
             return fake_email_sent(request, True)
@@ -813,8 +863,7 @@ def reset_password(request):
 
 @require_POST
 @login_required
-@avoid_demo
-@session_ratelimit_post
+@session_ratelimit_post('reset_api')
 def reset_api_key(request):
     """Reset user API key"""
     # Need to delete old token as key is primary key
@@ -830,20 +879,66 @@ def reset_api_key(request):
 
 @require_POST
 @login_required
-@avoid_demo
+@session_ratelimit_post('userdata')
+def userdata(request):
+    response = JsonResponse(request.user.profile.dump_data())
+    response['Content-Disposition'] = 'attachment; filename="weblate.json"'
+    return response
+
+
+@require_POST
+@login_required
 def watch(request, project):
     obj = get_project(request, project)
-    request.user.profile.subscriptions.add(obj)
+    request.user.profile.watched.add(obj)
     return redirect(obj)
 
 
 @require_POST
 @login_required
-@avoid_demo
 def unwatch(request, project):
     obj = get_project(request, project)
-    request.user.profile.subscriptions.remove(obj)
+    request.user.profile.watched.remove(obj)
+    request.user.subscription_set.filter(
+        Q(project=obj) | Q(component__project=obj)
+    ).delete()
     return redirect(obj)
+
+
+def mute_real(user, **kwargs):
+    for notification_cls in NOTIFICATIONS:
+        if notification_cls.ignore_watched:
+            continue
+        subscription = user.subscription_set.get_or_create(
+            notification=notification_cls.get_name(),
+            defaults={'frequency': FREQ_NONE},
+            **kwargs
+        )[0]
+        if subscription.frequency != FREQ_NONE:
+            subscription.frequency = FREQ_NONE
+            subscription.save(update_fields=['frequency'])
+
+
+@require_POST
+@login_required
+def mute_component(request, project, component):
+    obj = get_component(request, project, component)
+    mute_real(request.user, scope=SCOPE_COMPONENT, component=obj, project=None)
+    return redirect(
+        '{}?notify_component={}#notifications'.format(
+            reverse('profile'), obj.pk
+        )
+    )
+
+
+@require_POST
+@login_required
+def mute_project(request, project):
+    obj = get_project(request, project)
+    mute_real(request.user, scope=SCOPE_PROJECT, component=None, project=obj)
+    return redirect(
+        '{}?notify_project={}#notifications'.format(reverse('profile'), obj.pk)
+    )
 
 
 class SuggestionView(ListView):
@@ -858,7 +953,7 @@ class SuggestionView(ListView):
         return Suggestion.objects.filter(
             user=user,
             project__in=self.request.user.allowed_projects
-        )
+        ).order()
 
     def get_context_data(self):
         result = super(SuggestionView, self).get_context_data()
@@ -867,86 +962,134 @@ class SuggestionView(ListView):
         else:
             user = get_object_or_404(User, username=self.kwargs['user'])
         result['page_user'] = user
-        result['page_profile'] = Profile.objects.get_or_create(user=user)[0]
+        result['page_profile'] = user.profile
         return result
 
 
-def store_userid(request, reset=False, remove=False):
+def store_userid(request, reset=False, remove=False, invite=False):
     """Store user ID in the session."""
     request.session['social_auth_user'] = request.user.pk
     request.session['password_reset'] = reset
     request.session['account_remove'] = remove
+    request.session['user_invite'] = invite
 
 
 @require_POST
-@avoid_demo
 def social_auth(request, backend):
     """Wrapper around social_django.views.auth.
 
-    - requires POST (to avoid CSRF on auth)
-    - it stores current user in session (to avoid CSRF on complete)
+    - Requires POST (to avoid CSRF on auth)
+    - Stores current user in session (to avoid CSRF upon completion)
     """
     store_userid(request)
     return auth(request, backend)
 
 
+def auth_fail(request, message):
+    messages.error(request, message)
+    return redirect(reverse('login'))
+
+
+def auth_redirect_token(request):
+    return auth_fail(
+        request,
+        _(
+            'Could not verify your registration! '
+            'The verification token has probably expired. '
+            'Please try to register again.'
+        )
+    )
+
+
+def auth_redirect_state(request):
+    return auth_fail(
+        request,
+        _('Could not authenticate due to invalid session state.')
+    )
+
+
+def handle_missing_parameter(request, backend, error):
+    report_error(error, request)
+    if backend != 'email' and error.parameter == 'email':
+        return auth_fail(
+            request,
+            _('Got no e-mail address from third party authentication service.')
+            + ' '
+            + _('Please register using e-mail instead.')
+        )
+    if error.parameter in ('email', 'user', 'expires'):
+        return auth_redirect_token(request)
+    if error.parameter in ('state', 'code'):
+        return auth_redirect_state(request)
+    if error.parameter == 'demo':
+        return auth_fail(
+            request,
+            _('Can not change authentication for demo!')
+        )
+    if error.parameter == 'disabled':
+        return auth_fail(
+            request,
+            _('New registrations are turned off.')
+        )
+    return None
+
+
 @csrf_exempt
-@avoid_demo
 @never_cache
 def social_complete(request, backend):
     """Wrapper around social_django.views.complete.
 
-    - blocks access for demo user
-    - gracefuly handle backend errors
+    - Blocks access for demo user
+    - Handles backend errors gracefully
     """
-    # pylint: disable=too-many-branches,too-many-return-statements
-    def fail(message):
-        messages.error(request, message)
-        return redirect(reverse('login'))
-
-    def redirect_token():
-        return fail(_(
-            'Failed to verify your registration! '
-            'Probably the verification token has expired. '
-            'Please try the registration again.'
-        ))
-
-    def redirect_state():
-        return fail(
-            _('Authentication failed due to invalid session state.')
-        )
-
     try:
         return complete(request, backend)
     except InvalidEmail:
-        return redirect_token()
+        return auth_redirect_token(request)
     except AuthMissingParameter as error:
-        if error.parameter in ('email', 'user', 'expires'):
-            return redirect_token()
-        elif error.parameter in ('state', 'code'):
-            return redirect_state()
-        elif error.parameter == 'demo':
-            return fail(
-                _('Can not change authentication for demo!')
-            )
-        elif error.parameter == 'disabled':
-            return fail(
-                _('New registrations are disabled!')
-            )
+        result = handle_missing_parameter(request, backend, error)
+        if result:
+            return result
         raise
-    except (AuthStateMissing, AuthStateForbidden):
-        return redirect_state()
-    except AuthFailed:
-        return fail(_(
-            'Authentication has failed, probably due to expired token '
+    except (AuthStateMissing, AuthStateForbidden) as error:
+        report_error(error, request)
+        return auth_redirect_state(request)
+    except AuthFailed as error:
+        report_error(error, request)
+        return auth_fail(request, _(
+            'Could not authenticate, probably due to an expired token '
             'or connection error.'
         ))
     except AuthCanceled:
-        return fail(_('Authentication has been cancelled.'))
-    except AuthForbidden:
-        return fail(_('Authentication has been forbidden by server.'))
+        return auth_fail(
+            request, _('Authentication cancelled.')
+        )
+    except AuthForbidden as error:
+        report_error(error, request)
+        return auth_fail(
+            request, _('The server does not allow authentication.')
+        )
     except AuthAlreadyAssociated:
-        return fail(_(
-            'Failed to complete your registration! This authentication, '
-            'email or username are already associated with another account!'
+        return auth_fail(request, _(
+            'Could not complete registration. The supplied authentication, '
+            'e-mail or username is already in use for another account.'
         ))
+
+
+def unsubscribe(request):
+    if 'i' in request.GET:
+        signer = TimestampSigner()
+        try:
+            subscription = Subscription.objects.get(
+                pk=int(signer.unsign(request.GET['i'], max_age=24 * 3600))
+            )
+            subscription.frequency = FREQ_NONE
+            subscription.save(update_fields=['frequency'])
+            messages.success(request, _('Notification settings adjusted.'))
+        except (BadSignature, SignatureExpired, Subscription.DoesNotExist):
+            messages.error(request, _(
+                'The notification change link is no longer valid, '
+                'please log in to configure notifications.'
+            ))
+
+    return redirect_profile('#notifications')

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -34,4 +34,4 @@ class AutoFix(object):
         """Return a target translation array with a single fix applied."""
         source = unit.get_source_plurals()[0]
         results = [self.fix_single_target(t, source, unit) for t in target]
-        return [r[0] for r in results], max([r[1] for r in results])
+        return [r[0] for r in results], max((r[1] for r in results))

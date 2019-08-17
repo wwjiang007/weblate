@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -26,16 +26,13 @@ from weblate.memory.storage import TranslationMemory
 
 
 class Command(BaseCommand):
-    """
-    Command for importing translation memory from TMX.
-    """
-    help = 'imports translation memory for TMX'
+    help = 'list translation memory origins'
 
     def add_arguments(self, parser):
         super(Command, self).add_arguments(parser)
         parser.add_argument(
             '--type',
-            choices=['origin'],
+            choices=['origin', 'category'],
             default='origin',
             required=False,
             help='Type of objects to list',
@@ -44,6 +41,5 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         """Translation memory cleanup."""
         memory = TranslationMemory()
-        if options['type'] == 'origin':
-            for origin in memory.get_origins():
-                self.stdout.write(origin)
+        for item in memory.get_values(options['type']):
+            self.stdout.write(item)

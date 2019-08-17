@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,14 +21,13 @@ from __future__ import unicode_literals
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
-from weblate.accounts.forms import (
-    UniqueEmailMixin, FullNameField, UsernameField,
-)
-from weblate.auth.models import User, Group, AutoGroup
+from weblate.accounts.forms import FullNameField, UniqueEmailMixin, UsernameField
+from weblate.accounts.utils import remove_user
+from weblate.auth.models import AutoGroup, Group, User
 from weblate.wladmin.models import WeblateModelAdmin
 
 
@@ -108,7 +107,7 @@ class WeblateUserAdmin(UserAdmin):
 
     def user_groups(self, obj):
         """Display comma separated list of user groups."""
-        return ','.join([g.name for g in obj.groups.all()])
+        return ','.join((g.name for g in obj.groups.iterator()))
 
     def action_checkbox(self, obj):
         if obj.is_anonymous:
@@ -124,6 +123,17 @@ class WeblateUserAdmin(UserAdmin):
         return super(WeblateUserAdmin, self).has_delete_permission(
             request, obj
         )
+
+    def delete_model(self, request, obj):
+        """
+        Given a model instance delete it from the database.
+        """
+        remove_user(obj, request)
+
+    def delete_queryset(self, request, queryset):
+        """Given a queryset, delete it from the database."""
+        for obj in queryset.iterator():
+            self.delete_model(request, obj)
 
 
 class WeblateGroupAdmin(WeblateModelAdmin):
@@ -164,10 +174,15 @@ class WeblateGroupAdmin(WeblateModelAdmin):
         """Fix saving of automatic language/project selection, part 2
 
         Uses stored attribute to save the model again. Saving triggers the
-        automation and adjusts project/langauge selection according to
+        automation and adjusts project/language selection according to
         the chosen value.
         """
         super(WeblateGroupAdmin, self).save_related(
             request, form, formsets, change
         )
         self.new_obj.save()
+
+
+# This is pointless for Weblate, but necessary to silent admin.E039
+# check when using custom admin site
+admin.site.register(User, WeblateUserAdmin)

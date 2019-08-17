@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -31,6 +31,11 @@ from weblate.trans.fields import RegexField
 from weblate.utils.stats import ComponentListStats
 
 
+class ComponentListQuerySet(models.QuerySet):
+    def order(self):
+        return self.order_by('name')
+
+
 @python_2_unicode_compatible
 class ComponentList(models.Model):
 
@@ -38,14 +43,14 @@ class ComponentList(models.Model):
         verbose_name=_('Component list name'),
         max_length=100,
         unique=True,
-        help_text=_('Name to display')
+        help_text=_('Display name')
     )
 
     slug = models.SlugField(
         verbose_name=_('URL slug'),
         db_index=True, unique=True,
         max_length=100,
-        help_text=_('Name used in URLs and file names.')
+        help_text=_('Name used in URLs and filenames.')
     )
     show_dashboard = models.BooleanField(
         verbose_name=_('Show on dashboard'),
@@ -59,10 +64,11 @@ class ComponentList(models.Model):
 
     components = models.ManyToManyField('Component', blank=True)
 
+    objects = ComponentListQuerySet.as_manager()
+
     class Meta(object):
         verbose_name = _('Component list')
         verbose_name_plural = _('Component lists')
-        ordering = ['name']
 
     def tab_slug(self):
         return "list-" + self.slug

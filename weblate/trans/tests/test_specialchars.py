@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,17 +22,25 @@
 Tests for special chars.
 """
 
+from __future__ import unicode_literals
+
 from unittest import TestCase
 
-from django.test.utils import override_settings
-
 import six
+from django.test.utils import override_settings
 
 from weblate.lang.models import Language
 from weblate.trans.specialchars import get_special_chars
 
 
 class SpecialCharsTest(TestCase):
+    def check_chars(self, language, count, matches, *args, **kwargs):
+        result = get_special_chars(language, *args, **kwargs)
+        chars = {x[2] for x in result}
+        self.assertEqual(len(chars), count)
+        for match in matches:
+            self.assertIn(match, chars)
+
     def test_af(self):
         chars = list(get_special_chars(Language(code='af')))
         self.assertEqual(len(chars), 10)
@@ -53,3 +61,27 @@ class SpecialCharsTest(TestCase):
     def test_settings(self):
         chars = list(get_special_chars(Language(code='cs')))
         self.assertEqual(len(chars), 262)
+
+    def test_additional(self):
+        self.check_chars(
+            Language(code='cs'),
+            13,
+            ['a', 'h', 'o', 'j'],
+            additional='ahoj'
+        )
+
+    def test_arrows(self):
+        self.check_chars(
+            Language(code='cs'),
+            11,
+            ['→', '⇒'],
+            source='→⇒→⇒'
+        )
+
+    def test_arrows_rtl(self):
+        self.check_chars(
+            Language(code='ar', direction='rtl'),
+            12,
+            ['←', '⇐'],
+            source='→⇒→⇒'
+        )

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,11 +23,10 @@ Tests for source checks.
 """
 
 from __future__ import unicode_literals
+
 from django.test import TestCase
-from weblate.checks.source import (
-    OptionalPluralCheck,
-    EllipsisCheck,
-)
+
+from weblate.checks.source import EllipsisCheck, OptionalPluralCheck
 from weblate.checks.tests.test_checks import MockUnit
 
 

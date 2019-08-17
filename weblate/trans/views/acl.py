@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,24 +18,30 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from django.utils.translation import ugettext as _
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
 from django.core.exceptions import PermissionDenied
+from django.http import HttpRequest, JsonResponse
 from django.shortcuts import redirect
+from django.utils.translation import ugettext as _
+from django.views.decorators.http import require_POST
+from social_django.views import complete
 
-from weblate.auth.models import Group, User
-from weblate.utils import messages
-from weblate.trans.util import render
+from weblate.accounts.strategy import create_session
+from weblate.accounts.views import store_userid
+from weblate.auth.models import Group, User, get_anonymous
 from weblate.trans.forms import (
-    UserManageForm, ProjectAccessForm, DisabledProjectAccessForm,
+    DisabledProjectAccessForm,
+    InviteUserForm,
+    ProjectAccessForm,
+    UserManageForm,
 )
 from weblate.trans.models import Change
-from weblate.trans.views.helper import get_project
+from weblate.trans.util import render
+from weblate.utils import messages
+from weblate.utils.views import get_project, show_form_errors
 
 
-def check_user_form(request, project, verbose=False):
+def check_user_form(request, project, verbose=False, form_class=UserManageForm):
     """Check project permission and UserManageForm.
 
     This is simple helper to perform needed validation for all
@@ -43,18 +49,16 @@ def check_user_form(request, project, verbose=False):
     """
     obj = get_project(request, project)
 
-    if (not request.user.has_perm('project.permissions', obj) or
-            obj.access_control == obj.ACCESS_CUSTOM):
+    if (not request.user.has_perm('project.permissions', obj)
+            or obj.access_control == obj.ACCESS_CUSTOM):
         raise PermissionDenied()
 
-    form = UserManageForm(request.POST)
+    form = form_class(request.POST)
 
     if form.is_valid():
         return obj, form
-    elif verbose:
-        for error in form.errors:
-            for message in form.errors[error]:
-                messages.error(request, message)
+    if verbose:
+        show_form_errors(request, form)
     return obj, None
 
 
@@ -136,6 +140,48 @@ def add_user(request, project):
             )
             messages.success(
                 request, _('User has been added to this project.')
+            )
+        except Group.DoesNotExist:
+            messages.error(
+                request, _('Failed to find group to add a user!')
+            )
+
+    return redirect(
+        'manage-access',
+        project=obj.slug,
+    )
+
+
+@require_POST
+@login_required
+def invite_user(request, project):
+    """Invite user to a project."""
+    obj, form = check_user_form(request, project, True, form_class=InviteUserForm)
+
+    if form is not None:
+        try:
+            user = form.save()
+            obj.add_user(user)
+            Change.objects.create(
+                project=obj,
+                action=Change.ACTION_INVITE_USER,
+                user=request.user,
+                details={'username': user.username},
+            )
+            fake = HttpRequest()
+            fake.user = get_anonymous()
+            fake.method = 'POST'
+            fake.session = create_session()
+            fake.session['invitation_context'] = {
+                'from_user': request.user.full_name,
+                'project_name': obj.name,
+            }
+            fake.POST['email'] = form.cleaned_data['email']
+            fake.META = request.META
+            store_userid(fake, invite=True)
+            complete(fake, 'email')
+            messages.success(
+                request, _('User has been invited to this project.')
             )
         except Group.DoesNotExist:
             messages.error(
@@ -232,6 +278,7 @@ def manage_access(request, project):
             'groups': Group.objects.for_project(obj),
             'all_users': User.objects.for_project(obj),
             'add_user_form': UserManageForm(),
+            'invite_user_form': InviteUserForm(),
             'access_form': access_form,
         }
     )

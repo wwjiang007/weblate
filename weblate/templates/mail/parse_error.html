@@ -4,10 +4,6 @@
 
 {% block content %}
 <p>
-{% trans "Hi,"%}
-</p>
-
-<p>
 {% blocktrans %}There has been a parse error on {{ component }} at {{ site_title }}.{% endblocktrans %}
 <p>
 
@@ -15,13 +11,13 @@
 <h2>{% trans "Error message" %}</h2>
 
 <pre>
-{{ error }}
+{{ details.error }}
 </pre>
 
 <h2>{% trans "Failing file" %}</h2>
 
 <p>
-{{ filename }}
+{{ details.filename }}
 </p>
 
 {% endblock %}

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,40 +20,171 @@
 
 from __future__ import unicode_literals
 
-from django.template import Template, Context, Engine
+from django.core.exceptions import ValidationError
+from django.template import Context, Engine, Template, TemplateSyntaxError
+from django.utils.translation import override
+from django.utils.translation import ugettext as _
 
 from weblate.utils.site import get_site_url
+
+# List of schemes not allowed in editor URL
+# This list is not intededed to be complete, just block
+# the possibly dangerous ones.
+FORBIDDEN_URL_SCHEMES = frozenset((
+    'javascript',
+    'data',
+    'vbscript',
+    'mailto',
+    'ftp',
+    'sms',
+    'tel',
+))
+
+
+class InvalidString(str):
+    def __mod__(self, other):
+        raise TemplateSyntaxError(_("Undefined variable: \"%s\"") % other)
 
 
 class RestrictedEngine(Engine):
     default_builtins = [
         'django.template.defaultfilters',
+        'weblate.utils.template_tags',
     ]
 
     def __init__(self, *args, **kwargs):
         kwargs['autoescape'] = False
+        kwargs['string_if_invalid'] = InvalidString("%s")
         super(RestrictedEngine, self).__init__(*args, **kwargs)
 
 
-def render_template(template, translation=None, **kwargs):
+def render_template(template, **kwargs):
     """Helper class to render string template with context."""
-    context = {}
-    context.update(kwargs)
+    from weblate.trans.models import Project, Component, Translation
+    translation = kwargs.get('translation')
+    component = kwargs.get('component')
+    project = kwargs.get('project')
 
-    if translation is not None:
+    if isinstance(translation, Translation):
         translation.stats.ensure_basic()
-        context['project_name'] = translation.component.project.name
-        context['project_slug'] = translation.component.project.slug
-        context['component_name'] = translation.component.name
-        context['component_slug'] = translation.component.slug
-        context['language_code'] = translation.language_code
-        context['language_name'] = translation.language.name
-        context['stats'] = translation.stats.get_data()
-        context['url'] = get_site_url(translation.get_absolute_url())
+        kwargs['language_code'] = translation.language_code
+        kwargs['language_name'] = translation.language.name
+        kwargs['stats'] = translation.stats.get_data()
+        kwargs['url'] = get_site_url(translation.get_absolute_url())
+        kwargs['filename'] = translation.filename
+        component = translation.component
+        kwargs.pop('translation', None)
 
-    return Template(
-        template,
-        engine=RestrictedEngine(),
-    ).render(
-        Context(context, autoescape=False),
+    if isinstance(component, Component):
+        kwargs['component_name'] = component.name
+        kwargs['component_slug'] = component.slug
+        kwargs['component_remote_branch'] = \
+            component.repository.get_remote_branch_name()
+        if 'url' not in kwargs:
+            kwargs['url'] = get_site_url(component.get_absolute_url())
+        project = component.project
+        kwargs.pop('component', None)
+
+    if isinstance(project, Project):
+        kwargs['project_name'] = project.name
+        kwargs['project_slug'] = project.slug
+        if 'url' not in kwargs:
+            kwargs['url'] = get_site_url(project.get_absolute_url())
+        kwargs.pop('project', None)
+
+    with override('en'):
+        return Template(
+            template,
+            engine=RestrictedEngine(),
+        ).render(
+            Context(kwargs, autoescape=False),
+        )
+
+
+def validate_render(value, **kwargs):
+    """Validates rendered template."""
+    try:
+        return render_template(value, **kwargs)
+    except Exception as err:
+        raise ValidationError(
+            _('Failed to render template: {}').format(err)
+        )
+
+
+def validate_render_component(value, translation=None, **kwargs):
+    from weblate.trans.models import Project, Component, Translation
+    from weblate.lang.models import Language
+    component = Component(
+        project=Project(
+            name='project',
+            slug='project',
+            id=-1,
+        ),
+        name='component',
+        slug='component',
+        branch='master',
+        vcs='git',
+        id=-1,
     )
+    if translation:
+        kwargs['translation'] = Translation(
+            id=-1,
+            component=component,
+            language_code='xx',
+            language=Language(name='xxx', code='xx'),
+        )
+    else:
+        kwargs['component'] = component
+    validate_render(value, **kwargs)
+
+
+def validate_render_addon(value):
+    validate_render_component(value, hook_name='addon', addon_name='addon')
+
+
+def validate_render_commit(value):
+    validate_render_component(value, translation=True, author='author')
+
+
+def validate_repoweb(val):
+    """Validate whether URL for repository browser is valid.
+
+    It checks whether it can be filled in using format string.
+    """
+    if '%(file)s' in val or '%(line)s' in val:
+        raise ValidationError(_(
+            'The format strings are no longer supported, '
+            'please use the template language instead.'
+        ))
+    validate_render(val, filename='file.po', line=9, branch='master')
+
+
+def validate_editor(val):
+    """Validate URL for custom editor link.
+
+    - Check whether it correctly uses format strings.
+    - Check whether scheme is sane.
+    """
+    if not val:
+        return
+    validate_repoweb(val)
+
+    if ':' not in val:
+        raise ValidationError(_('The editor link lacks URL scheme!'))
+
+    scheme = val.split(':', 1)[0]
+
+    # Block forbidden schemes as well as format strings
+    if scheme.strip().lower() in FORBIDDEN_URL_SCHEMES or '%' in scheme:
+        raise ValidationError(_('Forbidden URL scheme!'))
+
+
+def migrate_repoweb(val):
+    return val % {
+        'file': '{{filename}}',
+        '../file': '{{filename|parentdir}}',
+        '../../file': '{{filename|parentdir|parentdir}}',
+        '../../../file': '{{filename|parentdir|parentdir}}',
+        'line': '{{line}}',
+        'branch': '{{branch}}'
+    }

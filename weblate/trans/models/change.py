@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,16 +19,18 @@
 #
 from __future__ import unicode_literals
 
+import six.moves
 from django.conf import settings
 from django.db import models
 from django.db.models import Count, Q
 from django.utils import timezone
-from django.utils.encoding import python_2_unicode_compatible, force_text
-from django.utils.translation import ugettext as _, ugettext_lazy
+from django.utils.encoding import force_text, python_2_unicode_compatible
+from django.utils.translation import ugettext as _
+from django.utils.translation import ugettext_lazy
 
-import six.moves
-
+from weblate.lang.models import Language
 from weblate.trans.mixins import UserDisplayMixin
+from weblate.trans.models.alert import ALERTS
 from weblate.trans.models.project import Project
 from weblate.utils.fields import JSONField
 
@@ -41,10 +43,7 @@ class ChangeQuerySet(models.QuerySet):
         base = self
         if prefetch:
             base = base.prefetch()
-        return base.filter(
-            action__in=Change.ACTIONS_CONTENT,
-            user__isnull=False,
-        )
+        return base.filter(action__in=Change.ACTIONS_CONTENT)
 
     @staticmethod
     def count_stats(days, step, dtstart, base):
@@ -54,7 +53,7 @@ class ChangeQuerySet(models.QuerySet):
 
         # Count number of changes
         result = []
-        for dummy in six.moves.range(0, days, step):
+        for _unused in six.moves.range(0, days, step):
             # Calculate interval
             int_start = dtstart
             int_end = int_start + timezone.timedelta(days=step)
@@ -116,29 +115,18 @@ class ChangeQuerySet(models.QuerySet):
             'component__project'
         )
 
-    def for_project(self, project):
-        return self.prefetch().filter(project=project)
-
-    def for_component(self, component):
-        return self.prefetch().filter(component=component)
-
-    def for_translation(self, translation):
-        return self.prefetch().filter(translation=translation)
-
     def last_changes(self, user):
         """Prefilter Changes by ACL for users and fetches related fields
         for last changes display.
         """
         return self.prefetch().filter(
-            Q(component__project__in=user.allowed_projects) |
-            Q(dictionary__project__in=user.allowed_projects)
-        )
+            Q(component__project__in=user.allowed_projects)
+            | Q(dictionary__project__in=user.allowed_projects)
+        ).order()
 
-    def authors_list(self, translation, date_range=None):
+    def authors_list(self, date_range=None):
         """Return list of authors."""
-        authors = self.content().filter(
-            translation=translation
-        )
+        authors = self.content()
         if date_range is not None:
             authors = authors.filter(
                 timestamp__range=date_range
@@ -146,6 +134,9 @@ class ChangeQuerySet(models.QuerySet):
         return authors.values_list(
             'author__email', 'author__full_name'
         )
+
+    def order(self):
+        return self.order_by('-timestamp')
 
 
 class ChangeManager(models.Manager):
@@ -183,7 +174,7 @@ class Change(models.Model, UserDisplayMixin):
     ACTION_FAILED_MERGE = 22
     ACTION_FAILED_REBASE = 23
     ACTION_PARSE_ERROR = 24
-    ACTION_REMOVE = 25
+    ACTION_REMOVE_TRANSLATION = 25
     ACTION_SUGGESTION_DELETE = 26
     ACTION_REPLACE = 27
     ACTION_FAILED_PUSH = 28
@@ -194,6 +185,23 @@ class Change(models.Model, UserDisplayMixin):
     ACTION_ACCESS_EDIT = 33
     ACTION_ADD_USER = 34
     ACTION_REMOVE_USER = 35
+    ACTION_APPROVE = 36
+    ACTION_MARKED_EDIT = 37
+    ACTION_REMOVE_COMPONENT = 38
+    ACTION_REMOVE_PROJECT = 39
+    ACTION_DUPLICATE_LANGUAGE = 40
+    ACTION_RENAME_PROJECT = 41
+    ACTION_RENAME_COMPONENT = 42
+    ACTION_MOVE_COMPONENT = 43
+    ACTION_NEW_STRING = 44
+    ACTION_NEW_CONTRIBUTOR = 45
+    ACTION_MESSAGE = 46
+    ACTION_ALERT = 47
+    ACTION_ADDED_LANGUAGE = 48
+    ACTION_REQUESTED_LANGUAGE = 49
+    ACTION_CREATE_PROJECT = 50
+    ACTION_CREATE_COMPONENT = 51
+    ACTION_INVITE_USER = 52
 
     ACTION_CHOICES = (
         (ACTION_UPDATE, ugettext_lazy('Resource update')),
@@ -212,7 +220,7 @@ class Change(models.Model, UserDisplayMixin):
         (ACTION_NEW_SOURCE, ugettext_lazy('New source string')),
         (ACTION_LOCK, ugettext_lazy('Component locked')),
         (ACTION_UNLOCK, ugettext_lazy('Component unlocked')),
-        (ACTION_DUPLICATE_STRING, ugettext_lazy('Detected duplicate string')),
+        (ACTION_DUPLICATE_STRING, ugettext_lazy('Found duplicated string')),
         (ACTION_COMMIT, ugettext_lazy('Committed changes')),
         (ACTION_PUSH, ugettext_lazy('Pushed changes')),
         (ACTION_RESET, ugettext_lazy('Reset repository')),
@@ -222,7 +230,7 @@ class Change(models.Model, UserDisplayMixin):
         (ACTION_FAILED_REBASE, ugettext_lazy('Failed rebase on repository')),
         (ACTION_FAILED_PUSH, ugettext_lazy('Failed push on repository')),
         (ACTION_PARSE_ERROR, ugettext_lazy('Parse error')),
-        (ACTION_REMOVE, ugettext_lazy('Removed translation')),
+        (ACTION_REMOVE_TRANSLATION, ugettext_lazy('Removed translation')),
         (ACTION_SUGGESTION_DELETE, ugettext_lazy('Suggestion removed')),
         (ACTION_REPLACE, ugettext_lazy('Search and replace')),
         (
@@ -231,24 +239,28 @@ class Change(models.Model, UserDisplayMixin):
         ),
         (ACTION_SOURCE_CHANGE, ugettext_lazy('Source string changed')),
         (ACTION_NEW_UNIT, ugettext_lazy('New string added')),
-        (ACTION_MASS_STATE, ugettext_lazy('Mass state change')),
+        (ACTION_MASS_STATE, ugettext_lazy('Bulk status change')),
         (ACTION_ACCESS_EDIT, ugettext_lazy('Changed visibility')),
         (ACTION_ADD_USER, ugettext_lazy('Added user')),
         (ACTION_REMOVE_USER, ugettext_lazy('Removed user')),
+        (ACTION_APPROVE, ugettext_lazy('Translation approved')),
+        (ACTION_MARKED_EDIT, ugettext_lazy('Marked for edit')),
+        (ACTION_REMOVE_COMPONENT, ugettext_lazy('Removed component')),
+        (ACTION_REMOVE_PROJECT, ugettext_lazy('Removed project')),
+        (ACTION_DUPLICATE_LANGUAGE, ugettext_lazy('Found duplicated language')),
+        (ACTION_RENAME_PROJECT, ugettext_lazy('Renamed project')),
+        (ACTION_RENAME_COMPONENT, ugettext_lazy('Renamed component')),
+        (ACTION_MOVE_COMPONENT, ugettext_lazy('Moved component')),
+        (ACTION_NEW_STRING, ugettext_lazy('New string to translate')),
+        (ACTION_NEW_CONTRIBUTOR, ugettext_lazy('New contributor')),
+        (ACTION_MESSAGE, ugettext_lazy('New whiteboard message')),
+        (ACTION_ALERT, ugettext_lazy('New alert')),
+        (ACTION_ADDED_LANGUAGE, ugettext_lazy('Added new language')),
+        (ACTION_REQUESTED_LANGUAGE, ugettext_lazy('Requested new language')),
+        (ACTION_CREATE_PROJECT, ugettext_lazy('Created project')),
+        (ACTION_CREATE_COMPONENT, ugettext_lazy('Created component')),
+        (ACTION_INVITE_USER, ugettext_lazy('Invited user')),
     )
-
-    ACTIONS_COMPONENT = frozenset((
-        ACTION_LOCK,
-        ACTION_UNLOCK,
-        ACTION_DUPLICATE_STRING,
-        ACTION_PUSH,
-        ACTION_RESET,
-        ACTION_MERGE,
-        ACTION_REBASE,
-        ACTION_FAILED_MERGE,
-        ACTION_FAILED_REBASE,
-        ACTION_FAILED_PUSH,
-    ))
 
     ACTIONS_REVERTABLE = frozenset((
         ACTION_ACCEPT,
@@ -267,8 +279,20 @@ class Change(models.Model, UserDisplayMixin):
         ACTION_REVERT,
         ACTION_UPLOAD,
         ACTION_REPLACE,
-        ACTION_NEW_UNIT,
         ACTION_MASS_STATE,
+        ACTION_APPROVE,
+        ACTION_MARKED_EDIT,
+    ))
+
+    ACTIONS_TRANSLATED = frozenset((
+        ACTION_CHANGE,
+        ACTION_NEW,
+        ACTION_AUTO,
+        ACTION_ACCEPT,
+        ACTION_REVERT,
+        ACTION_UPLOAD,
+        ACTION_REPLACE,
+        ACTION_APPROVE,
     ))
 
     ACTIONS_REPOSITORY = frozenset((
@@ -281,6 +305,7 @@ class Change(models.Model, UserDisplayMixin):
         ACTION_FAILED_PUSH,
         ACTION_LOCK,
         ACTION_UNLOCK,
+        ACTION_DUPLICATE_LANGUAGE,
     ))
 
     ACTIONS_MERGE_FAILURE = frozenset((
@@ -304,6 +329,18 @@ class Change(models.Model, UserDisplayMixin):
     dictionary = models.ForeignKey(
         'Dictionary', null=True, on_delete=models.deletion.CASCADE
     )
+    comment = models.ForeignKey(
+        'Comment', null=True, on_delete=models.deletion.SET_NULL
+    )
+    suggestion = models.ForeignKey(
+        'Suggestion', null=True, on_delete=models.deletion.SET_NULL
+    )
+    whiteboard = models.ForeignKey(
+        'WhiteboardMessage', null=True, on_delete=models.deletion.SET_NULL
+    )
+    alert = models.ForeignKey(
+        'Alert', null=True, on_delete=models.deletion.SET_NULL
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, on_delete=models.deletion.CASCADE
     )
@@ -323,8 +360,11 @@ class Change(models.Model, UserDisplayMixin):
     objects = ChangeManager.from_queryset(ChangeQuerySet)()
 
     class Meta(object):
-        ordering = ['-timestamp']
         app_label = 'trans'
+
+    def __init__(self, *args, **kwargs):
+        self.notify_state = {}
+        super(Change, self).__init__(*args, **kwargs)
 
     def __str__(self):
         return _('%(action)s at %(time)s on %(translation)s by %(user)s') % {
@@ -347,11 +387,11 @@ class Change(models.Model, UserDisplayMixin):
         """Return URL for translation."""
         if self.translation is not None:
             return self.translation.get_absolute_url()
-        elif self.component is not None:
+        if self.component is not None:
             return self.component.get_absolute_url()
-        elif self.dictionary is not None:
+        if self.dictionary is not None:
             return self.dictionary.get_parent_url()
-        elif self.project is not None:
+        if self.project is not None:
             return self.project.get_absolute_url()
         return None
 
@@ -372,9 +412,9 @@ class Change(models.Model, UserDisplayMixin):
 
     def can_revert(self):
         return (
-            self.unit is not None and
-            self.target and
-            self.action in self.ACTIONS_REVERTABLE
+            self.unit is not None
+            and self.target
+            and self.action in self.ACTIONS_REVERTABLE
         )
 
     def show_source(self):
@@ -393,25 +433,43 @@ class Change(models.Model, UserDisplayMixin):
     def get_details_display(self):
         if not self.details:
             return ''
+        user_actions = {
+            self.ACTION_ADD_USER,
+            self.ACTION_INVITE_USER,
+            self.ACTION_REMOVE_USER
+        }
+
         if self.action == self.ACTION_ACCESS_EDIT:
             for number, name in Project.ACCESS_CHOICES:
                 if number == self.details['access_control']:
                     return name
             return 'Unknonwn {}'.format(self.details['access_control'])
-        elif self.action in (self.ACTION_ADD_USER, self.ACTION_REMOVE_USER):
+        elif self.action in user_actions:
             if 'group' in self.details:
                 return '{username} ({group})'.format(**self.details)
             return self.details['username']
+        elif self.action in (self.ACTION_ADDED_LANGUAGE, self.ACTION_REQUESTED_LANGUAGE):  # noqa: E501
+            try:
+                return Language.objects.get(code=self.details['language'])
+            except Language.DoesNotExist:
+                return self.details['language']
+        elif self.action == self.ACTION_ALERT:
+            try:
+                return ALERTS[self.details['alert']].verbose
+            except KeyError:
+                return self.details['alert']
+
         return ''
 
     def save(self, *args, **kwargs):
+        from weblate.accounts.tasks import notify_change
         if self.unit:
             self.translation = self.unit.translation
         if self.translation:
             self.component = self.translation.component
-            self.translation.invalidate_last_change()
         if self.component:
             self.project = self.component.project
         if self.dictionary:
             self.project = self.dictionary.project
         super(Change, self).save(*args, **kwargs)
+        notify_change.delay(self.pk)

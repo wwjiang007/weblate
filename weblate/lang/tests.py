@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -24,20 +24,18 @@ from __future__ import unicode_literals
 import gettext
 from itertools import chain
 
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
-from django.core.management import call_command
 from django.utils.encoding import force_text
 from django.utils.translation import activate
+from six import PY2, StringIO, with_metaclass
 
-from six import StringIO, PY2, with_metaclass
-
-from weblate.lang.models import Language, Plural, get_plural_type
 from weblate.lang import data
+from weblate.lang.models import Language, Plural, get_plural_type
 from weblate.langdata import languages
 from weblate.trans.tests.test_models import BaseTestCase
 from weblate.trans.tests.test_views import FixtureTestCase
-
 
 LANGUAGES = (
     (
@@ -85,7 +83,7 @@ LANGUAGES = (
         'de_AT',
         'ltr',
         'n != 1',
-        'Austrian German',
+        'German (Austria)',
         False,
     ),
     (
@@ -153,7 +151,7 @@ LANGUAGES = (
         'en_CA@myvariant',
         'ltr',
         'n != 1',
-        'English (Canada)',
+        'English (Canada) (en_CA@myvariant)',
         True,
     ),
     (
@@ -201,7 +199,7 @@ LANGUAGES = (
         'zh_CN@test',
         'ltr',
         '0',
-        'Chinese (zh_CN@test)',
+        'Chinese (Simplified) (zh_CN@test)',
         True,
     ),
     (
@@ -268,12 +266,12 @@ LANGUAGES = (
         'xx',
         'ltr',
         'n != 1',
-        'xx (generated)',
+        'xx (generated) (xx)',
         True,
     ),
     (
         'nb_NO',
-        'nb',
+        'nb_NO',
         'ltr',
         'n != 1',
         'Norwegian Bokmål',
@@ -281,7 +279,7 @@ LANGUAGES = (
     ),
     (
         'nb-NO',
-        'nb',
+        'nb_NO',
         'ltr',
         'n != 1',
         'Norwegian Bokmål',
@@ -289,7 +287,7 @@ LANGUAGES = (
     ),
     (
         'nb',
-        'nb',
+        'nb_NO',
         'ltr',
         'n != 1',
         'Norwegian Bokmål',
@@ -299,7 +297,7 @@ LANGUAGES = (
 
 
 class TestSequenceMeta(type):
-    def __new__(mcs, name, bases, dict):
+    def __new__(mcs, name, bases, dict):  # noqa: N804
 
         def gen_test(original, expected, direction, plural, name, create):
             def test(self):
@@ -360,6 +358,16 @@ class LanguagesTest(with_metaclass(TestSequenceMeta, BaseTestCase)):
         # Check name
         self.assertEqual(force_text(lang), name)
 
+    def test_private_use(self, code='de-x-a123', expected='de-x-a123'):
+        lang = Language.objects.auto_get_or_create(code, create=False)
+        self.assertEqual(lang.code, expected)
+        Language.objects.create(name='Test', code=code)
+        lang = Language.objects.auto_get_or_create(code, create=False)
+        self.assertEqual(lang.code, code)
+
+    def test_private_country(self):
+        self.test_private_use('en-US-x-twain', 'en_US-x-twain')
+
 
 class CommandTest(TestCase):
     """Test for management commands."""
@@ -402,9 +410,12 @@ class VerifyPluralsTest(TestCase):
 
     def test_valid(self):
         """Validate that we can name all plural equations"""
-        for code, dummy, dummy, pluraleq in self.all_data():
+        for code, _unused, _unused, pluraleq in self.all_data():
             self.assertNotEqual(
-                get_plural_type(code, pluraleq),
+                get_plural_type(
+                    code.replace('_', '-').split('-')[0],
+                    pluraleq
+                ),
                 data.PLURAL_UNKNOWN,
                 'Can not guess plural type for {0} ({1})'.format(
                     code, pluraleq
@@ -414,16 +425,13 @@ class VerifyPluralsTest(TestCase):
     def test_equation(self):
         """Validate that all equations can be parsed by gettext"""
         # Verify we get an error on invalid syntax
-        self.assertRaises(
-            (SyntaxError, ValueError),
-            gettext.c2py,
-            'n==0 ? 1 2'
-        )
-        for code, dummy, nplurals, pluraleq in self.all_data():
+        with self.assertRaises((SyntaxError, ValueError)):
+            gettext.c2py('n==0 ? 1 2')
+        for code, _unused, nplurals, pluraleq in self.all_data():
             # Validate plurals can be parsed
             plural = gettext.c2py(pluraleq)
             # Get maximal plural
-            calculated = max([plural(x) for x in range(200)]) + 1
+            calculated = max((plural(x) for x in range(200))) + 1
             # Check it matches ours
             self.assertEqual(
                 calculated,
@@ -486,6 +494,71 @@ class LanguagesViewTest(FixtureTestCase):
             kwargs={'lang': 'nonexisting'}
         ))
         self.assertEqual(response.status_code, 404)
+
+    def test_add(self):
+        response = self.client.get(reverse('create-language'))
+        self.assertEqual(response.status_code, 302)
+        self.user.is_superuser = True
+        self.user.save()
+        response = self.client.get(reverse('create-language'))
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post(
+            reverse('create-language'),
+            {'code': 'x'}
+        )
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post(
+            reverse('create-language'),
+            {
+                'code': 'xx',
+                'name': 'XX',
+                'direction': 'ltr',
+                'number': '2',
+                'equation': 'n != 1',
+            }
+        )
+        self.assertRedirects(response, reverse('show_language', kwargs={'lang': 'xx'}))
+
+    def test_delete(self):
+        response = self.client.post(reverse(
+            'show_language',
+            kwargs={'lang': 'br'}
+        ))
+        self.assertEqual(response.status_code, 200)
+        self.user.is_superuser = True
+        self.user.save()
+        response = self.client.post(reverse(
+            'show_language',
+            kwargs={'lang': 'cs'}
+        ))
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post(reverse(
+            'show_language',
+            kwargs={'lang': 'br'}
+        ))
+        self.assertRedirects(response, reverse('languages'))
+
+    def test_edit(self):
+        language = Language.objects.get(code='cs')
+        self.user.is_superuser = True
+        self.user.save()
+        response = self.client.post(
+            reverse('edit-language', kwargs={'pk': language.pk}),
+            {'code': 'xx', 'name': 'XX', 'direction': 'ltr'},
+        )
+        self.assertRedirects(response, reverse('show_language', kwargs={'lang': 'xx'}))
+
+    def test_edit_plural(self):
+        language = Language.objects.get(code='cs')
+        self.user.is_superuser = True
+        self.user.save()
+        response = self.client.post(
+            reverse('edit-plural', kwargs={'pk': language.plural.pk}),
+            {'number': '2', 'equation': 'n != 1'},
+        )
+        self.assertRedirects(
+            response, reverse('show_language', kwargs={'lang': 'cs'}) + '#information'
+        )
 
 
 class PluralsCompareTest(TestCase):
@@ -586,3 +659,11 @@ class PluralTest(TestCase):
             source=Plural.SOURCE_GETTEXT,
         )
         self.assertEqual(plural.type, data.PLURAL_ONE_FEW_OTHER)
+
+    def test_definitions(self):
+        """Verify consistency of plural definitions."""
+        plurals = [x[1] for x in data.PLURAL_MAPPINGS]
+        choices = [x[0] for x in Plural.PLURAL_CHOICES]
+        for plural in plurals:
+            self.assertIn(plural, choices)
+            self.assertIn(plural, data.PLURAL_NAMES)

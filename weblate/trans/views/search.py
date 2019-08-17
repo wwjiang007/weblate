@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,26 +22,34 @@ from __future__ import unicode_literals
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.core.paginator import Paginator, EmptyPage
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
-from django.utils.translation import ugettext as _, ungettext
+from django.urls import reverse
+from django.utils.translation import ugettext as _
+from django.utils.translation import ungettext
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from weblate.lang.models import Language
 from weblate.trans.forms import (
-    SiteSearchForm, ReplaceForm, ReplaceConfirmForm, MassStateForm,
+    BulkStateForm,
+    ReplaceConfirmForm,
+    ReplaceForm,
+    SiteSearchForm,
 )
-from weblate.trans.models import Unit, Change
-from weblate.trans.views.helper import (
-    get_translation, get_component, get_project, import_message,
-)
+from weblate.trans.models import Change, Unit
 from weblate.trans.util import render
-from weblate.trans.views.helper import show_form_errors
 from weblate.utils import messages
+from weblate.utils.ratelimit import check_rate_limit
 from weblate.utils.state import STATE_EMPTY
-from weblate.utils.views import get_page_limit
+from weblate.utils.views import (
+    get_component,
+    get_paginator,
+    get_project,
+    get_translation,
+    import_message,
+    show_form_errors,
+)
 
 
 def parse_url(request, project, component=None, lang=None):
@@ -88,6 +96,11 @@ def search_replace(request, project, component=None, lang=None):
     updated = 0
     if matching.exists():
         confirm = ReplaceConfirmForm(matching, request.POST)
+        limited = False
+
+        if matching.count() > 300:
+            matching = matching.order_by('id')[:250]
+            limited = True
 
         if not confirm.is_valid():
             for unit in matching:
@@ -99,6 +112,7 @@ def search_replace(request, project, component=None, lang=None):
                 'search_query': search_text,
                 'replacement': replacement,
                 'form': form,
+                'limited': limited,
                 'confirm': ReplaceConfirmForm(matching),
             })
             return render(
@@ -108,8 +122,6 @@ def search_replace(request, project, component=None, lang=None):
             )
 
         matching = confirm.cleaned_data['units']
-
-        obj.commit_pending(request)
 
         with transaction.atomic():
             for unit in matching.select_for_update():
@@ -139,6 +151,7 @@ def search_replace(request, project, component=None, lang=None):
 @never_cache
 def search(request, project=None, component=None, lang=None):
     """Perform site-wide search on units."""
+    is_ratelimited = not check_rate_limit('search', request)
     search_form = SiteSearchForm(request.GET)
     context = {
         'search_form': search_form,
@@ -148,19 +161,37 @@ def search(request, project=None, component=None, lang=None):
         obj = get_component(request, project, component)
         context['component'] = obj
         context['project'] = obj.project
+        context['back_url'] = obj.get_absolute_url()
         search_kwargs = {'component': obj}
     elif project:
         obj = get_project(request, project)
         context['project'] = obj
+        context['back_url'] = obj.get_absolute_url()
         search_kwargs = {'project': obj}
     else:
         obj = None
+        context['back_url'] = None
     if lang:
         s_language = get_object_or_404(Language, code=lang)
         context['language'] = s_language
         search_kwargs = {'language': s_language}
+        if obj:
+            if component:
+                context['back_url'] = obj.translation_set.get(
+                    language=s_language
+                ).get_absolute_url()
+            else:
+                context['back_url'] = reverse(
+                    'project-language',
+                    kwargs={
+                        'project': project,
+                        'lang': lang,
+                    }
+                )
+        else:
+            context['back_url'] = s_language.get_absolute_url()
 
-    if search_form.is_valid():
+    if not is_ratelimited and request.GET and search_form.is_valid():
         # Filter results by ACL
         if component:
             units = Unit.objects.filter(translation__component=obj)
@@ -180,25 +211,22 @@ def search(request, project=None, component=None, lang=None):
                 translation__language=context['language']
             )
 
-        page, limit = get_page_limit(request, 50)
+        units = get_paginator(request, units.order())
 
-        paginator = Paginator(units, limit)
-
-        try:
-            units = paginator.page(page)
-        except EmptyPage:
-            # If page is out of range (e.g. 9999), deliver last page of
-            # results.
-            units = paginator.page(paginator.num_pages)
-
+        context['show_results'] = True
         context['page_obj'] = units
         context['title'] = _('Search for %s') % (
             search_form.cleaned_data['q']
         )
         context['query_string'] = search_form.urlencode()
         context['search_query'] = search_form.cleaned_data['q']
-    else:
+    elif is_ratelimited:
+        messages.error(
+            request, _('Too many search queries, please try again later.')
+        )
+    elif request.GET:
         messages.error(request, _('Invalid search query!'))
+        show_form_errors(request, search_form)
 
     return render(
         request,
@@ -216,7 +244,7 @@ def state_change(request, project, component=None, lang=None):
     if not request.user.has_perm('translation.auto', obj):
         raise PermissionDenied()
 
-    form = MassStateForm(request.user, obj, request.POST)
+    form = BulkStateForm(request.user, obj, request.POST)
 
     if not form.is_valid():
         messages.error(request, _('Failed to process form!'))
@@ -230,8 +258,6 @@ def state_change(request, project, component=None, lang=None):
     ).exclude(
         state=STATE_EMPTY
     )
-
-    obj.commit_pending(request)
 
     updated = 0
     with transaction.atomic():
@@ -248,10 +274,10 @@ def state_change(request, project, component=None, lang=None):
 
     import_message(
         request, updated,
-        _('Mass state change completed, no strings were updated.'),
+        _('Bulk status change completed, no strings were updated.'),
         ungettext(
-            'Mass state change completed, %d string was updated.',
-            'Mass state change completed, %d strings were updated.',
+            'Bulk status change completed, %d string was updated.',
+            'Bulk status change completed, %d strings were updated.',
             updated
         )
     )

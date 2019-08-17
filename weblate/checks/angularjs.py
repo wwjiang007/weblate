@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 # Copyright © 2015 Philipp Wolfer <ph.wolfer@gmail.com>
 #
 # This file is part of Weblate <https://weblate.org/>
@@ -20,7 +20,9 @@
 #
 
 import re
+
 from django.utils.translation import ugettext_lazy as _
+
 from weblate.checks.base import TargetCheck
 
 ANGULARJS_INTERPOLATION_MATCH = re.compile(

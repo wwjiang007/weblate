@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -31,9 +31,12 @@ class AuditLogAdmin(WeblateModelAdmin):
     ]
     search_fields = [
         'user__username',
+        'user__email',
         'address',
         'activity',
     ]
+    date_hierarchy = 'timestamp'
+    ordering = ('-timestamp',)
 
 
 class ProfileAdmin(WeblateModelAdmin):
@@ -44,6 +47,7 @@ class ProfileAdmin(WeblateModelAdmin):
         'user__username', 'user__email', 'user__full_name'
     ]
     list_filter = ['language']
+    filter_horizontal = ('languages', 'secondary_languages', 'watched')
 
 
 class VerifiedEmailAdmin(WeblateModelAdmin):
@@ -52,3 +56,4 @@ class VerifiedEmailAdmin(WeblateModelAdmin):
         'email', 'social__user__username', 'social__user__email'
     )
     raw_id_fields = ('social',)
+    ordering = ('email',)

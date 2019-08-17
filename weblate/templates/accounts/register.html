@@ -12,13 +12,13 @@
 
 
 {% if registration_open %}
-{% if legal %}
+{% if has_legal %}
 <div class="alert alert-info">
 {% url 'legal:terms' as legal_url %}
-<a href="{{ legal_url }}">{% blocktrans %}Please read our Terms of Service prior to registration.{% endblocktrans %}</a>
+<a href="{{ legal_url }}">{% blocktrans %}Please read our Terms of Service before registering.{% endblocktrans %}</a>
 </div>
 {% else %}
-{% trans "By registering you agree to use your name and email in version control system commits and provide your contribution under license defined by each translated project." as msg %}
+{% trans "By registering you agree to use your name and e-mail in version control system commits and provide your contribution under license defined by each translated project." as msg %}
 {% show_message "info" msg %}
 {% endif %}
 
@@ -34,7 +34,7 @@
 <form action="{% url 'register' %}" method="post" accept-charset="utf-8">
 
 <div class="panel panel-primary">
-  <div class="panel-heading"><h4 class="panel-title">{% trans "Register using email" %}</h4></div>
+  <div class="panel-heading"><h4 class="panel-title">{% trans "Register using e-mail" %}</h4></div>
   <div class="panel-body">
 
 {% csrf_token %}
@@ -44,7 +44,7 @@
 {% endif %}
 </div>
 <div class="panel-footer">
-<input type="submit" value="{% trans 'Register' %}" class="btn btn-default" />
+<input type="submit" value="{% trans 'Register' %}" class="btn btn-primary" />
 </div>
 </div>
 </form>
@@ -72,7 +72,7 @@
 
 <p>
 {% url 'contact' as contact_url %}
-{% trans "Sorry, but registrations on this site are disabled." %}
+{% trans "Sorry, new registrations are turned off on this site." %}
 <a href="{{ contact_url }}">{% trans "You can contact us for more details." %}</a>
 </p>
 

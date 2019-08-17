@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,14 +21,14 @@
 from __future__ import unicode_literals
 
 import boto3
-
 from django.conf import settings
 
 from weblate.machinery.base import MachineTranslation
 
 
 class AWSTranslation(MachineTranslation):
-    '''AWS machine translation'''
+    """AWS machine translation"""
+
     name = 'AWS'
     max_score = 88
 
@@ -42,12 +42,18 @@ class AWSTranslation(MachineTranslation):
         )
 
     def download_languages(self):
-        return ('en', 'ar', 'zh', 'fr', 'de', 'pt', 'es')
+        return (
+            'en', 'ar', 'zh', 'fr', 'de', 'pt', 'es',
+            'ja', 'ru', 'it', 'zh-TW', 'tr', 'cs',
+        )
 
-    def download_translations(self, source, language, text, unit, user):
+    def download_translations(self, source, language, text, unit, request):
         response = self.client.translate_text(
             Text=text, SourceLanguageCode=source, TargetLanguageCode=language
         )
-        return [
-            (response['TranslatedText'], self.max_score, self.name, text)
-        ]
+        return [{
+            'text': response['TranslatedText'],
+            'quality': self.max_score,
+            'service': self.name,
+            'source': text
+        }]

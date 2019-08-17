@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,11 +18,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+import shutil
 import tempfile
 
-import shutil
-
 from django.test.utils import override_settings
+
+from weblate.utils.files import remove_readonly
 
 
 # Lowercase name to be consistent with Django
@@ -42,5 +43,5 @@ class tempdir_setting(override_settings):  # noqa
     def disable(self):
         super(tempdir_setting, self).disable()
         if self._tempdir is not None:
-            shutil.rmtree(self._tempdir)
+            shutil.rmtree(self._tempdir, onerror=remove_readonly)
             self._tempdir = None

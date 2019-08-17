@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,18 +19,18 @@
 #
 from __future__ import unicode_literals
 
+from django.db.models import Count
+from django.http import Http404
 from django.shortcuts import render
-from django.utils.translation import ugettext as _
 from django.utils.encoding import force_text
 from django.utils.http import urlencode
-from django.http import Http404
-from django.db.models import Count
+from django.utils.translation import ugettext as _
 
-from weblate.checks.models import Check
 from weblate.checks import CHECKS
+from weblate.checks.models import Check
 from weblate.trans.models import Unit
-from weblate.trans.views.helper import get_project, get_component
 from weblate.trans.util import redirect_param
+from weblate.utils.views import get_component, get_project
 
 
 def acl_checks(user):
@@ -169,7 +169,7 @@ def show_check_project(request, name, project):
         ).values_list(
             'content_hash', flat=True
         )
-        for component in prj.component_set.all():
+        for component in prj.component_set.iterator():
             try:
                 lang_id = component.translation_set.values_list(
                     'language_id', flat=True

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,8 +19,11 @@
 #
 
 from __future__ import unicode_literals
+
 import re
+
 from django.utils.translation import ugettext_lazy as _
+
 from weblate.trans.autofixes.base import AutoFix
 
 NEWLINES = re.compile(r'\r\n|\r|\n')

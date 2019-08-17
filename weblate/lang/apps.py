@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,6 +19,7 @@
 #
 
 from django.apps import AppConfig
+from django.db.models.signals import post_migrate
 from django.utils.translation import ugettext_lazy as _
 
 
@@ -26,3 +27,7 @@ class LangConfig(AppConfig):
     name = 'weblate.lang'
     label = 'lang'
     verbose_name = _('Weblate languages')
+
+    def ready(self):
+        from weblate.lang.models import setup_lang
+        post_migrate.connect(setup_lang, sender=self)

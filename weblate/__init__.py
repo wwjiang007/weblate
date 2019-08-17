@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,12 +20,11 @@
 
 import os
 
-from weblate.requirements import (
-    check_requirements, get_versions, get_optional_versions
-)
-from weblate.trans.data import check_data_writable
+from weblate.celery import app as celery_app
 from weblate.vcs.base import RepositoryException
 from weblate.vcs.git import GitRepository
+
+__all__ = ('celery_app',)
 
 
 def get_root_dir():
@@ -35,7 +34,7 @@ def get_root_dir():
 
 
 # Weblate version
-VERSION = '3.1-dev'
+VERSION = '3.9-dev'
 
 # Version string without suffix
 VERSION_BASE = VERSION.replace('-dev', '')
@@ -51,47 +50,3 @@ except (RepositoryException, OSError):
     # Import failed or git has troubles reading
     # repo (eg. swallow clone)
     GIT_VERSION = VERSION
-
-
-def get_doc_url(page, anchor=''):
-    """Return URL to documentation."""
-    # Should we use tagged release or latest version
-    if '-dev' in VERSION:
-        version = 'latest'
-    else:
-        version = 'weblate-{0}'.format(VERSION)
-    # Generate URL
-    url = 'https://docs.weblate.org/en/{0}/{1}.html'.format(version, page)
-    # Optionally append anchor
-    if anchor != '':
-        url += '#{0}'.format(anchor)
-
-    return url
-
-
-def get_versions_list():
-    """Return list with version information summary."""
-    return (
-        [('Weblate', '', GIT_VERSION)] +
-        get_versions() +
-        get_optional_versions()
-    )
-
-
-def get_versions_string():
-    """Return string with version information summary."""
-    result = []
-    for version in get_versions_list():
-        result.append(
-            ' * {0} {1}'.format(
-                version[0],
-                version[2]
-            )
-        )
-    return '\n'.join(result)
-
-
-# Check for requirements
-
-check_requirements()
-check_data_writable()

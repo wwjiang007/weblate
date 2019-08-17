@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,11 +19,11 @@
 #
 """OpenShift integration support"""
 
-import os
-import hashlib
-import sys
-import re
 import ast
+import hashlib
+import os
+import re
+import sys
 from string import Template
 
 
@@ -43,8 +43,8 @@ def get_openshift_secret_key():
         return hashlib.sha256(nameuuid.encode('utf-8')).hexdigest()
 
     sys.stderr.write(
-        "OPENSHIFT WARNING: Using default values for secure variables, " +
-        "please set OPENSHIFT_SECRET_TOKEN!"
+        "OPENSHIFT WARNING: Using default values for secure variables, "
+        + "please set OPENSHIFT_SECRET_TOKEN!"
     )
     raise ValueError('No key available')
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 import argparse
 import json
 
+from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 from django.utils.text import slugify
 
@@ -76,7 +77,7 @@ class Command(BaseCommand):
             help='JSON file containing component defintion',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args, **options):  # noqa: C901
         """Automatic import of components."""
         # Get project
         try:
@@ -102,9 +103,18 @@ class Command(BaseCommand):
         finally:
             options['json-file'].close()
 
+        allfields = {
+            field.name
+            for field in Component._meta.get_fields()
+            if field.editable and not field.is_relation
+        }
+
+        # Handle dumps from API
+        if 'results' in data:
+            data = data['results']
+
         for item in data:
-            if ('filemask' not in item or
-                    'name' not in item):
+            if 'filemask' not in item or 'name' not in item:
                 raise CommandError('Missing required fields in JSON!')
 
             if 'slug' not in item:
@@ -117,11 +127,9 @@ class Command(BaseCommand):
                     )
                 item['repo'] = main_component.get_repo_link_url()
 
-            item['project'] = project
-
             try:
                 component = Component.objects.get(
-                    slug=item['slug'], project=item['project']
+                    slug=item['slug'], project=project
                 )
                 self.stderr.write(
                     'Component {0} already exists'.format(component)
@@ -130,7 +138,7 @@ class Command(BaseCommand):
                     continue
                 if options['update']:
                     for key in item:
-                        if key in ('project', 'slug'):
+                        if key not in allfields or key == 'slug':
                             continue
                         setattr(component, key, item[key])
                     component.save()
@@ -140,7 +148,17 @@ class Command(BaseCommand):
                 )
 
             except Component.DoesNotExist:
-                component = Component.objects.create(**item)
+                params = {key: item[key] for key in allfields if key in item}
+                component = Component(project=project, **params)
+                try:
+                    component.full_clean()
+                except ValidationError as error:
+                    for key, value in error.message_dict.items():
+                        self.stderr.write(
+                            'Error in {}: {}'.format(key, ', '.join(value))
+                        )
+                    raise CommandError('Component failed validation!')
+                component.save(force_insert=True)
                 self.stdout.write(
                     'Imported {0} with {1} translations'.format(
                         component,

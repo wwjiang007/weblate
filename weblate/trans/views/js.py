@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,41 +18,33 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from django.shortcuts import render, get_object_or_404
-from django.http import (
-    HttpResponse, HttpResponseBadRequest, Http404, JsonResponse,
-)
 from django.core.exceptions import PermissionDenied
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
+from django.shortcuts import get_object_or_404, render
 from django.utils.encoding import force_text
 from django.utils.http import urlencode
+from django.views.decorators.http import require_POST
 
-from weblate.checks.models import Check
-from weblate.screenshots.forms import ScreenshotForm
-from weblate.trans.models import Unit, Change
-from weblate.machinery import MACHINE_TRANSLATION_SERVICES
-from weblate.trans.views.helper import (
-    get_project, get_component, get_translation
-)
-from weblate.trans.forms import PriorityForm, CheckFlagsForm, ContextForm
-from weblate.trans.validators import EXTRA_FLAGS
 from weblate.checks import CHECKS
-from weblate.utils.hash import checksum_to_hash
+from weblate.checks.flags import PLAIN_FLAGS, TYPED_FLAGS
+from weblate.checks.models import Check
+from weblate.machinery import MACHINE_TRANSLATION_SERVICES
+from weblate.machinery.base import MachineTranslationError
+from weblate.screenshots.forms import ScreenshotForm
+from weblate.trans.forms import CheckFlagsForm, ContextForm
+from weblate.trans.models import Change, Unit
 from weblate.trans.util import sort_objects
+from weblate.utils.errors import report_error
+from weblate.utils.hash import checksum_to_hash
+from weblate.utils.views import get_component, get_project, get_translation
 
 
-def translate(request, unit_id):
-    """AJAX handler for translating."""
-    unit = get_object_or_404(Unit, pk=int(unit_id))
+def handle_machinery(request, service, unit, source):
     request.user.check_access(unit.translation.component.project)
     if not request.user.has_perm('machinery.view', unit.translation):
         raise PermissionDenied()
 
-    service_name = request.GET.get('service', 'INVALID')
-
-    if service_name not in MACHINE_TRANSLATION_SERVICES:
-        return HttpResponseBadRequest('Invalid service specified')
-
-    translation_service = MACHINE_TRANSLATION_SERVICES[service_name]
+    translation_service = MACHINE_TRANSLATION_SERVICES[service]
 
     # Error response
     response = {
@@ -67,20 +59,47 @@ def translate(request, unit_id):
     try:
         response['translations'] = translation_service.translate(
             unit.translation.language.code,
-            unit.get_source_plurals()[0],
+            source,
             unit,
-            request.user
+            request
         )
         response['responseStatus'] = 200
+    except MachineTranslationError as exc:
+        response['responseDetails'] = str(exc)
     except Exception as exc:
+        report_error(exc, request)
         response['responseDetails'] = '{0}: {1}'.format(
             exc.__class__.__name__,
             str(exc)
         )
 
-    return JsonResponse(
-        data=response,
+    return JsonResponse(data=response)
+
+
+@require_POST
+def translate(request, unit_id, service):
+    """AJAX handler for translating."""
+    if service not in MACHINE_TRANSLATION_SERVICES:
+        raise Http404('Invalid service specified')
+
+    unit = get_object_or_404(Unit, pk=int(unit_id))
+    return handle_machinery(
+        request,
+        service,
+        unit,
+        unit.get_source_plurals()[0]
     )
+
+
+@require_POST
+def memory(request, unit_id):
+    """AJAX handler for translation memory."""
+    unit = get_object_or_404(Unit, pk=int(unit_id))
+    query = request.POST.get('q')
+    if not query:
+        return HttpResponseBadRequest('Missing search string')
+
+    return handle_machinery(request, 'weblate-translation-memory', unit, query)
 
 
 def get_unit_changes(request, unit_id):
@@ -92,8 +111,10 @@ def get_unit_changes(request, unit_id):
         request,
         'js/changes.html',
         {
-            'last_changes': unit.change_set.all()[:10],
-            'last_changes_url': urlencode(unit.translation.get_kwargs()),
+            'last_changes': unit.change_set.order()[:10],
+            'last_changes_url': urlencode(
+                unit.translation.get_reverse_url_kwargs()
+            ),
         }
     )
 
@@ -152,7 +173,7 @@ def git_status_project(request, project):
             'changes': Change.objects.filter(
                 component__project=obj,
                 action__in=Change.ACTIONS_REPOSITORY,
-            )[:10],
+            ).order()[:10],
             'statuses': statuses,
         }
     )
@@ -177,7 +198,7 @@ def git_status_component(request, project, component):
             'changes': Change.objects.filter(
                 action__in=Change.ACTIONS_REPOSITORY,
                 component=target,
-            )[:10],
+            ).order()[:10],
             'statuses': [(None, obj.repository.status)],
         }
     )
@@ -203,7 +224,7 @@ def git_status_translation(request, project, component, lang):
             'changes': Change.objects.filter(
                 action__in=Change.ACTIONS_REPOSITORY,
                 component=target,
-            )[:10],
+            ).order()[:10],
             'statuses': [(None, obj.component.repository.status)],
         }
     )
@@ -238,8 +259,6 @@ def get_detail(request, project, component, checksum):
     check_flags = [
         (CHECKS[x].ignore_string, CHECKS[x].name) for x in CHECKS
     ]
-    extra_flags = [(x, EXTRA_FLAGS[x]) for x in EXTRA_FLAGS]
-
     return render(
         request,
         'js/detail.html',
@@ -248,9 +267,6 @@ def get_detail(request, project, component, checksum):
             'source': source,
             'project': component.project,
             'next': request.GET.get('next', ''),
-            'priority_form': PriorityForm(
-                initial={'priority': source.priority}
-            ),
             'context_form': ContextForm(
                 initial={'context': source.context}
             ),
@@ -259,7 +275,8 @@ def get_detail(request, project, component, checksum):
                 initial={'flags': source.check_flags}
             ),
             'screenshot_form': ScreenshotForm(),
-            'extra_flags': extra_flags,
+            'extra_flags': PLAIN_FLAGS.items(),
+            'param_flags': TYPED_FLAGS.items(),
             'check_flags': check_flags,
         }
     )

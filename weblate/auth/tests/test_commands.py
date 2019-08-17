@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,12 +20,12 @@
 
 """Test for user handling."""
 
-from django.test import TestCase
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.test import TestCase
 
-from weblate.auth.models import User, Group
-from weblate.trans.tests.utils import get_test_file, TempDirMixin
+from weblate.auth.models import Group, User
+from weblate.trans.tests.utils import TempDirMixin, get_test_file
 
 
 class CommandTest(TestCase, TempDirMixin):
@@ -54,16 +54,29 @@ class CommandTest(TestCase, TempDirMixin):
 
     def test_createadmin_twice(self):
         call_command('createadmin')
-        self.assertRaises(
-            CommandError,
-            call_command,
-            'createadmin'
-        )
+        with self.assertRaises(CommandError):
+            call_command('createadmin')
 
     def test_createadmin_update(self):
         call_command('createadmin', update=True)
         call_command('createadmin', update=True, password='123456')
         user = User.objects.get(username='admin')
+        self.assertTrue(user.check_password('123456'))
+
+    def test_createadmin_update_duplicate(self):
+        email = 'noreply+admin@weblate.org'
+        User.objects.create(username='another', email=email)
+        call_command('createadmin', update=True)
+        with self.assertRaises(CommandError):
+            call_command('createadmin', update=True, password='123456', email=email)
+        user = User.objects.get(username='another')
+        self.assertFalse(user.check_password('123456'))
+
+    def test_createadmin_update_email(self):
+        email = 'noreply+admin@weblate.org'
+        User.objects.create(username='another', email=email)
+        call_command('createadmin', update=True, password='123456', email=email)
+        user = User.objects.get(username='another')
         self.assertTrue(user.check_password('123456'))
 
     def test_importusers(self):

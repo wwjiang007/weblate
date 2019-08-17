@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,31 +18,38 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import permission_required
 from django.http import Http404
-from django.utils.translation import ugettext as _
+from django.shortcuts import redirect, render
+from django.utils.decorators import method_decorator
 from django.utils.http import urlencode
+from django.utils.translation import ugettext as _
+from django.views.generic import CreateView, UpdateView
 
-from weblate.lang.models import Language
+from weblate.lang import data
+from weblate.lang.forms import LanguageForm, PluralForm
+from weblate.lang.models import Language, Plural
 from weblate.trans.forms import SiteSearchForm
 from weblate.trans.models import Change
 from weblate.trans.util import sort_objects
-from weblate.trans.views.helper import get_project
-from weblate.utils.stats import prefetch_stats
+from weblate.utils import messages
+from weblate.utils.stats import GlobalStats, prefetch_stats
+from weblate.utils.views import get_paginator, get_project
 
 
 def show_languages(request):
+    if request.user.has_perm('language.edit'):
+        languages = Language.objects.all()
+    else:
+        languages = Language.objects.have_translation()
     return render(
         request,
         'languages.html',
         {
             'allow_index': True,
-            'languages': prefetch_stats(
-                sort_objects(
-                    Language.objects.have_translation()
-                )
-            ),
+            'languages': prefetch_stats(sort_objects(languages)),
             'title': _('Languages'),
+            'global_stats': GlobalStats(),
         }
     )
 
@@ -55,6 +62,16 @@ def show_language(request, lang):
         if isinstance(obj, Language):
             return redirect(obj)
         raise Http404('No Language matches the given query.')
+
+    if request.method == 'POST' and request.user.has_perm('language.edit'):
+        if obj.translation_set.exists():
+            messages.error(
+                request, _('Remove all translations using this language first.')
+            )
+        else:
+            obj.delete()
+            messages.success(request, _('Language %s removed.') % obj)
+            return redirect('languages')
 
     last_changes = Change.objects.last_changes(request.user).filter(
         translation__language=obj
@@ -99,11 +116,14 @@ def show_project(request, lang, project):
         translation__language=obj,
         component__project=pobj
     )[:10]
-    translations = obj.translation_set.prefetch().filter(
+
+    # Paginate translations.
+    translation_list = obj.translation_set.prefetch().filter(
         component__project=pobj
     ).order_by(
-        'component__project__slug', 'component__slug'
+        'component__name'
     )
+    translations = get_paginator(request, translation_list)
 
     return render(
         request,
@@ -118,7 +138,49 @@ def show_project(request, lang, project):
             ),
             'translations': translations,
             'title': '{0} - {1}'.format(pobj, obj),
-            'show_only_component': True,
             'search_form': SiteSearchForm(),
+            'licenses': ', '.join(sorted(pobj.get_licenses())),
         }
     )
+
+
+@method_decorator(permission_required('language.add'), name='dispatch')
+class CreateLanguageView(CreateView):
+    template_name = "lang/create.html"
+
+    def get_form(self, form_class=None):
+        kwargs = self.get_form_kwargs()
+        return (
+            LanguageForm(**kwargs),
+            PluralForm(**kwargs),
+        )
+
+    def post(self, request, *args, **kwargs):
+        self.object = None
+        forms = self.get_form()
+        if all(form.is_valid() for form in forms):
+            return self.form_valid(forms)
+        else:
+            return self.form_invalid(forms)
+
+    def form_valid(self, form):
+        """If the form is valid, save the associated model."""
+        self.object = form[0].save()
+        plural = form[1].instance
+        plural.language = self.object
+        plural.type = data.PLURAL_UNKNOWN
+        plural.source = Plural.SOURCE_MANUAL
+        plural.save()
+        return redirect(self.object)
+
+
+@method_decorator(permission_required('language.edit'), name='dispatch')
+class EditLanguageView(UpdateView):
+    form_class = LanguageForm
+    model = Language
+
+
+@method_decorator(permission_required('language.edit'), name='dispatch')
+class EditPluralView(UpdateView):
+    form_class = PluralForm
+    model = Plural

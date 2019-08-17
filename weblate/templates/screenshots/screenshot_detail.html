@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load permissions %}
 {% load crispy_forms_tags %}
+{% load translations %}
 
 {% block breadcrumbs %}
 <li><a href="{{ object.component.project.get_absolute_url }}">{{ object.component.project }}</a></li>
@@ -51,6 +52,7 @@
     <tr>
     <th>{% trans "Source string" %}</th>
     <th>{% trans "Context" %}</th>
+    <th>{% trans "Location" %}</th>
     <th>{% trans "Actions" %}</th>
     </tr>
     </thead>
@@ -67,14 +69,14 @@
     <div class="pull-right flip">
     <form class="form-inline">
       {% csrf_token %}
-      <button data-href="{% url 'screenshot-js-ocr' pk=object.pk %}" class="btn btn-success" id="screenshots-auto"><i class="fa fa-cogs"></i> {% trans "Automatically recognize" %}</button>
+      <button data-href="{% url 'screenshot-js-ocr' pk=object.pk %}" class="btn btn-primary" id="screenshots-auto"><i class="fa fa-cogs"></i> {% trans "Automatically recognize" %}</button>
     </form>
     </div>
     {% endif %}
     <form class="form-inline double-submission">
       {% csrf_token %}
       <input type="text" required="yes" name="q" id="search-input" placeholder="{% trans "Source string search" %}" />
-      <button data-href="{% url 'screenshot-js-search' pk=object.pk %}" class="btn btn-success" id="screenshots-search"><i class="fa fa-search"></i> {% trans "Search" %}</button>
+      <button data-href="{% url 'screenshot-js-search' pk=object.pk %}" class="btn btn-primary" id="screenshots-search"><i class="fa fa-search"></i> {% trans "Search" %}</button>
     </form>
   </div>
 </div>
@@ -100,11 +102,21 @@
   {{ edit_form|crispy }}
   </div>
   <div class="panel-footer">
-  <input type="submit" class="btn btn-success" value="{% trans "Save" %}" />
+  <input type="submit" class="btn btn-primary" value="{% trans "Save" %}" />
   </div>
 </div>
 </form>
+
 {% endif %}
+<div class="panel panel-primary">
+<div class="panel-heading"><h4 class="panel-title">{% trans "Screenshot details" %}</h4></div>
+ 
+<table class="table table-condensed table-striped">
+<tr><th>{% trans "Created on" %}</th><td>{{ object.timestamp|naturaltime }}</td></tr>
+<tr><th>{% trans "Uploaded by" %}</th><td>{{ object.get_user_display }}</td></tr>
+</table>
+
+</div>
 
 {% if user_can_delete_screenshot %}
 <div class="panel panel-danger">

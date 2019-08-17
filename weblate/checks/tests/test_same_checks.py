@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,10 +23,9 @@ Tests for quality checks.
 """
 
 from __future__ import unicode_literals
-from weblate.checks.same import (
-    SameCheck,
-)
-from weblate.checks.tests.test_checks import MockUnit, CheckTestCase
+
+from weblate.checks.same import SameCheck
+from weblate.checks.tests.test_checks import CheckTestCase, MockUnit
 
 
 class SameCheckTest(CheckTestCase):
@@ -119,6 +118,24 @@ class SameCheckTest(CheckTestCase):
             )
         )
 
+        self.do_test(
+            False,
+            (
+                'i18n',
+                'i18n',
+                '',
+            )
+        )
+
+        self.do_test(
+            False,
+            (
+                'i18next',
+                'i18next',
+                '',
+            )
+        )
+
     def test_same_copyright(self):
         self.do_test(
             False,
@@ -207,6 +224,31 @@ class SameCheckTest(CheckTestCase):
                 '%i C',
                 '%i C',
                 'c-format',
+            )
+        )
+
+        self.do_test(
+            False,
+            (
+                '%Ln C',
+                '%Ln C',
+                'qt-format',
+            )
+        )
+        self.do_test(
+            False,
+            (
+                '%+.2<amount>f C',
+                '%+.2<amount>f C',
+                'ruby-format',
+            )
+        )
+        self.do_test(
+            False,
+            (
+                '%{amount} C',
+                '%{amount} C',
+                'ruby-format',
             )
         )
 
@@ -370,4 +412,18 @@ class SameCheckTest(CheckTestCase):
                 "abcdefghijklmnopqrstuvwxyz{|}~",
                 '',
             )
+        )
+
+    def test_same_uppercase(self):
+        self.do_test(
+            False,
+            ('RMS', 'RMS', '')
+        )
+        self.do_test(
+            False,
+            ('<primary>RMS</primary>', '<primary>RMS</primary>', '')
+        )
+        self.do_test(
+            True,
+            ('Who is RMS?', 'Who is RMS?', '')
         )

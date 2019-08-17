@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,19 +20,15 @@
 
 from __future__ import unicode_literals
 
+import json
+
 from django.conf import settings
 
 from weblate.machinery.base import (
-    MachineTranslation, MachineTranslationError, MissingConfiguration
+    MachineTranslation,
+    MachineTranslationError,
+    MissingConfiguration,
 )
-
-
-# Map old codes used by Google to new ones used by Weblate
-LANGUAGE_MAP = {
-    'he': 'iw',
-    'jv': 'jw',
-    'nb': 'no',
-}
 
 GOOGLE_API_ROOT = 'https://translation.googleapis.com/language/translate/v2/'
 
@@ -41,6 +37,13 @@ class GoogleTranslation(MachineTranslation):
     """Google Translate API v2 machine translation support."""
     name = 'Google Translate'
     max_score = 90
+
+    # Map old codes used by Google to new ones used by Weblate
+    language_map = {
+        'he': 'iw',
+        'jv': 'jw',
+        'nb': 'no',
+    }
 
     def __init__(self):
         """Check configuration."""
@@ -52,12 +55,9 @@ class GoogleTranslation(MachineTranslation):
 
     def convert_language(self, language):
         """Convert language to service specific code."""
-        language = language.replace('_', '-').split('@')[0]
-
-        if language in LANGUAGE_MAP:
-            return LANGUAGE_MAP[language]
-
-        return language
+        return super(GoogleTranslation, self).convert_language(
+            language.replace('_', '-').split('@')[0]
+        )
 
     def download_languages(self):
         """List of supported languages."""
@@ -71,7 +71,7 @@ class GoogleTranslation(MachineTranslation):
 
         return [d['language'] for d in response['data']['languages']]
 
-    def download_translations(self, source, language, text, unit, user):
+    def download_translations(self, source, language, text, unit, request):
         """Download list of possible translations from a service."""
         response = self.json_req(
             GOOGLE_API_ROOT,
@@ -87,4 +87,20 @@ class GoogleTranslation(MachineTranslation):
 
         translation = response['data']['translations'][0]['translatedText']
 
-        return [(translation, self.max_score, self.name, text)]
+        return [{
+            'text': translation,
+            'quality': self.max_score,
+            'service': self.name,
+            'source': text,
+        }]
+
+    def get_error_message(self, exc):
+        if hasattr(exc, 'read'):
+            content = exc.read()
+            try:
+                data = json.loads(content)
+                return data['error']['message']
+            except Exception:
+                pass
+
+        return super(GoogleTranslation, self).get_error_message(exc)

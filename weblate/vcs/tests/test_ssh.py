@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -24,13 +24,10 @@ import shutil
 from django.conf import settings
 from django.test import TestCase
 
-from weblate.vcs.ssh import (
-    get_host_keys, create_ssh_wrapper, ssh_file, get_wrapper_filename
-)
 from weblate.trans.tests.utils import get_test_file
-from weblate.trans.data import check_data_writable
+from weblate.utils.checks import check_data_writable
 from weblate.utils.unittest import tempdir_setting
-
+from weblate.vcs.ssh import SSHWrapper, get_host_keys, ssh_file
 
 TEST_HOSTS = get_test_file('known_hosts')
 
@@ -39,16 +36,17 @@ class SSHTest(TestCase):
     """Test for customized admin interface."""
     @tempdir_setting('DATA_DIR')
     def test_parse(self):
-        check_data_writable()
+        self.assertEqual(check_data_writable(), [])
         shutil.copy(TEST_HOSTS, os.path.join(settings.DATA_DIR, 'ssh'))
         hosts = get_host_keys()
         self.assertEqual(len(hosts), 50)
 
     @tempdir_setting('DATA_DIR')
     def test_create_ssh_wrapper(self):
-        check_data_writable()
-        filename = get_wrapper_filename()
-        create_ssh_wrapper()
+        self.assertEqual(check_data_writable(), [])
+        wrapper = SSHWrapper()
+        filename = wrapper.filename
+        wrapper.create()
         with open(filename, 'r') as handle:
             data = handle.read()
             self.assertTrue(ssh_file('known_hosts') in data)
@@ -59,5 +57,5 @@ class SSHTest(TestCase):
         )
         # Second run should not touch the file
         timestamp = os.stat(filename).st_mtime
-        create_ssh_wrapper()
+        wrapper.create()
         self.assertEqual(timestamp, os.stat(filename).st_mtime)

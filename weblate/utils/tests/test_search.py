@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -38,7 +38,16 @@ class ComparerTest(TestCase):
             100
         )
 
+    def test_unicode(self):
+        # Test fallback to Python implementation in jellyfish
+        # for unicode strings
+        self.assertEqual(
+            Comparer().similarity('NICHOLASŸ', 'NICHOLAS'),
+            88
+        )
+
     def test_long(self):
+        # This is expected to raise MemoryError inside jellyfish
         self.assertLessEqual(
             Comparer().similarity('a' * 200000, 'b' * 200000),
             50

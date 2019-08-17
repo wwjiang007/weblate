@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,7 +20,8 @@
 """Wrapper to include useful information in error mails."""
 
 from django.views.debug import SafeExceptionReporterFilter
-from weblate import get_versions_list
+
+from weblate.utils.requirements import get_versions_list
 
 
 class WeblateExceptionReporterFilter(SafeExceptionReporterFilter):
@@ -31,8 +32,8 @@ class WeblateExceptionReporterFilter(SafeExceptionReporterFilter):
                 meta['WEBLATE_USER'] = repr(request.user.username)
             else:
                 meta['WEBLATE_USER'] = ''
-            if (hasattr(request, 'session') and
-                    'django_language' in request.session):
+            if (hasattr(request, 'session')
+                    and 'django_language' in request.session):
                 meta['WEBLATE_LANGUAGE'] = request.session['django_language']
             else:
                 meta['WEBLATE_LANGUAGE'] = ''

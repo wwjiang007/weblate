@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,18 +20,24 @@
 
 import os.path
 import shutil
-import stat
 import sys
+from datetime import timedelta
 from tarfile import TarFile
 from tempfile import mkdtemp
 from unittest import SkipTest
 
+from celery.contrib.testing.tasks import ping
+from celery.result import allow_join_result
 from django.conf import settings
-from weblate.auth.models import User
+from django.utils import timezone
+from django.utils.functional import cached_property
 
+from weblate.auth.models import User
+from weblate.billing.models import Billing, Invoice, Plan
 from weblate.formats.models import FILE_FORMATS
-from weblate.trans.models import Project, Component
-from weblate.trans.search import clean_indexes
+from weblate.trans.models import Component, Project
+from weblate.trans.search import Fulltext
+from weblate.utils.files import remove_readonly
 from weblate.vcs.models import VCS_REGISTRY
 
 # Directory holding test data
@@ -41,18 +47,17 @@ TEST_DATA = os.path.join(
 )
 
 REPOWEB_URL = \
-    'https://github.com/WeblateOrg/test/blob/master/%(file)s#L%(line)s'
+    'https://github.com/WeblateOrg/test/blob/master/{{filename}}#L{{line}}'
+
+
+def wait_for_celery(timeout=10):
+    with allow_join_result():
+        ping.delay().get(timeout=timeout)
 
 
 def get_test_file(name):
     """Return filename of test file."""
     return os.path.join(TEST_DATA, name)
-
-
-def remove_readonly(func, path, _):
-    "Clear the readonly bit and reattempt the removal"
-    os.chmod(path, stat.S_IWRITE)
-    func(path)
 
 
 def create_test_user():
@@ -64,26 +69,30 @@ def create_test_user():
     )
 
 
+def create_another_user():
+    return User.objects.create_user(
+        'jane',
+        'jane.doe@example.org',
+        'anotherpassword',
+        full_name='Jane Doe',
+    )
+
+
 class RepoTestMixin(object):
     """Mixin for testing with test repositories."""
-    git_base_repo_path = None
-    git_repo_path = None
-    mercurial_base_repo_path = None
-    mercurial_repo_path = None
-    subversion_base_repo_path = None
-    subversion_repo_path = None
+    updated_base_repos = set()
 
-    @staticmethod
-    def optional_extract(output, tarname):
+    local_repo_path = 'local:'
+
+    def optional_extract(self, output, tarname):
         """Extract test repository data if needed
 
         Checks whether directory exists or is older than archive.
         """
-
         tarname = get_test_file(tarname)
 
-        if (not os.path.exists(output) or
-                os.path.getmtime(output) < os.path.getmtime(tarname)):
+        if (not os.path.exists(output)
+                or os.path.getmtime(output) < os.path.getmtime(tarname)):
 
             # Remove directory if outdated
             if os.path.exists(output):
@@ -96,84 +105,64 @@ class RepoTestMixin(object):
 
             # Update directory timestamp
             os.utime(output, None)
+        self.updated_base_repos.add(output)
+
+    @staticmethod
+    def get_repo_path(name):
+        return os.path.join(settings.DATA_DIR, name)
+
+    @property
+    def git_base_repo_path(self):
+        path = self.get_repo_path('test-base-repo.git')
+        if path not in self.updated_base_repos:
+            self.optional_extract(path, 'test-base-repo.git.tar')
+        return path
+
+    @cached_property
+    def git_repo_path(self):
+        path = self.get_repo_path('test-repo.git')
+        shutil.copytree(self.git_base_repo_path, path)
+        return path
+
+    @property
+    def mercurial_base_repo_path(self):
+        path = self.get_repo_path('test-base-repo.hg')
+        if path not in self.updated_base_repos:
+            self.optional_extract(path, 'test-base-repo.hg.tar')
+        return path
+
+    @cached_property
+    def mercurial_repo_path(self):
+        path = self.get_repo_path('test-repo.hg')
+        shutil.copytree(self.mercurial_base_repo_path, path)
+        return path
+
+    @property
+    def subversion_base_repo_path(self):
+        path = self.get_repo_path('test-base-repo.svn')
+        if path not in self.updated_base_repos:
+            self.optional_extract(path, 'test-base-repo.svn.tar')
+        return path
+
+    @cached_property
+    def subversion_repo_path(self):
+        path = self.get_repo_path('test-repo.svn')
+        shutil.copytree(self.subversion_base_repo_path, path)
+        return path
 
     def clone_test_repos(self):
-        # Path where to clone remote repo for tests
-        self.git_base_repo_path = os.path.join(
-            settings.DATA_DIR,
-            'test-base-repo.git'
-        )
-        # Repository on which tests will be performed
-        self.git_repo_path = os.path.join(
-            settings.DATA_DIR,
-            'test-repo.git'
-        )
+        dirs = ['test-repo.git', 'test-repo.hg', 'test-repo.svn']
+        # Remove possibly existing directories
+        for name in dirs:
+            path = self.get_repo_path(name)
+            if os.path.exists(path):
+                shutil.rmtree(path, onerror=remove_readonly)
 
-        # Path where to clone remote repo for tests
-        self.mercurial_base_repo_path = os.path.join(
-            settings.DATA_DIR,
-            'test-base-repo.hg'
-        )
-        # Repository on which tests will be performed
-        self.mercurial_repo_path = os.path.join(
-            settings.DATA_DIR,
-            'test-repo.hg'
-        )
-
-        # Path where to clone remote repo for tests
-        self.subversion_base_repo_path = os.path.join(
-            settings.DATA_DIR,
-            'test-base-repo.svn'
-        )
-        # Repository on which tests will be performed
-        self.subversion_repo_path = os.path.join(
-            settings.DATA_DIR,
-            'test-repo.svn'
-        )
-
-        # Extract repo for testing
-        self.optional_extract(
-            self.git_base_repo_path,
-            'test-base-repo.git.tar'
-        )
-
-        # Remove possibly existing directory
-        if os.path.exists(self.git_repo_path):
-            shutil.rmtree(self.git_repo_path, onerror=remove_readonly)
-
-        # Create repository copy for the test
-        shutil.copytree(self.git_base_repo_path, self.git_repo_path)
-
-        # Extract repo for testing
-        self.optional_extract(
-            self.mercurial_base_repo_path,
-            'test-base-repo.hg.tar'
-        )
-
-        # Remove possibly existing directory
-        if os.path.exists(self.mercurial_repo_path):
-            shutil.rmtree(self.mercurial_repo_path, onerror=remove_readonly)
-
-        # Create repository copy for the test
-        shutil.copytree(
-            self.mercurial_base_repo_path, self.mercurial_repo_path
-        )
-
-        # Extract repo for testing
-        self.optional_extract(
-            self.subversion_base_repo_path,
-            'test-base-repo.svn.tar'
-        )
-
-        # Remove possibly existing directory
-        if os.path.exists(self.subversion_repo_path):
-            shutil.rmtree(self.subversion_repo_path, onerror=remove_readonly)
-
-        # Create repository copy for the test
-        shutil.copytree(
-            self.subversion_base_repo_path,
-            self.subversion_repo_path
-        )
+        # Remove cached paths
+        keys = ['git_repo_path', 'mercurial_repo_path', 'subversion_repo_path']
+        for key in keys:
+            if key in self.__dict__:
+                del self.__dict__[key]
 
         # Remove possibly existing project directory
         test_repo_path = os.path.join(settings.DATA_DIR, 'vcs', 'test')
@@ -181,7 +170,7 @@ class RepoTestMixin(object):
             shutil.rmtree(test_repo_path, onerror=remove_readonly)
 
         # Remove indexes
-        clean_indexes()
+        Fulltext.cleanup()
 
     def create_project(self):
         """Create test project."""
@@ -228,7 +217,7 @@ class RepoTestMixin(object):
         if branch is None:
             branch = VCS_REGISTRY[vcs].default_branch
 
-        result = Component.objects.create(
+        return Component.objects.create(
             repo=repo,
             push=push,
             branch=branch,
@@ -241,15 +230,10 @@ class RepoTestMixin(object):
             vcs=vcs,
             **kwargs
         )
-        result.addons_cache = {}
-        return result
 
     def create_component(self):
         """Wrapper method for providing test component."""
-        return self._create_component(
-            'auto',
-            'po/*.po',
-        )
+        return self.create_po()
 
     def create_po(self, **kwargs):
         return self._create_component(
@@ -305,6 +289,13 @@ class RepoTestMixin(object):
             'po-mono',
             'po-mono/*.po',
             'po-mono/en.po',
+        )
+
+    def create_srt(self):
+        return self._create_component(
+            'srt',
+            'srt/*.srt',
+            'srt/en.srt'
         )
 
     def create_ts(self, suffix='', **kwargs):
@@ -438,6 +429,13 @@ class RepoTestMixin(object):
             'dtd/en.dtd',
         )
 
+    def create_appstore(self):
+        return self._create_component(
+            'appstore',
+            'metadata/*',
+            'metadata/en-US',
+        )
+
     def create_link(self, **kwargs):
         parent = self.create_iphone(*kwargs)
         return Component.objects.create(
@@ -461,3 +459,20 @@ class TempDirMixin(object):
         if self.tempdir:
             shutil.rmtree(self.tempdir, onerror=remove_readonly)
             self.tempdir = None
+
+
+def create_billing(user):
+    plan = Plan.objects.create(
+        display_limit_projects=1,
+        name='Basic plan',
+        price=19, yearly_price=199,
+    )
+    billing = Billing.objects.create(plan=plan)
+    billing.owners.add(user)
+    Invoice.objects.create(
+        billing=billing,
+        amount=19,
+        start=timezone.now() - timedelta(days=1),
+        end=timezone.now() + timedelta(days=1),
+    )
+    return billing

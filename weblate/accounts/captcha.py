@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,11 +22,12 @@
 from __future__ import unicode_literals
 
 import ast
-from base64 import b64encode, b64decode
 import hashlib
 import operator
-from random import SystemRandom
 import time
+from base64 import b64decode, b64encode
+from random import SystemRandom
+
 from django.conf import settings
 
 TIMEDELTA = 600
@@ -90,8 +91,7 @@ class MathCaptcha(object):
     def validate(self, answer):
         """Validate answer."""
         return (
-            self.result == answer and
-            self.timestamp + TIMEDELTA > time.time()
+            self.result == answer and self.timestamp + TIMEDELTA > time.time()
         )
 
     @property
@@ -164,14 +164,13 @@ def eval_node(node):
     if isinstance(node, ast.Num):
         # number
         return node.n
-    elif isinstance(node, ast.operator):
+    if isinstance(node, ast.operator):
         # operator
         return OPERATORS[type(node)]
-    elif isinstance(node, ast.BinOp):
+    if isinstance(node, ast.BinOp):
         # binary operation
         return eval_node(node.op)(
             eval_node(node.left),
             eval_node(node.right)
         )
-    else:
-        raise ValueError(node)
+    raise ValueError(node)

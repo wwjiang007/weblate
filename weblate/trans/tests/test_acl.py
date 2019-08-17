@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,9 +21,10 @@
 """Test for ACL management."""
 
 from django.conf import settings
+from django.core import mail
 from django.urls import reverse
-from weblate.auth.models import User, Group
 
+from weblate.auth.models import Group, User
 from weblate.trans.models import Project
 from weblate.trans.tests.test_views import FixtureTestCase
 
@@ -118,6 +119,42 @@ class ACLTest(FixtureTestCase):
         response = self.client.get(self.access_url)
         self.assertContains(response, self.second_user.username)
         self.assertContains(response, self.second_user.email)
+
+    def test_invite_invalid(self):
+        """Test inviting invalid form."""
+        self.project.add_user(self.user, '@Administration')
+        response = self.client.post(
+            reverse('invite-user', kwargs=self.kw_project),
+            {'email': 'invalid', 'full_name': 'name'},
+            follow=True
+        )
+        # This error comes from Django validation
+        self.assertContains(response, 'Enter a valid email addres')
+
+    def test_invite_existing(self):
+        """Test inviting existing user."""
+        self.project.add_user(self.user, '@Administration')
+        response = self.client.post(
+            reverse('invite-user', kwargs=self.kw_project),
+            {'email': self.user.email, 'full_name': 'name'},
+            follow=True
+        )
+        self.assertContains(response, 'User with this E-mail already exists')
+
+    def test_invite_user(self):
+        """Test inviting user."""
+        self.project.add_user(self.user, '@Administration')
+        response = self.client.post(
+            reverse('invite-user', kwargs=self.kw_project),
+            {'email': 'user@example.com', 'full_name': 'name'},
+            follow=True
+        )
+        # Ensure user is now listed
+        self.assertContains(response, 'user@example.com')
+        # Check invitation mail
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertEqual(message.subject, '[Weblate] Invitation to Weblate')
 
     def remove_user(self):
         # Remove user
@@ -245,10 +282,25 @@ class ACLTest(FixtureTestCase):
             billing = Billing.objects.create(plan=plan)
             billing.projects.add(self.project)
 
+        # Editing should now work, but components do not have a license
+        response = self.client.post(
+            url,
+            {'access_control': Project.ACCESS_PROTECTED},
+            follow=True
+        )
+        self.assertRedirects(response, self.access_url)
+        self.assertContains(
+            response, 'You must specify a license for these components'
+        )
+
+        # Set component license
+        self.project.component_set.update(license='Test license')
+
         # Editing should now work
         response = self.client.post(
             url,
-            {'access_control': Project.ACCESS_PROTECTED}
+            {'access_control': Project.ACCESS_PROTECTED},
+            follow=True
         )
         self.assertRedirects(response, self.access_url)
 
@@ -274,14 +326,14 @@ class ACLTest(FixtureTestCase):
         self.project.enable_review = True
         self.project.save()
         self.assertEqual(
-            8 + billing_group,
+            9 + billing_group,
             Group.objects.filter(name__startswith=match).count()
         )
         self.project.access_control = Project.ACCESS_PRIVATE
         self.project.enable_review = True
         self.project.save()
         self.assertEqual(
-            8 + billing_group,
+            9 + billing_group,
             Group.objects.filter(name__startswith=match).count()
         )
         self.project.access_control = Project.ACCESS_CUSTOM
@@ -297,7 +349,7 @@ class ACLTest(FixtureTestCase):
         self.project.access_control = Project.ACCESS_PRIVATE
         self.project.save()
         self.assertEqual(
-            8 + billing_group,
+            9 + billing_group,
             Group.objects.filter(name__startswith=match).count()
         )
         self.project.delete()

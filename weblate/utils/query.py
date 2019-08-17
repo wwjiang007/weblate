@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,7 +18,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 """Wrapper for Sum to work on Boolean fields."""
-from django.db.models import Sum, When, Case, IntegerField
+from django.db.models import Case, IntegerField, Sum, When
 
 
 def conditional_sum(value=1, **cond):

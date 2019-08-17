@@ -14,13 +14,13 @@
   <div class="panel-body">
   <p>{% trans "Please read following Terms of Service document:" %}</p>
   <div class="list-group-item pre-scrollable tos">
-  {% include "legal/tos.html" %}
+  {% include "legal/documents/tos.html" %}
   </div>
 {{ form|crispy }}
 {% csrf_token %}
 </div>
 <div class="panel-footer">
-<button type="submit" class="btn btn-success">{% trans "Submit" %}</button>
+<button type="submit" class="btn btn-primary">{% trans "Submit" %}</button>
 </div>
 </div>
 </form>

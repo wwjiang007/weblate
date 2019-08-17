@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,75 +20,39 @@
 
 from __future__ import unicode_literals
 
-from ssl import CertificateError
-import sys
 import hashlib
 import os.path
-
-from six.moves.urllib.request import Request, urlopen
-from six.moves.urllib.parse import quote
+from ssl import CertificateError
 
 from django.conf import settings
 from django.contrib.staticfiles import finders
-from django.core.cache import caches, InvalidCacheBackendError
+from django.core.cache import InvalidCacheBackendError, caches
+from django.urls import reverse
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.translation import pgettext
-from django.urls import reverse
-
-try:
-    import libravatar  # pylint: disable=import-error
-    HAS_LIBRAVATAR = True
-except ImportError:
-    HAS_LIBRAVATAR = False
+from six.moves.urllib.parse import quote
+from six.moves.urllib.request import Request, urlopen
 
 from weblate import USER_AGENT
-from weblate.logger import LOGGER
 from weblate.utils.errors import report_error
 
 
-def avatar_for_email(email, size=80, skip_cache=False):
+def avatar_for_email(email, size=80):
     """Generate url for avatar."""
 
-    # Safely handle blank email
-    if email == '':
+    # Safely handle blank e-mail
+    if not email:
         email = 'noreply@weblate.org'
 
     mail_hash = hashlib.md5(email.lower().encode('utf-8')).hexdigest()
 
-    # Retrieve from cache
-    cache_key = '-'.join((
-        'avatar',
+    return "{0}avatar/{1}?d={2}&s={3}".format(
+        settings.AVATAR_URL_PREFIX,
         mail_hash,
-        str(size)
-    ))
-    cache = caches['default']
-    url = cache.get(cache_key)
-    if url is not None and not skip_cache:
-        return url
-
-    if HAS_LIBRAVATAR:
-        # Use libravatar library if available
-        url = libravatar.libravatar_url(
-            email=email,
-            https=True,
-            default=settings.AVATAR_DEFAULT_IMAGE,
-            size=size
-        )
-
-    else:
-        # Fallback to standard method
-        url = "{0}avatar/{1}?d={2}&s={3}".format(
-            settings.AVATAR_URL_PREFIX,
-            mail_hash,
-            quote(settings.AVATAR_DEFAULT_IMAGE),
-            str(size),
-        )
-
-    # Store result in cache
-    cache.set(cache_key, url, 3600)
-
-    return url
+        quote(settings.AVATAR_DEFAULT_IMAGE),
+        str(size),
+    )
 
 
 def get_fallback_avatar_url(size):
@@ -128,14 +92,9 @@ def get_avatar_image(request, user, size):
             cache.set(cache_key, image)
         except (IOError, CertificateError) as error:
             report_error(
-                error, sys.exc_info(), request,
+                error, request,
                 extra_data={'avatar': user.username},
-                level='debug',
-            )
-            LOGGER.error(
-                'Failed to fetch avatar for %s: %s',
-                user.username,
-                str(error)
+                prefix='Failed to fetch avatar',
             )
             return get_fallback_avatar(size)
 
@@ -146,22 +105,21 @@ def download_avatar_image(user, size):
     """Download avatar image from remote server."""
     url = avatar_for_email(user.email, size)
     request = Request(url)
-    request.timeout = 0.5
     request.add_header('User-Agent', USER_AGENT)
 
     # Fire request
-    handle = urlopen(request)
+    handle = urlopen(request, timeout=1.0)
 
     # Read and possibly convert response
     return bytes(handle.read())
 
 
-def get_user_display(user, icon=True, link=False):
+def get_user_display(user, icon=True, link=False, prefix=''):
     """Nicely format user for display."""
     # Did we get any user?
     if user is None:
         # None user, probably remotely triggered action
-        full_name = pgettext('No known user', 'None')
+        username = full_name = pgettext('No known user', 'None')
     else:
         # Get full name
         full_name = user.full_name
@@ -169,9 +127,11 @@ def get_user_display(user, icon=True, link=False):
         # Use user name if full name is empty
         if full_name.strip() == '':
             full_name = user.username
+        username = user.username
 
     # Escape HTML
     full_name = escape(full_name)
+    username = escape(username)
 
     # Icon requested?
     if icon and settings.ENABLE_AVATARS:
@@ -182,14 +142,23 @@ def get_user_display(user, icon=True, link=False):
                 'user_avatar', kwargs={'user': user.username, 'size': 32}
             )
 
-        full_name = '<img src="{avatar}" class="avatar" /> {name}'.format(
-            name=full_name,
-            avatar=avatar
+        username = '<img src="{avatar}" class="avatar" /> {prefix}{name}'.format(
+            name=username,
+            avatar=avatar,
+            prefix=prefix
         )
+    else:
+        username = prefix + username
 
     if link and user is not None:
-        return mark_safe('<a href="{link}">{name}</a>'.format(
-            name=full_name,
-            link=reverse('user_page', kwargs={'user': user.username}),
-        ))
-    return mark_safe(full_name)
+        return mark_safe(
+            '<a href="{link}" title="{name}">{username}</a>'.format(
+                name=full_name,
+                username=username,
+                link=reverse('user_page', kwargs={'user': user.username}),
+            )
+        )
+    return mark_safe('<span title="{name}">{username}</span>'.format(
+        name=full_name,
+        username=username,
+    ))

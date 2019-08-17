@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -26,7 +26,7 @@ from django.urls import reverse
 from django.utils.translation import ugettext as _
 from django.views.generic import ListView, UpdateView
 
-from weblate.addons.models import Addon, ADDONS
+from weblate.addons.models import ADDONS, Addon
 from weblate.utils import messages
 from weblate.utils.views import ComponentViewMixin
 
@@ -63,30 +63,33 @@ class AddonList(AddonViewMixin, ListView):
         result = super(AddonList, self).get_context_data(**kwargs)
         component = self.kwargs['component_obj']
         result['object'] = component
-        installed = set([x.addon.name for x in result['object_list']])
-        result['available'] = [
-            x for x in ADDONS.values()
-            if x.can_install(component, self.request.user)
-            and (x.multiple or x.name not in installed)
-        ]
+        installed = {x.addon.name for x in result['object_list']}
+        result['available'] = sorted(
+            (
+                x for x in ADDONS.values()
+                if x.can_install(component, self.request.user)
+                and (x.multiple or x.name not in installed)
+            ),
+            key=lambda x: x.name
+        )
         return result
 
     def post(self, request, **kwargs):
         component = self.get_component()
         name = request.POST.get('name')
         addon = ADDONS.get(name)
-        installed = set([x.addon.name for x in self.get_queryset()])
-        if (not name or
-                addon is None or
-                not addon.can_install(component, request.user) or
-                name in installed):
+        installed = {x.addon.name for x in self.get_queryset()}
+        if (not name
+                or addon is None
+                or not addon.can_install(component, request.user)
+                or (name in installed and not addon.multiple)):
             return self.redirect_list(_('Invalid addon name specified!'))
 
         form = None
         if addon.settings_form is None:
             addon.create(component)
             return self.redirect_list()
-        elif 'form' in request.POST:
+        if 'form' in request.POST:
             form = addon.get_add_form(component, data=request.POST)
             if form.is_valid():
                 form.save()

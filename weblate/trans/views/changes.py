@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,21 +18,31 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-import csv
-
-from django.views.generic.list import ListView
-from django.http import Http404, HttpResponse
-from django.utils.translation import ugettext as _, activate, pgettext
-from django.urls import reverse
-from django.db.models import Q
+import six
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
+from django.http import Http404, HttpResponse
+from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from django.utils.http import urlencode
+from django.utils.translation import activate, pgettext
+from django.utils.translation import ugettext as _
+from django.views.generic.list import ListView
 
+from weblate.accounts.notifications import NOTIFICATIONS_ACTIONS
 from weblate.auth.models import User
-from weblate.utils import messages
-from weblate.trans.models.change import Change
-from weblate.trans.views.helper import get_project_translation
 from weblate.lang.models import Language
+from weblate.trans.forms import ChangesForm
+from weblate.trans.models.change import Change
+from weblate.utils import messages
+from weblate.utils.site import get_site_url
+from weblate.utils.views import get_project_translation
+
+if six.PY2:
+    from backports import csv
+else:
+    import csv
 
 
 class ChangesView(ListView):
@@ -46,7 +56,7 @@ class ChangesView(ListView):
         self.translation = None
         self.language = None
         self.user = None
-        self.glossary = False
+        self.actions = set()
 
     def get_context_data(self, **kwargs):
         """Create context for rendering page."""
@@ -115,13 +125,16 @@ class ChangesView(ListView):
                     'Changes by user', 'Changes by %s'
                 ) % self.user.full_name
 
-        if self.glossary:
-            url['glossary'] = 1
+        url = list(url.items())
+        for action in self.actions:
+            url.append(('action', action))
 
         if not url:
             context['changes_rss'] = reverse('rss')
 
         context['query_string'] = urlencode(url)
+
+        context['form'] = ChangesForm(self.request, data=self.request.GET)
 
         return context
 
@@ -144,7 +157,7 @@ class ChangesView(ListView):
 
     def _get_queryset_language(self):
         """Filtering by language"""
-        if self.translation is None and 'lang' in self.request.GET:
+        if self.translation is None and self.request.GET.get('lang'):
             try:
                 self.language = Language.objects.get(
                     code=self.request.GET['lang']
@@ -168,6 +181,14 @@ class ChangesView(ListView):
                     _('Failed to find matching user!')
                 )
 
+    def _get_request_actions(self):
+        if 'action' in self.request.GET:
+            for action in self.request.GET.getlist('action'):
+                try:
+                    self.actions.add(int(action))
+                except ValueError:
+                    continue
+
     def get_queryset(self):
         """Return list of changes to browse."""
         self._get_queryset_project()
@@ -176,40 +197,28 @@ class ChangesView(ListView):
 
         self._get_queryset_user()
 
-        # Glossary entries
-        self.glossary = 'glossary' in self.request.GET
+        self._get_request_actions()
 
         result = Change.objects.last_changes(self.request.user)
 
         if self.translation is not None:
-            result = result.filter(
-                translation=self.translation
-            )
+            result = result.filter(translation=self.translation)
         elif self.component is not None:
-            result = result.filter(
-                translation__component=self.component
-            )
+            result = result.filter(component=self.component)
         elif self.project is not None:
-            result = result.filter(
-                Q(translation__component__project=self.project) |
-                Q(dictionary__project=self.project)
-            )
+            result = result.filter(project=self.project)
 
         if self.language is not None:
             result = result.filter(
-                Q(translation__language=self.language) |
-                Q(dictionary__language=self.language)
+                Q(translation__language=self.language)
+                | Q(dictionary__language=self.language)
             )
 
-        if self.glossary:
-            result = result.filter(
-                dictionary__isnull=False
-            )
+        if self.actions:
+            result = result.filter(action__in=self.actions)
 
         if self.user is not None:
-            result = result.filter(
-                user=self.user
-            )
+            result = result.filter(user=self.user)
 
         return result
 
@@ -219,10 +228,10 @@ class ChangesCSVView(ChangesView):
     paginate_by = None
 
     def get(self, request, *args, **kwargs):
-        object_list = self.get_queryset()
+        object_list = self.get_queryset()[:2000]
 
         # Do reasonable ACL check for global
-        acl_obj = self.project
+        acl_obj = self.translation or self.component or self.project
         if not acl_obj:
             for change in object_list:
                 if change.component:
@@ -241,14 +250,34 @@ class ChangesCSVView(ChangesView):
         writer = csv.writer(response)
 
         # Add header
-        writer.writerow(('timestamp', 'action', 'user', 'url'))
+        writer.writerow(('timestamp', 'action', 'user', 'url', 'target'))
 
-        for change in object_list[:2000]:
+        for change in object_list:
             writer.writerow((
                 change.timestamp.isoformat(),
-                change.get_action_display().encode('utf8'),
-                change.user.username.encode('utf8') if change.user else '',
-                change.get_absolute_url(),
+                change.get_action_display(),
+                change.user.username if change.user else '',
+                get_site_url(change.get_absolute_url()),
+                change.target,
             ))
 
         return response
+
+
+@login_required
+def show_change(request, pk):
+    change = get_object_or_404(Change, pk=pk)
+    acl_obj = change.translation or change.component or change.project
+    if not request.user.has_perm('unit.edit', acl_obj):
+        raise PermissionDenied()
+    if change.action not in NOTIFICATIONS_ACTIONS:
+        content = ''
+    else:
+        notifications = NOTIFICATIONS_ACTIONS[change.action]
+        notification = notifications[0](None)
+        context = notification.get_context(change)
+        context['request'] = request
+        context['subject'] = notification.render_template('_subject.txt', context)
+        content = notification.render_template('.html', context)
+
+    return HttpResponse(content_type='text/html; charset=utf-8', content=content)

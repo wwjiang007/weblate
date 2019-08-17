@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -36,7 +36,7 @@ class GlosbeTranslation(MachineTranslation):
         """Any language is supported."""
         return True
 
-    def download_translations(self, source, language, text, unit, user):
+    def download_translations(self, source, language, text, unit, request):
         """Download list of possible translations from a service."""
         params = {
             'from': source,
@@ -52,6 +52,13 @@ class GlosbeTranslation(MachineTranslation):
         if 'tuc' not in response:
             return []
 
-        return [(match['phrase']['text'], self.max_score, self.name, text)
-                for match in response['tuc']
-                if 'phrase' in match and match['phrase'] is not None]
+        return [
+            {
+                'text': match['phrase']['text'],
+                'quality': self.max_score,
+                'service': self.name,
+                'source': text
+            }
+            for match in response['tuc']
+            if 'phrase' in match and match['phrase'] is not None
+        ]

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,14 +23,14 @@ well. And ignoring messages without request object (eg. from CLI).
 """
 
 from __future__ import unicode_literals
-from django.contrib.messages import constants
-from django.contrib.messages import add_message
+
+from django.contrib.messages import add_message, constants
 
 
 def get_request(request):
     """Return Django request object even for DRF requests."""
     if hasattr(request, '_request'):
-        return getattr(request, '_request')
+        return request._request
     return request
 
 

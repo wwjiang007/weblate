@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -44,14 +44,13 @@ def load_class(name, setting):
             )
         )
     try:
-        cls = getattr(mod, attr)
+        return getattr(mod, attr)
     except AttributeError:
         raise ImproperlyConfigured(
             'Module "{0}" does not define a "{1}" class in {2}'.format(
                 module, attr, setting
             )
         )
-    return cls
 
 
 class ClassLoader(object):
@@ -62,11 +61,13 @@ class ClassLoader(object):
 
     def load_data(self):
         result = {}
-        for path in getattr(settings, self.name):
-            obj = load_class(path, self.name)
-            if self.construct:
-                obj = obj()
-            result[obj.get_identifier()] = obj
+        value = getattr(settings, self.name)
+        if value:
+            for path in value:
+                obj = load_class(path, self.name)
+                if self.construct:
+                    obj = obj()
+                result[obj.get_identifier()] = obj
         return result
 
     @cached_property
@@ -103,5 +104,12 @@ class ClassLoader(object):
     def exists(self):
         return bool(self.data)
 
-    def get_choices(self):
-        return [(x, self[x].name) for x in sorted(self)]
+    def get_choices(self, empty=False, exclude=(), cond=lambda x: True):
+        result = [
+            (x, self[x].name)
+            for x in sorted(self)
+            if x not in exclude and cond(self[x])
+        ]
+        if empty:
+            result = [('', '')] + result
+        return result

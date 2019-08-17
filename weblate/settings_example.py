@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,8 +19,9 @@
 #
 
 from __future__ import unicode_literals
-import platform
+
 import os
+import platform
 from logging.handlers import SysLogHandler
 
 #
@@ -37,7 +38,7 @@ MANAGERS = ADMINS
 
 DATABASES = {
     'default': {
-        # Use 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
+        # Use 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
         'ENGINE': 'django.db.backends.sqlite3',
         # Database name or path to database file if using sqlite3.
         'NAME': 'weblate.db',
@@ -51,6 +52,9 @@ DATABASES = {
         'PORT': '',
         # Customizations for databases
         'OPTIONS': {
+            # In case of using an older MySQL server,
+            # which has MyISAM as a default storage
+            # 'init_command': 'SET storage_engine=INNODB',
             # Uncomment for MySQL older than 5.7:
             # 'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             # Set emoji capable charset for MySQL:
@@ -86,20 +90,19 @@ LANGUAGES = (
     ('da', 'Dansk'),
     ('de', 'Deutsch'),
     ('en', 'English'),
-    ('en-gb', 'English (United Kingdom)'),
     ('el', 'Ελληνικά'),
+    ('en-gb', 'English (United Kingdom)'),
     ('es', 'Español'),
     ('fi', 'Suomi'),
     ('fr', 'Français'),
-    ('fy', 'Frysk'),
     ('gl', 'Galego'),
     ('he', 'עברית'),
     ('hu', 'Magyar'),
     ('id', 'Indonesia'),
     ('it', 'Italiano'),
     ('ja', '日本語'),
+    ('kk', 'Қазақ тілі'),
     ('ko', '한국어'),
-    ('ksh', 'Kölsch'),
     ('nb', 'Norsk bokmål'),
     ('nl', 'Nederlands'),
     ('pl', 'Polski'),
@@ -167,7 +170,7 @@ STATICFILES_FINDERS = (
 )
 
 # Make this unique, and don't share it with anybody.
-# You can generate it using examples/generate-secret-key
+# You can generate it using weblate/examples/generate-secret-key
 SECRET_KEY = 'jm8fqjlg+5!#xu%e-oh#7!$aa7!6avf7ud*_v=chdrb9qdco6('  # noqa
 
 TEMPLATES = [
@@ -229,6 +232,8 @@ SOCIAL_AUTH_BITBUCKET_VERIFIED_EMAILS_ONLY = True
 SOCIAL_AUTH_FACEBOOK_KEY = ''
 SOCIAL_AUTH_FACEBOOK_SECRET = ''
 SOCIAL_AUTH_FACEBOOK_SCOPE = ['email', 'public_profile']
+SOCIAL_AUTH_FACEBOOK_PROFILE_EXTRA_PARAMS = {'fields': 'id,name,email'}
+SOCIAL_AUTH_FACEBOOK_API_VERSION = '3.1'
 
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = ''
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = ''
@@ -285,7 +290,7 @@ SOCIAL_AUTH_LOGIN_ERROR_URL = \
 SOCIAL_AUTH_EMAIL_FORM_URL = \
     '{0}/accounts/email/'.format(URL_PREFIX)
 SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = \
-    '{0}/accounts/profile/#auth'.format(URL_PREFIX)
+    '{0}/accounts/profile/#account'.format(URL_PREFIX)
 SOCIAL_AUTH_PROTECTED_USER_FIELDS = ('email',)
 SOCIAL_AUTH_SLUGIFY_USERNAMES = True
 SOCIAL_AUTH_SLUGIFY_FUNCTION = 'weblate.accounts.pipeline.slugify_username'
@@ -293,7 +298,7 @@ SOCIAL_AUTH_SLUGIFY_FUNCTION = 'weblate.accounts.pipeline.slugify_username'
 # Password validation configuration
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',  # noqa: E501, pylint: disable=line-too-long
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
@@ -323,8 +328,12 @@ AUTH_PASSWORD_VALIDATORS = [
     # },
 ]
 
+# Allow new user registrations
+REGISTRATION_OPEN = True
+
 # Middleware
 MIDDLEWARE = [
+    'weblate.middleware.ProxyMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -336,7 +345,6 @@ MIDDLEWARE = [
     'social_django.middleware.SocialAuthExceptionMiddleware',
     'weblate.accounts.middleware.RequireLoginMiddleware',
     'weblate.middleware.SecurityMiddleware',
-    'weblate.wladmin.middleware.ConfigurationErrorsMiddleware',
 ]
 
 ROOT_URLCONF = 'weblate.urls'
@@ -352,6 +360,7 @@ INSTALLED_APPS = (
     'django.contrib.admin.apps.SimpleAdminConfig',
     'django.contrib.admindocs',
     'django.contrib.sitemaps',
+    'django.contrib.humanize',
     'social_django',
     'crispy_forms',
     'compressor',
@@ -367,6 +376,7 @@ INSTALLED_APPS = (
     'weblate.langdata',
     'weblate.memory',
     'weblate.screenshots',
+    'weblate.fonts',
     'weblate.accounts',
     'weblate.utils',
     'weblate.vcs',
@@ -489,11 +499,16 @@ LOGGING = {
             'handlers': [DEFAULT_LOG],
             'level': 'DEBUG',
         },
+        # Logging search operations
+        'weblate.search': {
+            'handlers': [DEFAULT_LOG],
+            'level': 'INFO',
+        },
         # Logging VCS operations
-        # 'weblate-vcs': {
-        #     'handlers': [DEFAULT_LOG],
-        #     'level': 'DEBUG',
-        # },
+        'weblate.vcs': {
+            'handlers': [DEFAULT_LOG],
+            'level': 'WARNING',
+        },
         # Python Social Auth logging
         # 'social': {
         #     'handlers': [DEFAULT_LOG],
@@ -503,8 +518,8 @@ LOGGING = {
 }
 
 # Logging of management commands to console
-if (os.environ.get('DJANGO_IS_MANAGEMENT_COMMAND', False) and
-        'console' not in LOGGING['loggers']['weblate']['handlers']):
+if (os.environ.get('DJANGO_IS_MANAGEMENT_COMMAND', False)
+        and 'console' not in LOGGING['loggers']['weblate']['handlers']):
     LOGGING['loggers']['weblate']['handlers'].append('console')
 
 # Remove syslog setup if it's not present
@@ -514,16 +529,20 @@ if not HAVE_SYSLOG:
 # List of machine translations
 # MT_SERVICES = (
 #     'weblate.machinery.apertium.ApertiumAPYTranslation',
+#     'weblate.machinery.baidu.BaiduTranslation',
 #     'weblate.machinery.deepl.DeepLTranslation',
 #     'weblate.machinery.glosbe.GlosbeTranslation',
 #     'weblate.machinery.google.GoogleTranslation',
 #     'weblate.machinery.microsoft.MicrosoftCognitiveTranslation',
+#     'weblate.machinery.microsoftterminology.MicrosoftTerminologyService',
 #     'weblate.machinery.mymemory.MyMemoryTranslation',
+#     'weblate.machinery.netease.NeteaseSightTranslation',
 #     'weblate.machinery.tmserver.AmagamaTranslation',
 #     'weblate.machinery.tmserver.TMServerTranslation',
 #     'weblate.machinery.yandex.YandexTranslation',
 #     'weblate.machinery.weblatetm.WeblateTranslation',
 #     'weblate.machinery.saptranslationhub.SAPTranslationHub',
+#     'weblate.machinery.youdao.YoudaoTranslation',
 #     'weblate.memory.machine.WeblateMemory',
 # )
 
@@ -550,6 +569,18 @@ MT_MYMEMORY_KEY = None
 # Google API key for Google Translate API
 MT_GOOGLE_KEY = None
 
+# Baidu app key and secret
+MT_BAIDU_ID = None
+MT_BAIDU_SECRET = None
+
+# Youdao Zhiyun app key and secret
+MT_YOUDAO_ID = None
+MT_YOUDAO_SECRET = None
+
+# Netease Sight (Jianwai) app key and secret
+MT_NETEASE_KEY = None
+MT_NETEASE_SECRET = None
+
 # API key for Yandex Translate API
 MT_YANDEX_KEY = None
 
@@ -571,18 +602,36 @@ ENABLE_HTTPS = False
 
 # Use HTTPS when creating redirect URLs for social authentication, see
 # documentation for more details:
-# http://python-social-auth-docs.readthedocs.io/en/latest/configuration/settings.html#processing-redirects-and-urlopen
+# https://python-social-auth-docs.readthedocs.io/en/latest/configuration/settings.html#processing-redirects-and-urlopen
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = ENABLE_HTTPS
 
 # Make CSRF cookie HttpOnly, see documentation for more details:
 # https://docs.djangoproject.com/en/1.11/ref/settings/#csrf-cookie-httponly
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SECURE = ENABLE_HTTPS
-# Store CSRF token in session (since Django 1.11)
+# Store CSRF token in session
 CSRF_USE_SESSIONS = True
+# Customize CSRF failure view
+CSRF_FAILURE_VIEW = 'weblate.trans.views.error.csrf_failure'
 SESSION_COOKIE_SECURE = ENABLE_HTTPS
+# SSL redirect
+SECURE_SSL_REDIRECT = ENABLE_HTTPS
+# SSL redirect URL exemption list
+SECURE_REDIRECT_EXEMPT = (
+    r'healthz/$',           # Allowing HTTP access to health check
+)
 # Session cookie age (in seconds)
 SESSION_COOKIE_AGE = 1209600
+
+# Some security headers
+SECURE_BROWSER_XSS_FILTER = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Optionally enable HSTS
+SECURE_HSTS_SECONDS = 0
+SECURE_HSTS_PRELOAD = False
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 
 # URL of login
 LOGIN_URL = '{0}/accounts/login/'.format(URL_PREFIX)
@@ -597,8 +646,8 @@ LOGIN_REDIRECT_URL = '{0}/'.format(URL_PREFIX)
 ANONYMOUS_USER_NAME = 'anonymous'
 
 # Reverse proxy settings
-IP_BEHIND_REVERSE_PROXY = False
 IP_PROXY_HEADER = 'HTTP_X_FORWARDED_FOR'
+IP_BEHIND_REVERSE_PROXY = False
 IP_PROXY_OFFSET = 0
 
 # Sending HTML in mails
@@ -610,14 +659,13 @@ EMAIL_SUBJECT_PREFIX = '[{0}] '.format(SITE_TITLE)
 # Enable remote hooks
 ENABLE_HOOKS = True
 
-# Whether to run hooks in background
-BACKGROUND_HOOKS = True
-
 # Number of nearby messages to show in each direction
 NEARBY_MESSAGES = 5
 
-# Offload indexing
-OFFLOAD_INDEXING = False
+# By default the length of a given translation is limited to the length of
+# the source string * 10 characters. Set this option to False to allow longer
+# translations (up to 10.000 characters)
+LIMIT_TRANSLATION_LENGTH_BY_SOURCE_LENGTH = True
 
 # Use simple language codes for default language/country combinations
 SIMPLIFY_LANGUAGES = True
@@ -639,12 +687,20 @@ CRISPY_TEMPLATE_PACK = 'bootstrap3'
 #     'weblate.checks.chars.EndEllipsisCheck',
 #     'weblate.checks.chars.EndSemicolonCheck',
 #     'weblate.checks.chars.MaxLengthCheck',
+#     'weblate.checks.chars.KashidaCheck',
 #     'weblate.checks.format.PythonFormatCheck',
 #     'weblate.checks.format.PythonBraceFormatCheck',
 #     'weblate.checks.format.PHPFormatCheck',
 #     'weblate.checks.format.CFormatCheck',
 #     'weblate.checks.format.PerlFormatCheck',
-#     'weblate.checks.format.JavascriptFormatCheck',
+#     'weblate.checks.format.JavaScriptFormatCheck',
+#     'weblate.checks.format.CSharpFormatCheck',
+#     'weblate.checks.format.JavaFormatCheck',
+#     'weblate.checks.format.JavaMessageFormatCheck',
+#     'weblate.checks.angularjs.AngularJSInterpolationCheck',
+#     'weblate.checks.qt.QtFormatCheck',
+#     'weblate.checks.qt.QtPluralCheck',
+#     'weblate.checks.ruby.RubyFormatCheck',
 #     'weblate.checks.consistency.PluralsCheck',
 #     'weblate.checks.consistency.SamePluralsCheck',
 #     'weblate.checks.consistency.ConsistencyCheck',
@@ -652,8 +708,13 @@ CRISPY_TEMPLATE_PACK = 'bootstrap3'
 #     'weblate.checks.chars.NewlineCountingCheck',
 #     'weblate.checks.markup.BBCodeCheck',
 #     'weblate.checks.chars.ZeroWidthSpaceCheck',
+#     'weblate.checks.render.MaxSizeCheck',
 #     'weblate.checks.markup.XMLValidityCheck',
 #     'weblate.checks.markup.XMLTagsCheck',
+#     'weblate.checks.markup.MarkdownRefLinkCheck',
+#     'weblate.checks.markup.MarkdownLinkCheck',
+#     'weblate.checks.markup.MarkdownSyntaxCheck',
+#     'weblate.checks.markup.URLCheck',
 #     'weblate.checks.source.OptionalPluralCheck',
 #     'weblate.checks.source.EllipsisCheck',
 #     'weblate.checks.source.MultipleFailingCheck',
@@ -680,9 +741,13 @@ CRISPY_TEMPLATE_PACK = 'bootstrap3'
 #     'weblate.addons.discovery.DiscoveryAddon',
 #     'weblate.addons.flags.SourceEditAddon',
 #     'weblate.addons.flags.TargetEditAddon',
+#     'weblate.addons.flags.SameEditAddon',
 #     'weblate.addons.generate.GenerateFileAddon',
 #     'weblate.addons.json.JSONCustomizeAddon',
 #     'weblate.addons.properties.PropertiesSortAddon',
+#     'weblate.addons.git.GitSquashAddon',
+#     'weblate.addons.removal.RemoveComments',
+#     'weblate.addons.removal.RemoveSuggestions',
 # )
 
 # E-mail address that error messages come from.
@@ -697,7 +762,6 @@ ALLOWED_HOSTS = []
 
 # Example configuration for caching
 # CACHES = {
-# Recommended redis + hiredis:
 #     'default': {
 #         'BACKEND': 'django_redis.cache.RedisCache',
 #         'LOCATION': 'redis://127.0.0.1:6379/0',
@@ -708,11 +772,6 @@ ALLOWED_HOSTS = []
 #             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
 #             'PARSER_CLASS': 'redis.connection.HiredisParser',
 #         }
-#     }
-# Memcached alternative:
-#     'default': {
-#         'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
-#         'LOCATION': '127.0.0.1:11211',
 #     },
 #     'avatar': {
 #         'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
@@ -759,16 +818,46 @@ REST_FRAMEWORK = {
 
 # In such case you will want to include some of the exceptions
 # LOGIN_REQUIRED_URLS_EXCEPTIONS = (
-#    r'/accounts/(.*)$', # Required for login
-#    r'/static/(.*)$',   # Required for development mode
-#    r'/widgets/(.*)$',  # Allowing public access to widgets
-#    r'/data/(.*)$',     # Allowing public access to data exports
-#    r'/hooks/(.*)$',    # Allowing public access to notification hooks
-#    r'/api/(.*)$',      # Allowing access to API
-#    r'/js/i18n/$',      # Javascript localization
-#    r'/contact/$',      # Optional for contact form
-#    r'/legal/(.*)$',    # Optional for legal app
+#    r'/accounts/(.*)$',        # Required for login
+#    r'/admin/login/(.*)$',     # Required for admin login
+#    r'/static/(.*)$',          # Required for development mode
+#    r'/widgets/(.*)$',         # Allowing public access to widgets
+#    r'/data/(.*)$',            # Allowing public access to data exports
+#    r'/hooks/(.*)$',           # Allowing public access to notification hooks
+#    r'/healthz/$',             # Allowing public access to health check
+#    r'/api/(.*)$',             # Allowing access to API
+#    r'/js/i18n/$',             # JavaScript localization
+#    r'/contact/$',             # Optional for contact form
+#    r'/legal/(.*)$',           # Optional for legal app
 # )
 
-# Force sane test runner
-TEST_RUNNER = 'django.test.runner.DiscoverRunner'
+# Silence some of the Django system checks
+SILENCED_SYSTEM_CHECKS = [
+    # We have modified django.contrib.auth.middleware.AuthenticationMiddleware
+    # as weblate.accounts.middleware.AuthenticationMiddleware
+    'admin.E408',
+]
+
+# Celery worker configuration for testing
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_BROKER_URL = 'memory://'
+CELERY_TASK_EAGER_PROPAGATES = True
+# Celery worker configuration for production
+# CELERY_TASK_ALWAYS_EAGER = False
+# CELERY_BROKER_URL = 'redis://localhost:6379'
+# CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+
+# Celery settings, it is not recommended to change these
+CELERY_WORKER_PREFETCH_MULTIPLIER = 0
+CELERY_WORKER_MAX_MEMORY_PER_CHILD = 200000
+CELERY_BEAT_SCHEDULE_FILENAME = os.path.join(
+    DATA_DIR, 'celery', 'beat-schedule'
+)
+CELERY_TASK_ROUTES = {
+    'weblate.trans.search.*': {'queue': 'search'},
+    'weblate.trans.tasks.optimize_fulltext': {'queue': 'search'},
+    'weblate.trans.tasks.cleanup_fulltext': {'queue': 'search'},
+    'weblate.memory.tasks.*': {'queue': 'memory'},
+    'weblate.accounts.tasks.notify_change': {'queue': 'notify'},
+    'weblate.accounts.tasks.send_mails': {'queue': 'notify'},
+}

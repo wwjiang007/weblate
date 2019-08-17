@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,27 +18,16 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 from django.core.exceptions import ValidationError
-from django.utils.translation import ugettext as _, ugettext_lazy
+from django.utils.translation import ugettext as _
 
-from weblate.checks import CHECKS
-
-EXTRA_FLAGS = {
-    v.enable_string: v.name
-    for k, v in CHECKS.items()
-    if v.default_disabled
-}
-
-EXTRA_FLAGS['rst-text'] = ugettext_lazy('RST text')
-EXTRA_FLAGS['xml-text'] = ugettext_lazy('XML text')
-
-IGNORE_CHECK_FLAGS = {CHECKS[x].ignore_string for x in CHECKS}
+from weblate.checks.flags import Flags
 
 
 def validate_filemask(val):
-    """Validate file mask that it contains *."""
+    """Validate that filemask contains *."""
     if '*' not in val:
         raise ValidationError(
-            _('File mask does not contain * as a language placeholder!')
+            _('Filemask does not contain * as a language placeholder!')
         )
 
 
@@ -46,17 +35,12 @@ def validate_autoaccept(val):
     """Validate correct value for autoaccept."""
     if val == 1:
         raise ValidationError(_(
-            'Value of 1 is not allowed for autoaccept as '
-            'every user gives vote to his suggestion.'
+            'A value of 1 is not allowed for autoaccept as '
+            'it would permit users to vote on their own suggestions.'
         ))
 
 
 def validate_check_flags(val):
     """Validate check influencing flags."""
-    if not val:
-        return
-    for flag in val.split(','):
-        name = flag.split(':')[0]
-        if name in EXTRA_FLAGS or name in IGNORE_CHECK_FLAGS:
-            continue
-        raise ValidationError(_('Invalid check flag: "%s"') % flag)
+    flags = Flags(val)
+    flags.validate()

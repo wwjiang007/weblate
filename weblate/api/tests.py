@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,17 +18,20 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from __future__ import unicode_literals
+
 from django.core.files import File
 from django.urls import reverse
-
 from rest_framework.test import APITestCase
 
-from weblate.auth.models import User, Group
+from weblate.auth.models import Group, User
 from weblate.screenshots.models import Screenshot
-from weblate.trans.models import Project, Change, Unit, Source
+from weblate.trans.models import Change, Project, Source, Unit
 from weblate.trans.tests.utils import RepoTestMixin, get_test_file
+from weblate.utils.state import STATE_TRANSLATED
 
 TEST_PO = get_test_file('cs.po')
+TEST_BADPLURALS = get_test_file('cs-badplurals.po')
 TEST_SCREENSHOT = get_test_file('screenshot.png')
 
 
@@ -121,7 +124,7 @@ class ProjectAPITest(APIBaseTest):
         self.assertEqual(response.data['slug'], 'test')
 
     def test_repo_op_denied(self):
-        for operation in ('push', 'pull', 'reset', 'commit'):
+        for operation in ('push', 'pull', 'reset', 'cleanup', 'commit'):
             self.do_request(
                 'api:project-repository',
                 self.project_kwargs,
@@ -131,7 +134,7 @@ class ProjectAPITest(APIBaseTest):
             )
 
     def test_repo_ops(self):
-        for operation in ('push', 'pull', 'reset', 'commit'):
+        for operation in ('push', 'pull', 'reset', 'cleanup', 'commit'):
             self.do_request(
                 'api:project-repository',
                 self.project_kwargs,
@@ -182,11 +185,18 @@ class ProjectAPITest(APIBaseTest):
             'api:project-changes',
             self.project_kwargs,
         )
-        self.assertEqual(request.data['count'], 8)
+        self.assertEqual(request.data['count'], 12)
 
     def test_statistics(self):
         request = self.do_request(
             'api:project-statistics',
+            self.project_kwargs,
+        )
+        self.assertEqual(request.data['total'], 12)
+
+    def test_languages(self):
+        request = self.do_request(
+            'api:project-languages',
             self.project_kwargs,
         )
         self.assertEqual(len(request.data), 3)
@@ -310,7 +320,7 @@ class ComponentAPITest(APIBaseTest):
         )
 
     def test_monolingual(self):
-        self.component.format = 'po-mono'
+        self.component.file_format = 'po-mono'
         self.component.filemask = 'po-mono/*.po'
         self.component.template = 'po-mono/en.po'
         self.component.save()
@@ -331,7 +341,7 @@ class ComponentAPITest(APIBaseTest):
             'api:component-changes',
             self.component_kwargs,
         )
-        self.assertEqual(request.data['count'], 8)
+        self.assertEqual(request.data['count'], 12)
 
 
 class LanguageAPITest(APIBaseTest):
@@ -415,13 +425,14 @@ class TranslationAPITest(APIBaseTest):
         self.authenticate()
         # Remove all permissions
         self.user.groups.clear()
-        response = self.client.put(
-            reverse(
-                'api:translation-file',
-                kwargs=self.translation_kwargs
-            ),
-            {'file': open(TEST_PO, 'rb')},
-        )
+        with open(TEST_PO, 'rb') as handle:
+            response = self.client.put(
+                reverse(
+                    'api:translation-file',
+                    kwargs=self.translation_kwargs
+                ),
+                {'file': handle},
+            )
         self.assertEqual(response.status_code, 404)
 
     def test_upload(self):
@@ -438,13 +449,19 @@ class TranslationAPITest(APIBaseTest):
             response.data,
             {
                 'accepted': 1,
-                'count': 5,
+                'count': 4,
                 'not_found': 0,
                 'result': True,
                 'skipped': 0,
-                'total': 5
+                'total': 4
             }
         )
+        translation = self.component.translation_set.get(language_code='cs')
+        unit = translation.unit_set.get(source='Hello, world!\n')
+        self.assertEqual(unit.target, 'Ahoj světe!\n')
+        self.assertEqual(unit.state, STATE_TRANSLATED)
+
+        self.assertEqual(self.component.project.suggestion_set.count(), 0)
 
     def test_upload_content(self):
         self.authenticate()
@@ -460,22 +477,65 @@ class TranslationAPITest(APIBaseTest):
 
     def test_upload_overwrite(self):
         self.test_upload()
-        response = self.client.put(
-            reverse(
-                'api:translation-file',
-                kwargs=self.translation_kwargs
-            ),
-            {'file': open(TEST_PO, 'rb'), 'overwrite': 1},
-        )
+        with open(TEST_PO, 'rb') as handle:
+            response = self.client.put(
+                reverse(
+                    'api:translation-file',
+                    kwargs=self.translation_kwargs
+                ),
+                {'file': handle, 'overwrite': 1},
+            )
         self.assertEqual(
             response.data,
             {
                 'accepted': 1,
-                'count': 5,
+                'count': 4,
                 'not_found': 0,
                 'result': True,
                 'skipped': 0,
-                'total': 5
+                'total': 4
+            }
+        )
+
+    def test_upload_suggest(self):
+        self.authenticate()
+        with open(TEST_PO, 'rb') as handle:
+            response = self.client.put(
+                reverse(
+                    'api:translation-file',
+                    kwargs=self.translation_kwargs
+                ),
+                {'file': handle, 'method': 'suggest'},
+            )
+        self.assertEqual(
+            response.data,
+            {
+                'accepted': 1,
+                'count': 4,
+                'not_found': 0,
+                'result': True,
+                'skipped': 0,
+                'total': 4
+            }
+        )
+        self.assertEqual(self.component.project.suggestion_set.count(), 1)
+        with open(TEST_PO, 'rb') as handle:
+            response = self.client.put(
+                reverse(
+                    'api:translation-file',
+                    kwargs=self.translation_kwargs
+                ),
+                {'file': handle, 'method': 'suggest'},
+            )
+        self.assertEqual(
+            response.data,
+            {
+                'accepted': 0,
+                'count': 4,
+                'not_found': 0,
+                'result': False,
+                'skipped': 1,
+                'total': 4
             }
         )
 
@@ -488,6 +548,16 @@ class TranslationAPITest(APIBaseTest):
             ),
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_upload_error(self):
+        self.authenticate()
+        with open(TEST_BADPLURALS, 'rb') as handle:
+            response = self.client.put(
+                reverse('api:translation-file', kwargs=self.translation_kwargs),
+                {'file': handle},
+            )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('detail', response.data)
 
     def test_repo_status_denied(self):
         self.do_request(
@@ -529,7 +599,8 @@ class TranslationAPITest(APIBaseTest):
                 'fuzzy': 0,
                 'total': 4,
                 'last_change': None,
-                'name': 'Czech'
+                'name': 'Czech',
+                'recent_changes': 0,
             }
         )
 
@@ -538,7 +609,7 @@ class TranslationAPITest(APIBaseTest):
             'api:translation-changes',
             self.translation_kwargs,
         )
-        self.assertEqual(request.data['count'], 5)
+        self.assertEqual(request.data['count'], 6)
 
     def test_units(self):
         request = self.do_request(
@@ -662,7 +733,7 @@ class ChangeAPITest(APIBaseTest):
         response = self.client.get(
             reverse('api:change-list')
         )
-        self.assertEqual(response.data['count'], 8)
+        self.assertEqual(response.data['count'], 12)
 
     def test_get_change(self):
         response = self.client.get(

@@ -4,55 +4,23 @@
 
 {% block content %}
 <p>
-{% trans "Hi,"%}
+{% blocktrans with user=user.username %}There is a new suggestion to evaluate on {{ translation }} at {{ site_title }} by {{ user }}.{% endblocktrans %}
 </p>
 
-<p>
-{% blocktrans %}There is a new suggestion to evaluate on {{ translation }} at {{ site_title }}.{% endblocktrans %}
-<p>
+{% include "mail/snippets/source-string.html" %}
 
-<table>
-<tr>
+<h2>{% trans "Suggestion" %}</h2>
 
-<th>
-{% trans "Source string:" %}
-</th>
-
-<td>
-{% format_translation unit.source unit.translation.component.project.source_language %}
-</td>
-</tr>
-
-<tr>
-<th>
-{% trans "Suggestion:" %}
-</th>
-
-<td>
 {% format_translation suggestion.target unit.translation.language unit.translation.plural %}
-</td>
-</tr>
 
 {% if unit.translated %}
-<tr>
-<th>
-{% trans "Translation change:" %}
-</th>
+<h2>{% trans "Translation change" %}</h2>
 
-<td>
 {% format_translation suggestion.target unit.translation.language unit.translation.plural unit.target %}
-</td>
-</tr>
 {% endif %}
-</table>
 
-<p>
-{% trans "You can review it at:" %}
-</p>
+<div class="line buttons">
+    <a class="button" href="{{ current_site_url }}{{ unit.get_absolute_url }}">{% trans "Edit this string" %}</a>
+</div>
 
-<p>
-<a href="{{ current_site_url }}{{ unit.get_absolute_url }}">{{ current_site_url }}{{ unit.get_absolute_url }}</a>
-</p>
-
-{% include "mail/footer.html" %}
 {% endblock %}

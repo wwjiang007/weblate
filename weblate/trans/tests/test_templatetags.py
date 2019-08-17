@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,16 +20,14 @@
 """Testing of template tags."""
 
 import datetime
-from unittest import TestCase
 
+from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
-from django.test import SimpleTestCase
 
 from weblate.accounts.models import Profile
-from weblate.trans.models import Unit, Component, Translation
-from weblate.trans.templatetags.translations import (
-    naturaltime, get_location_links
-)
+from weblate.lang.models import Language
+from weblate.trans.models import Component, Project, Translation, Unit
+from weblate.trans.templatetags.translations import get_location_links, naturaltime
 
 TEST_DATA = (
     (0, 'now'),
@@ -64,7 +62,7 @@ TEST_DATA = (
 )
 
 
-class NaturalTimeTest(TestCase):
+class NaturalTimeTest(SimpleTestCase):
     """Testing of natural time conversion."""
     def test_natural(self):
         now = timezone.now()
@@ -83,11 +81,20 @@ class NaturalTimeTest(TestCase):
             )
 
 
-class LocationLinksTest(SimpleTestCase):
+class LocationLinksTest(TestCase):
     def setUp(self):
         self.unit = Unit(
             translation=Translation(
-                component=Component()
+                component=Component(
+                    project=Project(
+                        source_language=Language(),
+                        slug='p',
+                        name='p',
+                    ),
+                    slug='c',
+                    name='c',
+                ),
+                language=Language(),
             )
         )
         self.profile = Profile()
@@ -121,17 +128,21 @@ class LocationLinksTest(SimpleTestCase):
 
     def test_repowebs(self):
         self.unit.translation.component.repoweb = (
-            'http://example.net/%(file)s#L%(line)s'
+            'http://example.net/{{filename}}#L{{line}}'
         )
         self.unit.location = 'foo.bar:123,bar.foo:321'
         self.assertHTMLEqual(
             get_location_links(self.profile, self.unit),
             '''
-            <a href="http://example.net/foo.bar#L123" target="_blank">
+            <a class="long-filename"
+                href="http://example.net/foo.bar#L123" target="_blank"
+                rel="noopener noreferrer">
             foo.bar:123
             <i class="fa fa-external-link"></i>
             </a>
-            <a href="http://example.net/bar.foo#L321" target="_blank">
+            <a class="long-filename"
+                href="http://example.net/bar.foo#L321" target="_blank"
+                rel="noopener noreferrer">
             bar.foo:321
             <i class="fa fa-external-link"></i>
             </a>
@@ -140,13 +151,15 @@ class LocationLinksTest(SimpleTestCase):
 
     def test_repoweb(self):
         self.unit.translation.component.repoweb = (
-            'http://example.net/%(file)s#L%(line)s'
+            'http://example.net/{{filename}}#L{{line}}'
         )
         self.unit.location = 'foo.bar:123'
         self.assertHTMLEqual(
             get_location_links(self.profile, self.unit),
             '''
-            <a href="http://example.net/foo.bar#L123" target="_blank">
+            <a class="long-filename"
+                href="http://example.net/foo.bar#L123" target="_blank"
+                rel="noopener noreferrer">
             foo.bar:123
             <i class="fa fa-external-link"></i>
             </a>
@@ -155,14 +168,16 @@ class LocationLinksTest(SimpleTestCase):
 
     def test_user_url(self):
         self.unit.translation.component.repoweb = (
-            'http://example.net/%(file)s#L%(line)s'
+            'http://example.net/{{filename}}#L{{line}}'
         )
-        self.profile.editor_link = 'editor://open/?file=%(file)s&line=%(line)s'
+        self.profile.editor_link = 'editor://open/?file={{filename}}&line={{line}}'
         self.unit.location = 'foo.bar:123'
         self.assertHTMLEqual(
             get_location_links(self.profile, self.unit),
             '''
-            <a href="editor://open/?file=foo.bar&amp;line=123" target="_blank">
+            <a class="long-filename"
+                href="editor://open/?file=foo.bar&amp;line=123" target="_blank"
+                rel="noopener noreferrer">
             foo.bar:123
             <i class="fa fa-external-link"></i>
             </a>

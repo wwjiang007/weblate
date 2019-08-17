@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,11 +23,10 @@ from __future__ import unicode_literals
 
 import unicodedata
 
-from django.conf import settings
-from django.utils.translation import ugettext as _, ugettext_lazy
-
 import six
-
+from django.conf import settings
+from django.utils.translation import ugettext as _
+from django.utils.translation import ugettext_lazy
 
 # Names of hardcoded chars
 CHAR_NAMES = {
@@ -439,9 +438,7 @@ def get_quote(code, data, name):
 
 def format_char(char):
     """Return verbose description of a character."""
-    display = char
-    if char in DISPLAY_CHARS:
-        display = DISPLAY_CHARS[char]
+    display = DISPLAY_CHARS.get(char, char)
     if char in CHAR_NAMES:
         name = CHAR_NAMES[char]
     elif unicodedata.category(char)[0] in ('C', 'Z'):
@@ -456,14 +453,14 @@ def format_char(char):
         except ValueError:
             # Char now known to unicode data
             # This mostly happens for control chars < 0x20
-            display = char.encode('unicode_escape')
+            display = char.encode('unicode_escape').decode('ascii')
             name = _('Insert character {0}').format(display)
     else:
         name = _('Insert character {0}').format(char)
     return name, display, char
 
 
-def get_special_chars(language, additional=''):
+def get_special_chars(language, additional='', source=''):  # noqa: C901
     """Return list of special characters."""
     for char in settings.SPECIAL_CHARS:
         yield format_char(char)
@@ -489,6 +486,28 @@ def get_special_chars(language, additional=''):
 
     for char in additional:
         yield _('User configured character: {}').format(char), char, char
+
+    rtl = language.direction == 'rtl'
+    for char in set(source):
+        try:
+            name = unicodedata.name(char)
+        except ValueError:
+            continue
+        if 'ARROW' in name:
+            if rtl and 'LEFT' in name:
+                try:
+                    char = unicodedata.lookup(name.replace('LEFT', 'RIGHT'))
+                except KeyError:
+                    continue
+                yield format_char(char)
+            elif rtl and 'RIGHT' in name:
+                try:
+                    char = unicodedata.lookup(name.replace('RIGHT', 'LEFT'))
+                except KeyError:
+                    continue
+                yield format_char(char)
+            else:
+                yield format_char(char)
 
 
 RTL_CHARS_DATA = [format_char(six.unichr(c)) for c in RTL_CHARS]

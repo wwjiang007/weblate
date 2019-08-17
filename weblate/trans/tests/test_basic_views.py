@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -32,7 +32,13 @@ class BasicViewTest(FixtureTestCase):
         response = self.client.get(
             reverse('about')
         )
-        self.assertContains(response, 'Translate Toolkit')
+        self.assertContains(response, 'translate-toolkit')
+
+    def test_keys(self):
+        response = self.client.get(
+            reverse('keys')
+        )
+        self.assertContains(response, 'SSH')
 
     def test_stats(self):
         response = self.client.get(

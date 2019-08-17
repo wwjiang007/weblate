@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -49,7 +49,7 @@ class Command(BaseCommand):
             checks = Check.objects.all()
         else:
             checks = Check.objects.filter(ignore=True)
-        for check in checks:
+        for check in checks.iterator():
             name = '{0}-{1}'.format(check.check, check.content_hash)
             units = check.related_units
             if not units.exists():

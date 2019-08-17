@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,16 +23,13 @@
 from django.urls import reverse
 
 from weblate.auth.models import User
-from weblate.trans.tests.test_views import ViewTestCase, RegistrationTestMixin
+from weblate.trans.tests.test_views import RegistrationTestMixin, ViewTestCase
 
 
 class AccountRemovalTest(ViewTestCase, RegistrationTestMixin):
     def test_page(self):
         response = self.client.get(reverse('remove'))
-        self.assertContains(
-            response,
-            'Removal of the account deletes all your private data'
-        )
+        self.assertContains(response, 'Account removal deletes all your private data.')
 
     def verify_removal(self, response):
         self.assertRedirects(response, reverse('email-sent'))
@@ -99,8 +96,8 @@ class AccountRemovalTest(ViewTestCase, RegistrationTestMixin):
             'Nazdar svete!\n'
         )
         # We should have some change to commit
-        self.assertTrue(self.component.repo_needs_commit())
+        self.assertTrue(self.component.needs_commit())
         # Remove account
         self.test_removal()
         # Changes should be committed
-        self.assertFalse(self.component.repo_needs_commit())
+        self.assertFalse(self.component.needs_commit())

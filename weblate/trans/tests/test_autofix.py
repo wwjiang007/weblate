@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,13 +23,18 @@ Tests for automatix fixups.
 """
 
 from __future__ import unicode_literals
+
 from django.test import TestCase
 from django.utils.encoding import force_text
+
 from weblate.checks.tests.test_checks import MockUnit
 from weblate.trans.autofixes import fix_target
 from weblate.trans.autofixes.chars import (
-    ReplaceTrailingDotsWithEllipsis, RemoveZeroSpace, RemoveControlChars,
+    RemoveControlChars,
+    RemoveZeroSpace,
+    ReplaceTrailingDotsWithEllipsis,
 )
+from weblate.trans.autofixes.custom import DoubleApostrophes
 from weblate.trans.autofixes.whitespace import SameBookendingWhitespace
 
 
@@ -162,3 +167,49 @@ class AutoFixTest(TestCase):
         self.assertEqual(fixed, ['Bar…'])
         self.assertEqual(len(fixups), 1)
         self.assertEqual(force_text(fixups[0]), 'Trailing ellipsis')
+
+    def test_apostrophes(self):
+        unit = MockUnit(source='Foo')
+        fix = DoubleApostrophes()
+        # No flags
+        self.assertEqual(fix.fix_target(['Bar'], unit), (['Bar'], False))
+        # No format string, but forced
+        unit.flags = 'java-messageformat'
+        self.assertEqual(fix.fix_target(['Bar'], unit), (['Bar'], False))
+        # No format string
+        unit.flags = 'auto-java-messageformat'
+        self.assertEqual(fix.fix_target(['Bar'], unit), (['Bar'], False))
+        unit.source = 'test {0}'
+        # Nothing to fix
+        self.assertEqual(fix.fix_target(['r {0}'], unit), (['r {0}'], False))
+        # Correct string
+        self.assertEqual(
+            fix.fix_target(["''r'' {0}"], unit),
+            (["''r'' {0}"], False)
+        )
+        # String with quoted format string
+        self.assertEqual(
+            fix.fix_target(["''r'' '{0}'"], unit),
+            (["''r'' '{0}'"], False)
+        )
+        # Fixes
+        self.assertEqual(
+            fix.fix_target(["'r''' {0}"], unit),
+            (["''r'' {0}"], True)
+        )
+        # Fixes keeping double ones
+        self.assertEqual(
+            fix.fix_target(["'''''''r'''' {0}"], unit),
+            (["''''r'''' {0}"], True)
+        )
+        # Quoted format
+        self.assertEqual(
+            fix.fix_target(["'r''' {0}"], unit),
+            (["''r'' {0}"], True)
+        )
+        unit.source = 'foo'
+        unit.flags = 'java-messageformat'
+        self.assertEqual(
+            fix.fix_target(["bar'"], unit),
+            (["bar''"], True)
+        )

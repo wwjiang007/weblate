@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,18 +21,18 @@
 from __future__ import unicode_literals
 
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Layout, Field, Div
+from crispy_forms.layout import Div, Field, Layout
 from crispy_forms.utils import TEMPLATE_PACK
-
 from django import forms
 from django.http import QueryDict
 from django.template.loader import render_to_string
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
-from weblate.trans.discovery import ComponentDiscovery
 from weblate.formats.models import FILE_FORMATS
-from weblate.utils.validators import validate_render, validate_re
+from weblate.trans.discovery import ComponentDiscovery
+from weblate.utils.render import validate_render, validate_render_component
+from weblate.utils.validators import validate_filename, validate_re
 
 
 class BaseAddonForm(forms.Form):
@@ -43,6 +43,31 @@ class BaseAddonForm(forms.Form):
     def save(self):
         self._addon.configure(self.cleaned_data)
         return self._addon.instance
+
+
+class GenerateMoForm(BaseAddonForm):
+    path = forms.CharField(
+        label=_('Path of generated MO file'),
+        required=False,
+        initial='{{ filename|stripext }}.mo',
+        help_text=_('If not specified, the location of the PO file will be used.'),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super(GenerateMoForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper(self)
+        self.helper.layout = Layout(
+            Field('path'),
+            Div(template='addons/generatemo_help.html'),
+        )
+
+    def test_render(self, value):
+        validate_render_component(value, translation=True)
+
+    def clean_path(self):
+        self.test_render(self.cleaned_data['path'])
+        validate_filename(self.cleaned_data['path'])
+        return self.cleaned_data['path']
 
 
 class GenerateForm(BaseAddonForm):
@@ -66,11 +91,11 @@ class GenerateForm(BaseAddonForm):
         )
 
     def test_render(self, value):
-        translation = self._addon.instance.component.translation_set.all()[0]
-        validate_render(value, translation=translation)
+        validate_render_component(value, translation=True)
 
     def clean_filename(self):
         self.test_render(self.cleaned_data['filename'])
+        validate_filename(self.cleaned_data['filename'])
         return self.cleaned_data['filename']
 
     def clean_template(self):
@@ -89,10 +114,46 @@ class GettextCustomizeForm(BaseAddonForm):
         required=True,
         initial=77,
         help_text=_(
-            'By default gettext wraps lines at 77 chars and newlines, '
-            'with --no-wrap parameter it wraps only at newlines.'
+            'By default gettext wraps lines at 77 chars and newlines. '
+            'With --no-wrap parameter, it wraps only at newlines.'
         )
     )
+
+
+class MsgmergeForm(BaseAddonForm):
+    previous = forms.BooleanField(
+        label=_('Keep previous msgids of translated strings'),
+        required=False,
+        initial=True,
+    )
+    fuzzy = forms.BooleanField(
+        label=_('Use fuzzy matching'),
+        required=False,
+        initial=True,
+    )
+
+
+class GitSquashForm(BaseAddonForm):
+    squash = forms.ChoiceField(
+        label=_('Commit squashing'),
+        widget=forms.RadioSelect,
+        choices=(
+            ('all', _('All commits into one')),
+            ('language', _('Per language')),
+            ('file', _('Per file')),
+            ('author', _('Per author')),
+        ),
+        initial='all',
+        required=True,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super(GitSquashForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper(self)
+        self.helper.layout = Layout(
+            Field('squash'),
+            Div(template='addons/squash_help.html'),
+        )
 
 
 class JSONCustomizeForm(BaseAddonForm):
@@ -105,6 +166,27 @@ class JSONCustomizeForm(BaseAddonForm):
         min_value=0,
         initial=4,
         required=True,
+    )
+
+
+class RemoveForm(BaseAddonForm):
+    age = forms.IntegerField(
+        label=_('Days to keep'),
+        min_value=0,
+        initial=30,
+        required=True,
+    )
+
+
+class RemoveSuggestionForm(RemoveForm):
+    votes = forms.IntegerField(
+        label=_('Voting threshold'),
+        initial=0,
+        required=True,
+        help_text=_(
+            'Threshold for removal. This field has no effect with '
+            'voting turned off.'
+        )
     )
 
 
@@ -121,18 +203,14 @@ class ContextDiv(Div):
 
 class DiscoveryForm(BaseAddonForm):
     match = forms.CharField(
-        label=_('Regular expression to match translation files'),
+        label=_('Regular expression to match translation files against'),
         required=True,
     )
     file_format = forms.ChoiceField(
         label=_('File format'),
-        choices=FILE_FORMATS.get_choices(),
-        initial='auto',
+        choices=FILE_FORMATS.get_choices(empty=True),
+        initial='',
         required=True,
-        help_text=_(
-            'Automatic detection might fail for some formats '
-            'and is slightly slower.'
-        ),
     )
     name_template = forms.CharField(
         label=_('Customize the component name'),
@@ -143,7 +221,7 @@ class DiscoveryForm(BaseAddonForm):
         label=_('Define the monolingual base filename'),
         initial='',
         required=False,
-        help_text=_('Keep empty for bilingual translation files.'),
+        help_text=_('Leave empty for bilingual translation files.'),
     )
     new_base_template = forms.CharField(
         label=_('Define the base file for new translations'),
@@ -160,16 +238,21 @@ class DiscoveryForm(BaseAddonForm):
         initial='^[^.]+$',
         validators=[validate_re],
         help_text=_(
-            'Regular expression which is used to filter '
-            'translation when scanning for file mask.'
+            'Regular expression to filter '
+            'translation against when scanning for filemask.'
         ),
     )
+    copy_addons = forms.BooleanField(
+        label=_('Clone addons from the main component to the newly created ones'),
+        required=False,
+        initial=True,
+    )
     remove = forms.BooleanField(
-        label=_('Remove components for non existing files'),
+        label=_('Remove components for inexistant files'),
         required=False
     )
     confirm = forms.BooleanField(
-        label=_('I confirm that the above matches look correct'),
+        label=_('I confirm the above matches look correct'),
         required=False
     )
 
@@ -183,6 +266,7 @@ class DiscoveryForm(BaseAddonForm):
             Field('base_file_template'),
             Field('new_base_template'),
             Field('language_regex'),
+            Field('copy_addons'),
             Field('remove'),
             Div(template='addons/discovery_help.html'),
         )
@@ -215,11 +299,7 @@ class DiscoveryForm(BaseAddonForm):
     def discovery(self):
         return ComponentDiscovery(
             self._addon.instance.component,
-            self.cleaned_data['match'],
-            self.cleaned_data['name_template'],
-            self.cleaned_data['language_regex'],
-            self.cleaned_data['base_file_template'],
-            self.cleaned_data['new_base_template'],
+            **ComponentDiscovery.extract_kwargs(self.cleaned_data)
         )
 
     def clean(self):
@@ -232,7 +312,7 @@ class DiscoveryForm(BaseAddonForm):
         self.cleaned_data['preview'] = True
         if not self.cleaned_data['confirm']:
             raise forms.ValidationError(
-                _('Please review and confirm matched components.')
+                _('Please review and confirm the matched components.')
             )
 
     def clean_match(self):
@@ -242,10 +322,14 @@ class DiscoveryForm(BaseAddonForm):
 
     @staticmethod
     def test_render(value):
-        validate_render(value, component='test')
+        return validate_render(value, component='test')
 
     def template_clean(self, name):
-        self.test_render(self.cleaned_data[name])
+        result = self.test_render(self.cleaned_data[name])
+        if result and result == self.cleaned_data[name]:
+            raise forms.ValidationError(
+                _('Please include component markup in the template.')
+            )
         return self.cleaned_data[name]
 
     def clean_name_template(self):

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,15 +20,14 @@
 
 from __future__ import unicode_literals
 
-import os
 import binascii
+import os
 
 from social_django.models import Code
 
+from weblate.accounts.models import AuditLog, VerifiedEmail
 from weblate.auth.models import User
 from weblate.trans.signals import user_pre_delete
-from weblate.accounts.models import VerifiedEmail
-from weblate.accounts.notifications import notify_account_activity
 
 
 def remove_user(user, request):
@@ -38,10 +37,10 @@ def remove_user(user, request):
     user_pre_delete.send(instance=user, sender=user.__class__)
 
     # Store activity log and notify
-    notify_account_activity(user, request, 'removed')
+    AuditLog.objects.create(user, request, 'removed')
 
     # Remove any email validation codes
-    Code.objects.filter(email__in=get_all_user_mails(user)).delete()
+    invalidate_reset_codes(user)
 
     # Change username
     user.username = 'deleted-{0}'.format(user.pk)
@@ -72,14 +71,18 @@ def remove_user(user, request):
     user.groups.clear()
 
 
-def get_all_user_mails(user):
+def get_all_user_mails(user, entries=None):
     """Return all verified mails for user."""
-    emails = set(
-        VerifiedEmail.objects.filter(
-            social__user=user
-        ).values_list(
-            'email', flat=True
-        )
-    )
+    verified = VerifiedEmail.objects.filter(social__user=user)
+    if entries:
+        verified = verified.filter(social__in=entries)
+    emails = set(verified.values_list('email', flat=True))
     emails.add(user.email)
     return emails
+
+
+def invalidate_reset_codes(user=None, entries=None, emails=None):
+    """Invalidate email activation codes for an user."""
+    if emails is None:
+        emails = get_all_user_mails(user, entries)
+    Code.objects.filter(email__in=emails).delete()

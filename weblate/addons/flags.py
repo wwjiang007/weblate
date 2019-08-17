@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -24,8 +24,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from weblate.addons.base import BaseAddon
 from weblate.addons.events import EVENT_UNIT_PRE_CREATE
-from weblate.utils.state import STATE_TRANSLATED, STATE_FUZZY
-
+from weblate.utils.state import STATE_FUZZY, STATE_TRANSLATED
 
 SUPPORT_FUZZY = frozenset((
     'ts', 'po', 'po-mono',
@@ -47,7 +46,7 @@ class FlagBase(BaseAddon):
 
 class SourceEditAddon(FlagBase):
     name = 'weblate.flags.source_edit'
-    verbose = _('Flag new source strings to need edit')
+    verbose = _('Flag new source strings as \"Needs editing\"')
     description = _(
         'Whenever a new source string is imported from the VCS, it is '
         'flagged as needing editing in Weblate. This way you can easily '
@@ -61,13 +60,30 @@ class SourceEditAddon(FlagBase):
 
 class TargetEditAddon(FlagBase):
     name = 'weblate.flags.target_edit'
-    verbose = _('Flag new translations to need edit')
+    verbose = _('Flag new translations as \"Needs editing\"')
     description = _(
-        'Whenever a new translation string is imported from the VCS, it is '
+        'Whenever a new translatable string is imported from the VCS, it is '
         'flagged as needing editing in Weblate. This way you can easily '
         'filter and edit translations created by the developers.'
     )
 
     def unit_pre_create(self, unit):
         if not unit.translation.is_template and unit.state >= STATE_TRANSLATED:
+            unit.state = STATE_FUZZY
+
+
+class SameEditAddon(FlagBase):
+    name = 'weblate.flags.same_edit'
+    verbose = _('Flag unchanged translations as \"Needs editing\"')
+    description = _(
+        'Whenever a new translatable string is imported from the VCS and it '
+        'matches source strings, it is flagged as needing editing in Weblate. '
+        'This is especially useful for file formats that include all strings '
+        'even if they are not translated.'
+    )
+
+    def unit_pre_create(self, unit):
+        if (unit.source == unit.target
+                and 'ignore-same' not in unit.all_flags
+                and unit.state >= STATE_TRANSLATED):
             unit.state = STATE_FUZZY

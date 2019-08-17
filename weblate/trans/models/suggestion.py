@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,16 +22,19 @@ from __future__ import unicode_literals
 
 from django.conf import settings
 from django.db import models, transaction
-from django.db.models import Count
+from django.db.models import Sum
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext as _
 
 from weblate.lang.models import Language
-from weblate.trans.models.change import Change
-from weblate.utils.unitdata import UnitData
 from weblate.trans.mixins import UserDisplayMixin
+from weblate.trans.models.change import Change
 from weblate.utils import messages
+from weblate.utils.antispam import report_spam
+from weblate.utils.fields import JSONField
+from weblate.utils.request import get_ip_address
 from weblate.utils.state import STATE_TRANSLATED
+from weblate.utils.unitdata import UnitData
 
 
 class SuggestionManager(models.Manager):
@@ -41,15 +44,22 @@ class SuggestionManager(models.Manager):
         """Create new suggestion for this unit."""
         user = request.user
 
-        same = self.filter(
+        if unit.translated and unit.target == target:
+            return False
+
+        same_suggestions = self.filter(
             target=target,
             content_hash=unit.content_hash,
             language=unit.translation.language,
             project=unit.translation.component.project,
         )
-
-        if same.exists() or (unit.target == target and not unit.fuzzy):
-            return False
+        # Do not rely on the SQL as MySQL compares strings case insensitive
+        for same in same_suggestions:
+            if same.target == target:
+                if same.user == user or not vote:
+                    return False
+                same.add_vote(unit.translation, request, Vote.POSITIVE)
+                return False
 
         # Create the suggestion
         suggestion = self.create(
@@ -57,13 +67,18 @@ class SuggestionManager(models.Manager):
             content_hash=unit.content_hash,
             language=unit.translation.language,
             project=unit.translation.component.project,
-            user=user
+            user=user,
+            userdetails={
+                'address': get_ip_address(request),
+                'agent': request.META.get('HTTP_USER_AGENT', ''),
+            },
         )
 
         # Record in change
         for aunit in suggestion.related_units:
             Change.objects.create(
                 unit=aunit,
+                suggestion=suggestion,
                 action=Change.ACTION_SUGGESTION,
                 user=user,
                 target=target,
@@ -72,15 +87,7 @@ class SuggestionManager(models.Manager):
 
         # Add unit vote
         if vote:
-            suggestion.add_vote(
-                unit.translation,
-                request,
-                True
-            )
-
-        # Notify subscribed users
-        from weblate.accounts.notifications import notify_new_suggestion
-        notify_new_suggestion(unit, suggestion, user)
+            suggestion.add_vote(unit.translation, request, Vote.POSITIVE)
 
         # Update suggestion stats
         if user is not None:
@@ -97,14 +104,22 @@ class SuggestionManager(models.Manager):
         would make the operation really expensive and it should be done in the
         cleanup cron job.
         """
-        for suggestion in self.all():
-            Suggestion.objects.create(
+        suggestions = []
+        for suggestion in self.iterator():
+            suggestions.append(Suggestion(
                 project=project,
                 target=suggestion.target,
                 content_hash=suggestion.content_hash,
                 user=suggestion.user,
                 language=suggestion.language,
-            )
+            ))
+        # The batch size is needed for MySQL
+        self.bulk_create(suggestions, batch_size=500)
+
+
+class SuggestionQuerySet(models.QuerySet):
+    def order(self):
+        return self.order_by('-timestamp')
 
 
 @python_2_unicode_compatible
@@ -114,6 +129,7 @@ class Suggestion(UnitData, UserDisplayMixin):
         settings.AUTH_USER_MODEL, null=True, blank=True,
         on_delete=models.deletion.CASCADE
     )
+    userdetails = JSONField()
     language = models.ForeignKey(
         Language, on_delete=models.deletion.CASCADE
     )
@@ -125,11 +141,10 @@ class Suggestion(UnitData, UserDisplayMixin):
         related_name='user_votes'
     )
 
-    objects = SuggestionManager()
+    objects = SuggestionManager.from_queryset(SuggestionQuerySet)()
 
     class Meta(object):
         app_label = 'trans'
-        ordering = ['-timestamp']
         index_together = [
             ('project', 'language', 'content_hash'),
         ]
@@ -165,8 +180,15 @@ class Suggestion(UnitData, UserDisplayMixin):
         if not failure:
             self.delete()
 
-    def delete_log(self, user, change=Change.ACTION_SUGGESTION_DELETE):
+    def delete_log(self, user, change=Change.ACTION_SUGGESTION_DELETE,
+                   is_spam=False):
         """Delete with logging change"""
+        if is_spam and self.userdetails:
+            report_spam(
+                self.userdetails['address'],
+                self.userdetails['agent'],
+                self.target
+            )
         for unit in self.related_units:
             Change.objects.create(
                 unit=unit,
@@ -179,12 +201,9 @@ class Suggestion(UnitData, UserDisplayMixin):
 
     def get_num_votes(self):
         """Return number of votes."""
-        votes = Vote.objects.filter(suggestion=self)
-        positive = votes.filter(positive=True).aggregate(Count('id'))
-        negative = votes.filter(positive=False).aggregate(Count('id'))
-        return positive['id__count'] - negative['id__count']
+        return self.vote_set.aggregate(Sum('value'))['value__sum'] or 0
 
-    def add_vote(self, translation, request, positive):
+    def add_vote(self, translation, request, value):
         """Add (or updates) vote for a suggestion."""
         if not request.user.is_authenticated:
             return
@@ -192,10 +211,10 @@ class Suggestion(UnitData, UserDisplayMixin):
         vote, created = Vote.objects.get_or_create(
             suggestion=self,
             user=request.user,
-            defaults={'positive': positive}
+            defaults={'value': value}
         )
-        if not created or vote.positive != positive:
-            vote.positive = positive
+        if not created or vote.value != value:
+            vote.value = value
             vote.save()
 
         # Automatic accepting
@@ -213,19 +232,18 @@ class Vote(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.deletion.CASCADE
     )
-    positive = models.BooleanField(default=True)
+    value = models.SmallIntegerField(default=0)
+
+    POSITIVE = 1
+    NEGATIVE = -1
 
     class Meta(object):
         unique_together = ('suggestion', 'user')
         app_label = 'trans'
 
     def __str__(self):
-        if self.positive:
-            vote = '+1'
-        else:
-            vote = '-1'
-        return '{0} for {1} by {2}'.format(
-            vote,
+        return '{0:+d} for {1} by {2}'.format(
+            self.value,
             self.suggestion,
             self.user.username,
         )

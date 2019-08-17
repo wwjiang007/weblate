@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,21 +18,21 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from django.http import HttpResponse, Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
+from django.views.decorators.cache import cache_control
+from django.views.decorators.vary import vary_on_cookie
 
-from weblate.utils.site import get_site_url
 from weblate.lang.models import Language
 from weblate.trans.forms import EngageForm
 from weblate.trans.models import Component
-from weblate.trans.widgets import WIDGETS
-from weblate.trans.views.helper import (
-    get_project, get_component, try_set_language,
-)
 from weblate.trans.util import render
+from weblate.trans.widgets import WIDGETS, SiteOpenGraphWidget
+from weblate.utils.site import get_site_url
+from weblate.utils.views import get_component, get_project, try_set_language
 
 
 def widgets_sorter(widget):
@@ -92,6 +92,7 @@ def widgets(request, project):
         widget_list.append({
             'name': widget_name,
             'colors': color_list,
+            'verbose': widget_class.verbose,
         })
 
     return render(
@@ -111,6 +112,8 @@ def widgets(request, project):
     )
 
 
+@vary_on_cookie
+@cache_control(max_age=3600)
 def render_widget(request, project, widget='287x66', color=None, lang=None,
                   component=None, extension='png'):
     # We intentionally skip ACL here to allow widget sharing
@@ -121,9 +124,11 @@ def render_widget(request, project, widget='287x66', color=None, lang=None,
 
     # Handle language parameter
     if lang is not None:
+        lang = Language.objects.fuzzy_get(code=lang, strict=True)
+        if lang is None:
+            raise Http404()
         if 'native' not in request.GET:
-            try_set_language(lang)
-        lang = Language.objects.try_get(code=lang)
+            try_set_language(lang.code)
     else:
         try_set_language('en')
 
@@ -154,9 +159,18 @@ def render_widget(request, project, widget='287x66', color=None, lang=None,
         return redirect('widget-image', permanent=True, **kwargs)
 
     # Render widget
-    widget_obj.render()
+    response = HttpResponse(content_type=widget_obj.content_type)
+    widget_obj.render(response)
+    return response
 
-    return HttpResponse(
-        content_type=widget_obj.content_type,
-        content=widget_obj.get_content()
-    )
+
+@vary_on_cookie
+@cache_control(max_age=3600)
+def render_og(request):
+    # Construct object
+    widget_obj = SiteOpenGraphWidget()
+
+    # Render widget
+    response = HttpResponse(content_type=widget_obj.content_type)
+    widget_obj.render(response)
+    return response

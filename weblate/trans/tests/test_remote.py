@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,17 +19,17 @@
 #
 """Test for changes done in remote repository."""
 
-import shutil
 import os
+import shutil
 from unittest import SkipTest
 
 from django.utils import timezone
 
 from weblate.trans.models import Component
-from weblate.trans.tests.utils import REPOWEB_URL
 from weblate.trans.tests.test_views import ViewTestCase
-from weblate.vcs.models import VCS_REGISTRY
+from weblate.trans.tests.utils import REPOWEB_URL
 from weblate.utils.state import STATE_TRANSLATED
+from weblate.vcs.models import VCS_REGISTRY
 
 EXTRA_PO = '''
 #: accounts/models.py:319 trans/views/basic.py:104 weblate/html/index.html:21
@@ -87,7 +87,7 @@ class MultiRepoTest(ViewTestCase):
             new_base='',
             branch=self._branch,
         )
-        self.request = self.get_request('/')
+        self.request = self.get_request()
 
     def push_first(self, propagate=True, newtext='Nazdar svete!\n'):
         """Change and pushes first component."""
@@ -114,7 +114,7 @@ class MultiRepoTest(ViewTestCase):
         translation.git_commit(
             self.request, 'TEST <test@example.net>', timezone.now(),
         )
-        self.assertFalse(translation.repo_needs_commit())
+        self.assertFalse(translation.needs_commit())
         translation.component.do_push(self.request)
 
     def test_propagate(self):

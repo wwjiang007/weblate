@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,9 +20,9 @@
 
 """Test for automatic translation"""
 
-from django.urls import reverse
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.urls import reverse
 
 from weblate.trans.models import Component
 from weblate.trans.tests.test_views import ViewTestCase
@@ -106,15 +106,28 @@ class AutoTranslationTest(ViewTestCase):
         )
 
     def test_command_add_error(self):
-        self.assertRaises(
-            CommandError,
-            call_command,
+        with self.assertRaises(CommandError):
+            call_command('auto_translate', 'test', 'test', 'ia', add=True)
+
+    def test_command_mt(self):
+        call_command(
             'auto_translate',
+            '--mt', 'weblate',
             'test',
             'test',
-            'ia',
-            add=True,
+            'cs',
         )
+
+    def test_command_mt_error(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                'auto_translate', '--mt', 'invalid', 'test', 'test', 'ia'
+            )
+        with self.assertRaises(CommandError):
+            call_command(
+                'auto_translate', '--threshold', 'invalid',
+                'test', 'test', 'ia'
+            )
 
     def test_command_add(self):
         self.component.file_format = 'po'
@@ -146,44 +159,25 @@ class AutoTranslationTest(ViewTestCase):
         )
 
     def test_command_errors(self):
-        self.assertRaises(
-            CommandError,
-            call_command,
-            'auto_translate',
-            'test',
-            'test',
-            'cs',
-            user='invalid',
-        )
-        self.assertRaises(
-            CommandError,
-            call_command,
-            'auto_translate',
-            'test',
-            'test',
-            'cs',
-            source='invalid',
-        )
-        self.assertRaises(
-            CommandError,
-            call_command,
-            'auto_translate',
-            'test',
-            'test',
-            'cs',
-            source='test/invalid',
-        )
-        self.assertRaises(
-            CommandError,
-            call_command,
-            'auto_translate',
-            'test',
-            'test',
-            'xxx',
-        )
+        with self.assertRaises(CommandError):
+            call_command(
+                'auto_translate', 'test', 'test', 'cs', user='invalid'
+            )
+        with self.assertRaises(CommandError):
+            call_command(
+                'auto_translate', 'test', 'test', 'cs', source='invalid'
+            )
+        with self.assertRaises(CommandError):
+            call_command(
+                'auto_translate', 'test', 'test', 'cs', source='test/invalid'
+            )
+        with self.assertRaises(CommandError):
+            call_command('auto_translate', 'test', 'test', 'xxx')
 
 
 class AutoTranslationMtTest(ViewTestCase):
+    fake_search = False
+
     def setUp(self):
         super(AutoTranslationMtTest, self).setUp()
         # Need extra power

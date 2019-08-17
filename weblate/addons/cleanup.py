@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,13 +20,15 @@
 
 from __future__ import unicode_literals
 
+import os
+
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
-
 from translate.storage.lisa import LISAfile
 from translate.storage.resx import RESXFile
 
 from weblate.addons.base import UpdateBaseAddon
+from weblate.formats.txt import AppStoreParser
 
 
 class CleanupAddon(UpdateBaseAddon):
@@ -57,6 +59,17 @@ class CleanupAddon(UpdateBaseAddon):
             index[unit.getid()] = unit
 
         return index
+
+    def update_appstore(self, index, translation, storage):
+        """Filter obsolete units in storage.
+
+        This does simple filtering of units list.
+        """
+        for unit in storage.units:
+            if unit.getid() not in index:
+                filename = storage.get_filename(unit.filename)
+                self.extra_files.append(filename)
+                os.unlink(filename)
 
     def update_units(self, index, translation, storage):
         """Filter obsolete units in storage.
@@ -117,7 +130,7 @@ class CleanupAddon(UpdateBaseAddon):
 
     @staticmethod
     def iterate_translations(component):
-        for translation in component.translation_set.all():
+        for translation in component.translation_set.iterator():
             if translation.is_template:
                 continue
             yield translation
@@ -139,7 +152,12 @@ class CleanupAddon(UpdateBaseAddon):
     def update_translations(self, component, previous_head):
         index = self.build_index(self.template_store)
 
-        if isinstance(self.template_store, RESXFile):
+        if isinstance(self.template_store, AppStoreParser):
+            for translation in self.iterate_translations(component):
+                self.update_appstore(
+                    index, translation, translation.store.store
+                )
+        elif isinstance(self.template_store, RESXFile):
             if previous_head:
                 content = component.repository.get_file(
                     component.template, previous_head

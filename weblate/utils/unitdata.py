@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,13 +21,22 @@
 from __future__ import unicode_literals
 
 from django.apps import apps
+from django.db import connection, models
 from django.utils.functional import cached_property
-from django.db import models
 
 from weblate.lang.models import Language
 
+WHERE_HASH = '{0}.content_hash = trans_unit.content_hash'
+WHERE_PROJECT = '{0}.project_id = trans_component.project_id'
+WHERE_LANGUAGE = '{0}.language_id = trans_translation.language_id'
+WHERE_LANGUAGE_WILDCARD = '''
+    {0}.language_id = trans_translation.language_id
+    OR
+    {0}.language_id IS NULL
+'''
 
-class UnitData(models.Model):
+
+class UnitData(models.Model):  # noqa: DJ08
     content_hash = models.BigIntegerField()
     project = models.ForeignKey(
         'trans.Project', on_delete=models.deletion.CASCADE
@@ -58,3 +67,23 @@ class UnitData(models.Model):
             'translation__component__project',
             'translation__language'
         )
+
+
+def filter_query(queryset, table):
+    """Filter Unit query to matching UnitData objects.
+
+    Ideally we would use something based on multiple column foreign keys, but
+    that is currently not supported by Django and would not handle NULL values
+    in a way we need.
+    """
+    where = [WHERE_HASH.format(table), WHERE_PROJECT.format(table)]
+    if table == 'trans_comment':
+        where.append(WHERE_LANGUAGE_WILDCARD.format(table))
+    else:
+        where.append(WHERE_LANGUAGE.format(table))
+    if table == 'checks_check':
+        if connection.vendor == 'sqlite':
+            where.append('checks_check.ignore = 0')
+        else:
+            where.append('checks_check.ignore = false')
+    return queryset.extra(tables=[table], where=where)

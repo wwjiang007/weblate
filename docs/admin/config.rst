@@ -30,11 +30,23 @@ and associate it with a site.
 ANONYMOUS_USER_NAME
 -------------------
 
-User name of user for definining privileges of not logged in user.
+User name of user for defining privileges of not logged in user.
 
 .. seealso::
 
     :ref:`privileges`
+
+.. setting:: AUDITLOG_EXPIRY
+
+AUDITLOG_EXPIRY
+---------------
+
+.. versionadded:: 3.6
+
+How long (in days) Weblate should keep audit log containing information about account
+activity.
+
+Defaults to 180 days.
 
 .. setting:: AUTH_LOCK_ATTEMPTS
 
@@ -47,7 +59,7 @@ Maximum number of failed authentication attempts before rate limiting is applied
 
 This is currently applied in the following locations:
 
-* On login, the acccount password is reset. User will not be able to log in
+* On login, the account password is reset. User will not be able to log in
   after that using password until he asks for password reset.
 * On password reset, the reset mails are no longer sent. This avoids spamming
   user with too many password reset attempts.
@@ -58,12 +70,47 @@ Defaults to 10.
 
     :ref:`rate-limit`,
 
-.. setting:: AUTH_MAX_ATTEMPTS
+.. setting:: AUTO_UPDATE
 
-AUTH_MAX_ATTEMPTS
+AUTO_UPDATE
+-----------
+
+.. versionadded:: 3.2
+
+Automatically update all repositories on daily basis. This can be useful if you
+do not use :ref:`hooks` to update Weblate repositories automatically.
+
+.. note::
+
+    This requires :ref:`celery` working and you will have to restart celery for
+    this setting to take effect.
+
+.. setting:: AVATAR_URL_PREFIX
+
+AVATAR_URL_PREFIX
 -----------------
 
-.. versionadded:: 2.14
+Prefix for constructing avatar URLs. The URL will be constructed like:
+``${AVATAR_URL_PREFIX}/avatar/${MAIL_HASH}?${PARAMS}``. Following services are
+known to work:
+
+Gravatar (default), see https://gravatar.com/
+    ``AVATAR_URL_PREFIX = 'https://www.gravatar.com/'``
+Libravatar, see https://www.libravatar.org/
+   ``AVATAR_URL_PREFIX = 'https://seccdn.libravatar.org/'``
+
+.. seealso::
+
+   :ref:`production-cache-avatar`,
+   :setting:`ENABLE_AVATARS`,
+   :ref:`avatars`
+
+.. setting:: RATELIMIT_ATTEMPTS
+
+RATELIMIT_ATTEMPTS
+------------------
+
+.. versionadded:: 3.2
 
 Maximum number of authentication attempts before rate limiting applies.
 
@@ -72,15 +119,15 @@ Defaults to 5.
 .. seealso::
 
     :ref:`rate-limit`,
-    :setting:`AUTH_CHECK_WINDOW`,
-    :setting:`AUTH_LOCKOUT_TIME`
+    :setting:`RATELIMIT_WINDOW`,
+    :setting:`RATELIMIT_LOCKOUT`
 
-.. setting:: AUTH_CHECK_WINDOW
+.. setting:: RATELIMIT_WINDOW
 
-AUTH_CHECK_WINDOW
------------------
+RATELIMIT_WINDOW
+----------------
 
-.. versionadded:: 2.14
+.. versionadded:: 3.2
 
 Length of authentication window for rate limiting in seconds.
 
@@ -89,15 +136,15 @@ Defaults to 300 (5 minutes).
 .. seealso::
 
     :ref:`rate-limit`,
-    :setting:`AUTH_MAX_ATTEMPTS`,
-    :setting:`AUTH_LOCKOUT_TIME`
+    :setting:`RATELIMIT_ATTEMPTS`,
+    :setting:`RATELIMIT_LOCKOUT`
 
-.. setting:: AUTH_LOCKOUT_TIME
+.. setting:: RATELIMIT_LOCKOUT
 
-AUTH_LOCKOUT_TIME
+RATELIMIT_LOCKOUT
 -----------------
 
-.. versionadded:: 2.14
+.. versionadded:: 3.2
 
 Length of authentication lockout window after rate limit is applied.
 
@@ -106,8 +153,8 @@ Defaults to 600 (10 minutes).
 .. seealso::
 
     :ref:`rate-limit`,
-    :setting:`AUTH_MAX_ATTEMPTS`,
-    :setting:`AUTH_CHECK_WINDOW`
+    :setting:`RATELIMIT_ATTEMPTS`,
+    :setting:`RATELIMIT_WINDOW`
 
 .. setting:: AUTH_TOKEN_VALID
 
@@ -135,32 +182,6 @@ Define (in days) how long in past Weblate should reject reusing same password.
 
 Defaults to 180 days.
 
-.. setting:: AUTO_LOCK
-
-AUTO_LOCK
----------
-
-.. deprecated:: 2.18
-
-Enables automatic locking of translation when somebody is working on it.
-
-.. seealso::
-
-   :ref:`locking`
-
-.. setting:: AUTO_LOCK_TIME
-
-AUTO_LOCK_TIME
---------------
-
-.. deprecated:: 2.18
-
-Time in seconds for how long the automatic lock for translation will be active.
-Defaults to 60 seconds.
-
-.. seealso::
-
-   :ref:`locking`
 
 .. setting:: AUTOFIX_LIST
 
@@ -196,26 +217,17 @@ For example you can enable only few of them:
 
    :ref:`autofix`, :ref:`custom-autofix`
 
-.. setting:: BACKGROUND_HOOKS
-
-BACKGROUND_HOOKS
-----------------
-
-Whether to run hooks in background. This is generally recommended unless you
-are debugging.
-
 .. setting:: BASE_DIR
 
 BASE_DIR
 --------
 
 Base directory where Weblate sources are located. This is used to derive
-several other paths by defalt:
+several other paths by default:
 
 - :setting:`DATA_DIR`
-- :setting:`TTF_PATH`
 
-Default value: Toplevel directory of Weblate sources.
+Default value: Top level directory of Weblate sources.
 
 .. setting:: CHECK_LIST
 
@@ -224,46 +236,31 @@ CHECK_LIST
 
 List of quality checks to perform on translation.
 
-You need to provide afully-qualified path to the Python class implementing the check
+You need to provide a fully-qualified path to the Python class implementing the check
 interface.
 
 Some of the checks are not useful for all projects, so you are welcome to
 adjust the list list of checks to be performed on your installation.
 
-For example you can enable only few of them:
+By default all built in quality checks (see :ref:`checks`) are enabled, you can
+use this setting to change this. Also the :ref:`sample-configuration` comes
+with this setting commented out to use default value. This enables you to get
+new checks automatically enabled on upgrade.
+
+You can disable all checks:
+
+.. code-block:: python
+
+    CHECK_LIST = ()
+
+You can enable only few of them:
 
 .. code-block:: python
 
     CHECK_LIST = (
-        'weblate.checks.same.SameCheck',
         'weblate.checks.chars.BeginNewlineCheck',
         'weblate.checks.chars.EndNewlineCheck',
-        'weblate.checks.chars.BeginSpaceCheck',
-        'weblate.checks.chars.EndSpaceCheck',
-        'weblate.checks.chars.EndStopCheck',
-        'weblate.checks.chars.EndColonCheck',
-        'weblate.checks.chars.EndQuestionCheck',
-        'weblate.checks.chars.EndExclamationCheck',
-        'weblate.checks.chars.EndEllipsisCheck',
-        'weblate.checks.chars.EndSemicolonCheck',
         'weblate.checks.chars.MaxLengthCheck',
-        'weblate.checks.format.PythonFormatCheck',
-        'weblate.checks.format.PythonBraceFormatCheck',
-        'weblate.checks.format.PHPFormatCheck',
-        'weblate.checks.format.CFormatCheck',
-        'weblate.checks.format.PerlFormatCheck',
-        'weblate.checks.format.JavascriptFormatCheck',
-        'weblate.checks.consistency.SamePluralsCheck',
-        'weblate.checks.consistency.PluralsCheck',
-        'weblate.checks.consistency.ConsistencyCheck',
-        'weblate.checks.consistency.TranslatedCheck',
-        'weblate.checks.chars.NewlineCountingCheck',
-        'weblate.checks.markup.BBCodeCheck',
-        'weblate.checks.chars.ZeroWidthSpaceCheck',
-        'weblate.checks.markup.XMLTagsCheck',
-        'weblate.checks.source.OptionalPluralCheck',
-        'weblate.checks.source.EllipsisCheck',
-        'weblate.checks.source.MultipleFailingCheck',
     )
 
 .. note::
@@ -277,6 +274,16 @@ For example you can enable only few of them:
 
    :ref:`checks`, :ref:`custom-checks`
 
+.. setting:: COMMENT_CLEANUP_DAYS
+
+COMMENT_CLEANUP_DAYS
+--------------------
+
+.. versionadded:: 3.6
+
+Automatically delete comments after given number of days. Defaults to
+``None`` what means no deletion at all.
+
 .. setting:: COMMIT_PENDING_HOURS
 
 COMMIT_PENDING_HOURS
@@ -284,7 +291,7 @@ COMMIT_PENDING_HOURS
 
 .. versionadded:: 2.10
 
-Default interval for commiting pending changes using :djadmin:`commit_pending`.
+Default interval for committing pending changes using :djadmin:`commit_pending`.
 
 .. seealso::
 
@@ -295,11 +302,6 @@ Default interval for commiting pending changes using :djadmin:`commit_pending`.
 
 DATA_DIR
 --------
-
-.. versionadded:: 2.1
-
-    In previous versions the directories were configured separately as
-    :setting:`GIT_ROOT` and :setting:`WHOOSH_INDEX`.
 
 Directory where Weblate stores all data. This consists of VCS repositories,
 fulltext index and various configuration files for external tools.
@@ -315,11 +317,13 @@ The following subdirectories usually exist:
 :file:`media`
     Default location for Django media files, specified by ``MEDIA_ROOT``.
 :file:`memory`
-    Translation memory data uwing Whoosh engine (see :ref:`translation-memory`).
+    Translation memory data using Whoosh engine (see :ref:`translation-memory`).
 :file:`vcs`
     Version control repositories.
 :file:`whoosh`
     Fulltext search index using Whoosh engine.
+:file:`backups`
+    Dump of data in daily backups, see :ref:`backup-dumps`.
 
 .. note::
 
@@ -336,7 +340,35 @@ Defaults to ``$BASE_DIR/data``.
 
 .. seealso::
 
-    :setting:`BASE_DIR`
+    :setting:`BASE_DIR`,
+    :doc:`backup`
+
+.. setting:: DEFAULT_ACCESS_CONTROL
+
+DEFAULT_ACCESS_CONTROL
+----------------------
+
+.. versionadded:: 3.3
+
+Choose default access control when creating new project, possible values are currently:
+
+``0``
+   :guilabel:`Public`
+``1``
+   :guilabel:`Protected`
+``100``
+   :guilabel:`Private`
+``200``
+   :guilabel:`Custom`
+
+Use :guilabel:`Custom` if you are going to manage ACL manually and do not want
+to rely on Weblate internal management.
+
+.. seealso::
+
+   :ref:`acl`,
+   :ref:`privileges`
+
 
 .. setting:: DEFAULT_COMMITER_EMAIL
 
@@ -345,7 +377,7 @@ DEFAULT_COMMITER_EMAIL
 
 .. versionadded:: 2.4
 
-Default committer email when creating translation component (see
+Default committer e-mail when creating translation component (see
 :ref:`component`), defaults to ``noreply@weblate.org``.
 
 .. seealso::
@@ -366,22 +398,17 @@ Default committer name when creating translation component (see
 
    :setting:`DEFAULT_COMMITER_EMAIL`, :ref:`component`
 
-.. setting:: DEFAULT_CUSTOM_ACL
+.. setting:: DEFAULT_MERGE_STYLE
 
-DEFAULT_CUSTOM_ACL
-------------------
+DEFAULT_MERGE_STYLE
+-------------------
 
-.. versionadded:: 3.0
+.. versionadded:: 3.4
 
-Whether newly created projects should default to :guilabel:`Custom` ACL.
-Use if you are going to manage ACL manually and do not want to rely on Weblate
-internal management.
+Default merge style for new components (see :ref:`component`), choose one of:
 
-.. seealso::
-
-   :ref:`acl`,
-   :ref:`privileges`
-
+* `rebase` - default
+* `merge`
 
 .. setting:: DEFAULT_TRANSLATION_PROPAGATION
 
@@ -397,13 +424,20 @@ defaults to ``True``.
 
    :ref:`component`
 
+.. setting:: DEFAULT_PULL_MESSAGE
+
+DEFAULT_PULL_MESSAGE
+--------------------
+
+Default pull request title,
+defaults to ``'Update from Weblate'``.
+
 .. setting:: ENABLE_AVATARS
 
 ENABLE_AVATARS
 --------------
 
-Whether to enable libravatar/gravatar based avatars for users. By default this
-is enabled.
+Whether to enable Gravatar based avatars for users. By default this is enabled.
 
 The avatars are fetched and cached on the server, so there is no risk in
 leaking private information or slowing down the user experiences with enabling
@@ -412,6 +446,7 @@ this.
 .. seealso::
 
    :ref:`production-cache-avatar`,
+   :setting:`AVATAR_URL_PREFIX`,
    :ref:`avatars`
 
 .. setting:: ENABLE_HOOKS
@@ -444,17 +479,6 @@ ENABLE_SHARING
 
 Whether to show links to share translation progress on social networks.
 
-.. setting:: GIT_ROOT
-
-GIT_ROOT
---------
-
-.. deprecated:: 2.1
-   This setting is no longer used, use :setting:`DATA_DIR` instead.
-
-Path where Weblate will store the cloned VCS repositories. Defaults to
-:file:`repos` subdirectory.
-
 .. setting:: GITHUB_USERNAME
 
 GITHUB_USERNAME
@@ -484,7 +508,10 @@ Hide repository credentials in the web interface. In case you have repository
 URL with user and password, Weblate will hide it when showing it to the users.
 
 For example instead of ``https://user:password@git.example.com/repo.git`` it
-will show just ``https://git.example.com/repo.git``.
+will show just ``https://git.example.com/repo.git``. It tries to cleanup VCS
+error messages as well in similar manner.
+
+This is enabled by default.
 
 .. setting:: IP_BEHIND_REVERSE_PROXY
 
@@ -538,6 +565,11 @@ Depending on your setup, this header might consist of several IP addresses,
 (for example ``X-Forwarded-For: a, b, client-ip``) and you can configure here
 which address from the header is client IP address.
 
+.. warning::
+
+   Setting this affects security of your installation, you should only
+   configure to use trusted proxies for determining IP address.
+
 Defaults to 0.
 
 .. seealso::
@@ -545,36 +577,25 @@ Defaults to 0.
     :ref:`rate-limit`,
     :ref:`rate-ip`
 
-.. setting:: LAZY_COMMITS
+.. setting:: LEGAL_URL
 
-LAZY_COMMITS
-------------
-
-.. deprecated:: 2.20
-
-    This setting can no longer be configured and is enabled permanently.
-
-Delay creating VCS commits until necessary. This heavily reduces
-number of commits generated by Weblate at expense of temporarily not being
-able to merge some changes as they are not yet committed.
-
-.. seealso::
-
-   :ref:`lazy-commit`
-
-.. setting:: LOCK_TIME
-
-LOCK_TIME
+LEGAL_URL
 ---------
 
-.. deprecated:: 2.18
+.. versionadded:: 3.5
 
-Time in seconds for how long the translation will be locked for single
-translator when locked manually.
+URL where your Weblate instance shows it's legal documents. This is useful if
+you host your legal documents outside Weblate for embedding inside Weblate
+please see :ref:`legal`.
 
-.. seealso::
+.. setting:: LIMIT_TRANSLATION_LENGTH_BY_SOURCE_LENGTH
 
-   :ref:`locking`
+LIMIT_TRANSLATION_LENGTH_BY_SOURCE_LENGTH
+-----------------------------------------
+
+By default the length of a given translation is limited to the length of the source string * 10 characters. Set this option to False to allow longer translations (up to 10.000 characters) irrespective of the source length.
+
+Defaults to True.
 
 .. setting:: LOGIN_REQUIRED_URLS
 
@@ -610,7 +631,7 @@ Some of exceptions you might want to include:
         r'/data/(.*)$',     # Allowing public access to data exports
         r'/hooks/(.*)$',    # Allowing public access to notification hooks
         r'/api/(.*)$',      # Allowing access to API
-        r'/js/i18n/$',      # Javascript localization
+        r'/js/i18n/$',      # JavaScript localization
     )
 
 .. setting:: MT_SERVICES
@@ -639,6 +660,7 @@ List of enabled machine translation services to use.
         'weblate.machinery.glosbe.GlosbeTranslation',
         'weblate.machinery.google.GoogleTranslation',
         'weblate.machinery.microsoft.MicrosoftCognitiveTranslation',
+        'weblate.machinery.microsoftterminology.MicrosoftTerminologyService',
         'weblate.machinery.mymemory.MyMemoryTranslation',
         'weblate.machinery.tmserver.AmagamaTranslation',
         'weblate.machinery.tmserver.TMServerTranslation',
@@ -697,6 +719,28 @@ Region name to use for Amazon Translate.
 
     :ref:`aws`, :ref:`machine-translation-setup`, :ref:`machine-translation`
 
+.. setting:: MT_BAIDU_ID
+
+MT_BAIDU_ID
+------------
+
+Client ID for Baidu Zhiyun API, you can register at https://api.fanyi.baidu.com/api/trans/product/index
+
+.. seealso::
+
+   :ref:`baidu-translate`, :ref:`machine-translation-setup`, :ref:`machine-translation`
+
+.. setting:: MT_BAIDU_SECRET
+
+MT_BAIDU_SECRET
+----------------
+
+Client secret for Baidu Zhiyun API, you can register at https://api.fanyi.baidu.com/api/trans/product/index
+
+.. seealso::
+
+   :ref:`baidu-translate`, :ref:`machine-translation-setup`, :ref:`machine-translation`
+
 .. setting:: MT_DEEPL_KEY
 
 MT_DEEPL_KEY
@@ -719,30 +763,6 @@ API key for Google Translate API, you can register at https://cloud.google.com/t
 
    :ref:`google-translate`, :ref:`machine-translation-setup`, :ref:`machine-translation`
 
-.. setting:: MT_MICROSOFT_ID
-
-MT_MICROSOFT_ID
----------------
-
-Client ID for Microsoft Translator service.
-
-.. seealso::
-
-   :ref:`ms-translate`, :ref:`machine-translation-setup`, :ref:`machine-translation`,
-   `Azure datamarket <https://datamarket.azure.com/developer/applications/>`_
-
-.. setting:: MT_MICROSOFT_SECRET
-
-MT_MICROSOFT_SECRET
--------------------
-
-Client secret for Microsoft Translator service.
-
-.. seealso::
-
-   :ref:`ms-translate`, :ref:`machine-translation-setup`, :ref:`machine-translation`,
-   `Azure datamarket <https://datamarket.azure.com/developer/applications/>`_
-
 .. setting:: MT_MICROSOFT_COGNITIVE_KEY
 
 MT_MICROSOFT_COGNITIVE_KEY
@@ -752,15 +772,15 @@ Client key for Microsoft Cognitive Services Translator API.
 
 .. seealso::
     :ref:`ms-cognitive-translate`, :ref:`machine-translation-setup`, :ref:`machine-translation`,
-    `Cognitive Services - Text Translation API <http://docs.microsofttranslator.com/text-translate.html>`_,
-    `Microsfot Azure Portal <https://portal.azure.com/>`_
+    `Cognitive Services - Text Translation API <https://azure.microsoft.com/services/cognitive-services/translator-text-api/>`_,
+    `Microsoft Azure Portal <https://portal.azure.com/>`_
 
 .. setting:: MT_MYMEMORY_EMAIL
 
 MT_MYMEMORY_EMAIL
 -----------------
 
-MyMemory identification email, you can get 1000 requests per day with this.
+MyMemory identification e-mail, you can get 1000 requests per day with this.
 
 .. seealso::
 
@@ -791,6 +811,28 @@ MyMemory user id for private translation memory, use together with :setting:`MT_
    :ref:`mymemory`, :ref:`machine-translation-setup`, :ref:`machine-translation`,
    `MyMemory: API key generator <https://mymemory.translated.net/doc/keygen.php>`_
 
+.. setting:: MT_NETEASE_KEY
+
+MT_NETEASE_KEY
+--------------
+
+App key for Netease Sight API, you can register at https://sight.netease.com/
+
+.. seealso::
+
+   :ref:`netease-translate`, :ref:`machine-translation-setup`, :ref:`machine-translation`
+
+.. setting:: MT_NETEASE_SECRET
+
+MT_NETEASE_SECRET
+-----------------
+
+App secret for Netease Sight API, you can register at https://sight.netease.com/
+
+.. seealso::
+
+   :ref:`netease-translate`, :ref:`machine-translation-setup`, :ref:`machine-translation`
+
 .. setting:: MT_TMSERVER
 
 MT_TMSERVER
@@ -813,6 +855,28 @@ API key for Yandex Translate API, you can register at https://tech.yandex.com/tr
 .. seealso::
 
    :ref:`yandex-translate`, :ref:`machine-translation-setup`, :ref:`machine-translation`
+
+.. setting:: MT_YOUDAO_ID
+
+MT_YOUDAO_ID
+------------
+
+Client ID for Youdao Zhiyun API, you can register at https://ai.youdao.com/product-fanyi.s
+
+.. seealso::
+
+   :ref:`youdao-translate`, :ref:`machine-translation-setup`, :ref:`machine-translation`
+
+.. setting:: MT_YOUDAO_SECRET
+
+MT_YOUDAO_SECRET
+----------------
+
+Client secret for Youdao Zhiyun API, you can register at https://ai.youdao.com/product-fanyi.s
+
+.. seealso::
+
+   :ref:`youdao-translate`, :ref:`machine-translation-setup`, :ref:`machine-translation`
 
 .. setting:: MT_SAP_BASE_URL
 
@@ -872,24 +936,6 @@ NEARBY_MESSAGES
 
 How many messages around current one to show during translating.
 
-.. setting:: OFFLOAD_INDEXING
-
-OFFLOAD_INDEXING
-----------------
-
-Offload updating of fulltext index to separate process. This heavily
-improves responsiveness of online operation on expense of slightly
-outdated index, which might still point to older content.
-
-While enabling this, don't forget scheduling runs of
-:djadmin:`update_index` in cron or similar tool.
-
-This is the recommended setup for production use.
-
-.. seealso::
-
-   :ref:`fulltext`
-
 .. setting:: PIWIK_SITE_ID
 
 PIWIK_SITE_ID
@@ -922,11 +968,11 @@ A boolean (either ``True`` or ``False``) indicating whether registration of new
 accounts is protected by captcha. This setting is optional, and a default of
 True will be assumed if it is not supplied.
 
-If enabled the captcha is added to all pages where users enter email address:
+If enabled the captcha is added to all pages where users enter e-mail address:
 
 * New account registration.
 * Password recovery.
-* Adding email to an account.
+* Adding e-mail to an account.
 * Contact form for users who are not logged in.
 
 .. setting:: REGISTRATION_EMAIL_MATCH
@@ -936,11 +982,11 @@ REGISTRATION_EMAIL_MATCH
 
 .. versionadded:: 2.17
 
-Allows you to filter email addresses which can register.
+Allows you to filter e-mail addresses which can register.
 
 Defaults to ``.*`` which allows any address to register.
 
-You can use it to restrict registration to a single email domain:
+You can use it to restrict registration to a single e-mail domain:
 
 .. code-block:: python
 
@@ -972,7 +1018,7 @@ Disable this if you are having different translations for both variants.
 SITE_TITLE
 ----------
 
-Site title to be used in website and emails as well.
+Site title to be used in website and e-mails as well.
 
 .. setting:: SPECIAL_CHARS
 
@@ -987,6 +1033,15 @@ The default value is:
 
     SPECIAL_CHARS = ('\t', '\n', '…')
 
+.. setting:: SINGLE_PROJECT
+
+SINGLE_PROJECT
+--------------
+
+.. versionadded:: 3.8
+
+Redirect user directly to single project or component instead of showing dashboard.
+
 .. setting:: STATUS_URL
 
 STATUS_URL
@@ -994,18 +1049,15 @@ STATUS_URL
 
 URL where your Weblate instance reports it's status.
 
-.. setting:: TTF_PATH
+.. setting:: SUGGESTION_CLEANUP_DAYS
 
-TTF_PATH
---------
+SUGGESTION_CLEANUP_DAYS
+-----------------------
 
-Path to Droid fonts used for widgets and charts.
+.. versionadded:: 3.2.1
 
-Defaults to ``$BASE_DIR/weblate/ttf``.
-
-.. seealso::
-
-    :setting:`BASE_DIR`
+Automatically delete suggestions after given number of days. Defaults to
+``None`` what means no deletion at all.
 
 .. setting:: URL_PREFIX
 
@@ -1022,13 +1074,62 @@ achieved by setting ``WSGIScriptAlias``.
     This setting does not work with Django's builtin server, you would have to
     adjust :file:`urls.py` to contain this prefix.
 
+.. setting:: VCS_BACKENDS
+
+VCS_BACKENDS
+------------
+
+Configuration of available VCS backends. Weblate tries to use all supported
+backends for which you have tools available. You can limit choices or add
+custom VCS backends using this.
+
+.. code-block:: python
+
+   VCS_BACKENDS = (
+      'weblate.vcs.git.GitRepository',
+   )
+
+.. seealso:: 
+   
+   :ref:`vcs`
+
 .. setting:: WEBLATE_ADDONS
 
 WEBLATE_ADDONS
 --------------
 
 List of addons available for use. To use them, they have to be enabled for
-given translation component.
+given translation component. By default this includes all built in addons, when
+extending the list you will probably want to keep existing ones enabled, for
+example:
+
+
+.. code-block:: python
+
+    WEBLATE_ADDONS = (
+        # Built in addons
+        'weblate.addons.gettext.GenerateMoAddon',
+        'weblate.addons.gettext.UpdateLinguasAddon',
+        'weblate.addons.gettext.UpdateConfigureAddon',
+        'weblate.addons.gettext.MsgmergeAddon',
+        'weblate.addons.gettext.GettextCustomizeAddon',
+        'weblate.addons.gettext.GettextAuthorComments',
+        'weblate.addons.cleanup.CleanupAddon',
+        'weblate.addons.consistency.LangaugeConsistencyAddon',
+        'weblate.addons.discovery.DiscoveryAddon',
+        'weblate.addons.flags.SourceEditAddon',
+        'weblate.addons.flags.TargetEditAddon',
+        'weblate.addons.flags.SameEditAddon',
+        'weblate.addons.generate.GenerateFileAddon',
+        'weblate.addons.json.JSONCustomizeAddon',
+        'weblate.addons.properties.PropertiesSortAddon',
+        'weblate.addons.git.GitSquashAddon',
+        'weblate.addons.removal.RemoveComments',
+        'weblate.addons.removal.RemoveSuggestions',
+
+        # Addon you want to include
+        'weblate.addons.example.ExampleAddon',
+    )
 
 .. seealso::
 
@@ -1047,12 +1148,26 @@ List of file formats available for use, you can usually keep this on default val
 
     :ref:`formats`
 
-.. setting:: WHOOSH_INDEX
+.. setting:: WEBLATE_GPG_IDENTITY
 
-WHOOSH_INDEX
-------------
+WEBLATE_GPG_IDENTITY
+--------------------
 
-.. deprecated:: 2.1
-   This setting is no longer used, use :setting:`DATA_DIR` instead.
+.. versionadded:: 3.1
 
-Directory where Whoosh fulltext indices will be stored. Defaults to :file:`whoosh-index` subdirectory.
+Identity which should be used by Weblate to sign Git commits, for example:
+
+.. code-block:: python
+
+    WEBLATE_GPG_IDENTITY = 'Weblate <weblate@example.com>'
+
+.. warning::
+
+    If you are going to change value of setting, it is advisable to clean the
+    cache as the key information is cached for seven days. This is not
+    necessary for initial setup as nothing is cached if this feature is not
+    configured.
+
+.. seealso::
+
+    :ref:`gpg-sign`

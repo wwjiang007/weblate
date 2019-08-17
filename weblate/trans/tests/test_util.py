@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,11 +18,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from unittest import TestCase
+from django.test import SimpleTestCase
+
 from weblate.trans.util import cleanup_repo_url, translation_percent
 
 
-class HideCredentialsTest(TestCase):
+class HideCredentialsTest(SimpleTestCase):
     def test_http(self):
         self.assertEqual(
             cleanup_repo_url('http://foo:bar@example.com'),
@@ -56,7 +57,7 @@ class HideCredentialsTest(TestCase):
         )
 
 
-class TranslationPercentTest(TestCase):
+class TranslationPercentTest(SimpleTestCase):
     def test_common(self):
         self.assertAlmostEqual(translation_percent(2, 4), 50.0)
 

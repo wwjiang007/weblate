@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,11 +21,12 @@
 from __future__ import unicode_literals
 
 from django.conf import settings
-
 from six.moves.urllib.error import HTTPError
 from six.moves.urllib.parse import quote
 
 from weblate.machinery.base import MachineTranslation, MissingConfiguration
+
+AMAGAMA_LIVE = 'https://amagama-live.translatehouse.org/api/v1'
 
 
 class TMServerTranslation(MachineTranslation):
@@ -37,7 +38,8 @@ class TMServerTranslation(MachineTranslation):
         super(TMServerTranslation, self).__init__()
         self.url = self.get_server_url()
 
-    def get_server_url(self):
+    @staticmethod
+    def get_server_url():
         """Return URL of a server."""
         if settings.MT_TMSERVER is None:
             raise MissingConfiguration(
@@ -73,18 +75,23 @@ class TMServerTranslation(MachineTranslation):
             return True
         return (source, language) in self.supported_languages
 
-    def download_translations(self, source, language, text, unit, user):
+    def download_translations(self, source, language, text, unit, request):
         """Download list of possible translations from a service."""
         url = '{0}/{1}/{2}/unit/{3}'.format(
             self.url,
-            quote(source),
-            quote(language),
-            quote(text[:500].replace('\r', ' ').encode('utf-8'))
+            quote(source, b''),
+            quote(language, b''),
+            quote(text[:500].replace('\r', ' ').encode('utf-8'), b'')
         )
         response = self.json_req(url)
 
         return [
-            (line['target'], int(line['quality']), self.name, line['source'])
+            {
+                'text': line['target'],
+                'quality': int(line['quality']),
+                'service': self.name,
+                'source': line['source']
+            }
             for line in response
         ]
 
@@ -93,5 +100,6 @@ class AmagamaTranslation(TMServerTranslation):
     """Specific instance of tmserver ran by Virtaal authors."""
     name = 'Amagama'
 
-    def get_server_url(self):
-        return 'https://amagama-live.translatehouse.org/api/v1'
+    @staticmethod
+    def get_server_url():
+        return AMAGAMA_LIVE

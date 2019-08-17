@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,10 +20,16 @@
 
 """Test for notification hooks."""
 
-from django.urls import reverse
+from __future__ import unicode_literals
+
+import json
+
+from django.test import SimpleTestCase
 from django.test.utils import override_settings
+from django.urls import reverse
 
 from weblate.trans.tests.test_views import ViewTestCase
+from weblate.trans.views.hooks import HOOK_HANDLERS
 
 GITHUB_PAYLOAD = '''
 {
@@ -353,7 +359,7 @@ BITBUCKET_PAYLOAD_HOSTED = r'''
     "links":{
       "self":[
         {
-          "href":"https://bitbucket.example.com/weblate-training/browse"
+          "href":"https://example.com/weblate-training/browse"
         }
       ]
     },
@@ -389,6 +395,84 @@ BITBUCKET_PAYLOAD_HOSTED = r'''
       }
     ]
   }
+}
+'''
+
+BITBUCKET_PAYLOAD_SERVER = r'''
+{
+    "eventKey": "repo:refs_changed",
+    "date": "2019-02-20T03:28:49+0000",
+    "actor": {
+        "name": "joe.blogs",
+        "emailAddress": "joe.bloggs@example.com",
+        "id": 160,
+        "displayName": "Joe Bloggs",
+        "active": true,
+        "slug": "joe.blogs",
+        "type": "NORMAL",
+        "links": {
+            "self": [
+                {
+                    "href": "https://example.com/users/joe.blogs"
+                }
+            ]
+        }
+    },
+    "repository": {
+        "slug": "my-repo",
+        "id": 3944,
+        "name": "my-repo",
+        "scmId": "git",
+        "state": "AVAILABLE",
+        "statusMessage": "Available",
+        "forkable": true,
+        "project": {
+            "key": "SANDPIT",
+            "id": 205,
+            "name": "Sandpit",
+            "description": "sandpit project",
+            "public": false,
+            "type": "NORMAL",
+            "links": {
+                "self": [
+                    {
+                        "href": "https://example.com/projects/SANDPIT"
+                    }
+                ]
+            }
+        },
+        "public": false,
+        "links": {
+            "clone": [
+                {
+                    "href": "https://example.com/scm/sandpit/my-repo.git",
+                    "name": "http"
+                },
+                {
+                    "href": "ssh://git@example.com:7999/sandpit/my-repo.git",
+                    "name": "ssh"
+                }
+            ],
+            "self": [
+                {
+                    "href": "https://example.com/projects/SANDPIT/repos/my-repo/browse"
+                }
+            ]
+        }
+    },
+    "changes": [
+        {
+            "ref": {
+                "id": "refs/heads/master",
+                "displayId": "master",
+                "type": "BRANCH"
+            },
+            "refId": "refs/heads/master",
+            "fromHash": "fdff3f418a8e3d25d6c8cb80776d6ac142bef800",
+            "toHash": "7cb42185f7d8eab95f5fac3de2648a16361ecf34",
+            "type": "UPDATE"
+        }
+    ]
 }
 '''
 
@@ -456,64 +540,205 @@ BITBUCKET_PAYLOAD_WEBHOOK_CLOSED = r'''
 }
 '''
 
+PAGURE_PAYLOAD = r'''
+{
+    "i": 17,
+    "msg": {
+        "agent": "nijel",
+        "authors": [
+            {
+                "fullname": "Michal \u010ciha\u0159",
+                "name": "nijel"
+            }
+        ],
+        "branch": "master",
+        "end_commit": "4d0f02a0282c5fcd10a396624d3f6b950dc16296",
+        "forced": false,
+        "pagure_instance": "https://pagure.io/",
+        "project_fullname": "nijel-test",
+        "repo": {
+            "access_groups": {
+                "admin": [],
+                "commit": [],
+                "ticket": []
+            },
+            "access_users": {
+                "admin": [],
+                "commit": [],
+                "owner": [
+                    "nijel"
+                ],
+                "ticket": []
+            },
+            "close_status": [],
+            "custom_keys": [],
+            "date_created": "1539762879",
+            "date_modified": "1539763111",
+            "description": "Test",
+            "fullname": "nijel-test",
+            "id": 5075,
+            "milestones": {},
+            "name": "nijel-test",
+            "namespace": null,
+            "parent": null,
+            "priorities": {},
+            "tags": [],
+            "url_path": "nijel-test",
+            "user": {
+                "fullname": "Michal \u010ciha\u0159",
+                "name": "nijel"
+            }
+        },
+        "start_commit": "4d0f02a0282c5fcd10a396624d3f6b950dc16296",
+        "total_commits": 1
+    },
+    "msg_id": "2018-8eb272b9-e33b-42f6-af06-fce41a5494de",
+    "timestamp": 1539763221,
+    "topic": "git.receive"
+}
+'''
+
+
+AZURE_PAYLOAD = r'''
+{
+  "subscriptionId": "00000000-0000-0000-0000-000000000000",
+  "notificationId": 1,
+  "id": "03c164c2-8912-4d5e-8009-3707d5f83734",
+  "eventType": "git.push",
+  "publisherId": "tfs",
+  "message": {
+    "text": "Jamal Hartnett pushed updates to ATEST:master.",
+    "html": "Jamal Hartnett pushed updates to ATEST:master.",
+    "markdown": "Jamal Hartnett pushed updates to `ATEST`:`master`."
+  },
+  "detailedMessage": {
+    "text": "Jamal Hartnett pushed a commit to ATEST:master.",
+    "html": "Jamal Hartnett pushed a commit to ",
+    "markdown": "Jamal Hartnett pushed a commit to [ATEST])"
+  },
+  "resource": {
+    "commits": [
+      {
+        "commitId": "33b55f7cb7e7e245323987634f960cf4a6e6bc74",
+        "author": {
+          "name": "Jamal Hartnett",
+          "email": "fabrikamfiber4@hotmail.com",
+          "date": "2015-02-25T19:01:00Z"
+        },
+        "committer": {
+          "name": "Jamal Hartnett",
+          "email": "fabrikamfiber4@hotmail.com",
+          "date": "2015-02-25T19:01:00Z"
+        },
+        "comment": "Fixed bug in web.config file",
+        "url": "https://f.visualstudio.com/c/_git/ATEST/commit/33b55f7cb7e7e2453239"
+      }
+    ],
+    "refUpdates": [
+      {
+        "name": "refs/heads/master",
+        "oldObjectId": "aad331d8d3b131fa9ae03cf5e53965b51942618a",
+        "newObjectId": "33b55f7cb7e7e245323987634f960cf4a6e6bc74"
+      }
+    ],
+    "repository": {
+      "id": "278d5cd2-584d-4b63-824a-2ba458937249",
+      "name": "ATEST",
+      "url": "https://f.visualstudio.com/c/_apis/git/repositories/278d5cd2-584d-4b63",
+      "project": {
+        "id": "6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c",
+        "name": "ATEST",
+        "url": "https://f.visualstudio.com/c/_apis/projects/6ce954b1-ce1f-45d1",
+        "state": "wellFormed",
+        "visibility": "unchanged",
+        "lastUpdateTime": "0001-01-01T00:00:00"
+      },
+      "defaultBranch": "refs/heads/master",
+      "remoteUrl": "https://f.visualstudio.com/c/_git/ATEST"
+    },
+    "pushedBy": {
+      "displayName": "Jamal Hartnett",
+      "id": "00067FFED5C7AF52@Live.com",
+      "uniqueName": "fabrikamfiber4@hotmail.com"
+    },
+    "pushId": 14,
+    "date": "2014-05-02T19:17:13.3309587Z",
+    "url": "https://f.visualstudio.com/c/_apis/git/repositories/278d5cd2/pushes/14"
+  },
+  "resourceVersion": "1.0",
+  "resourceContainers": {
+    "collection": {
+      "id": "c12d0eb8-e382-443b-9f9c-c52cba5014c2"
+    },
+    "account": {
+      "id": "f844ec47-a9db-4511-8281-8b63f4eaf94e"
+    },
+    "project": {
+      "id": "be9b3917-87e6-42a4-a549-2bc06a7a878f"
+    }
+  },
+  "createdDate": "2019-08-06T12:12:53.3798179Z"
+}
+'''
+
 
 class HooksViewTest(ViewTestCase):
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_project(self):
         response = self.client.get(
             reverse('hook-project', kwargs=self.kw_project)
         )
         self.assertContains(response, 'Update triggered')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_component(self):
         response = self.client.get(
             reverse('hook-component', kwargs=self.kw_component)
         )
         self.assertContains(response, 'Update triggered')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_github_exists(self):
         # Adjust matching repo
         self.component.repo = 'git://github.com/defunkt/github.git'
         self.component.save()
         response = self.client.post(
-            reverse('hook-github'),
+            reverse('webhook', kwargs={'service': 'github'}),
             {'payload': GITHUB_PAYLOAD}
         )
         self.assertContains(response, 'Update triggered')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_github_new(self):
         # Adjust matching repo
         self.component.repo = 'git://github.com/defunkt/github.git'
         self.component.save()
         response = self.client.post(
-            reverse('hook-github'),
+            reverse('webhook', kwargs={'service': 'github'}),
             {'payload': GITHUB_NEW_PAYLOAD}
         )
         self.assertContains(response, 'Update triggered')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_github_ping(self):
         response = self.client.post(
-            reverse('hook-github'),
+            reverse('webhook', kwargs={'service': 'github'}),
             {'payload': '{"zen": "Approachable is better than simple."}'}
         )
         self.assertContains(response, 'Hook working')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_github_auth(self):
         # Adjust matching repo
         self.component.repo = 'https://user:pwd@github.com/defunkt/github.git'
         self.component.save()
         response = self.client.post(
-            reverse('hook-github'),
+            reverse('webhook', kwargs={'service': 'github'}),
             {'payload': GITHUB_PAYLOAD}
         )
         self.assertContains(response, 'Update triggered')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_github_disabled(self):
         # Adjust matching repo
         self.component.repo = 'git://github.com/defunkt/github.git'
@@ -521,100 +746,100 @@ class HooksViewTest(ViewTestCase):
         self.project.enable_hooks = False
         self.project.save()
         response = self.client.post(
-            reverse('hook-github'),
+            reverse('webhook', kwargs={'service': 'github'}),
             {'payload': GITHUB_PAYLOAD}
         )
         self.assertContains(response, 'No matching repositories found!')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_github(self):
         response = self.client.post(
-            reverse('hook-github'),
+            reverse('webhook', kwargs={'service': 'github'}),
             {'payload': GITHUB_PAYLOAD}
         )
         self.assertContains(response, 'No matching repositories found!')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_gitlab(self):
         response = self.client.post(
-            reverse('hook-gitlab'), GITLAB_PAYLOAD,
+            reverse('webhook', kwargs={'service': 'gitlab'}), GITLAB_PAYLOAD,
             content_type="application/json"
         )
         self.assertContains(response, 'No matching repositories found!')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_bitbucket_ping(self):
         response = self.client.post(
-            reverse('hook-bitbucket'),
+            reverse('webhook', kwargs={'service': 'bitbucket'}),
             HTTP_X_EVENT_KEY='diagnostics:ping',
         )
         self.assertContains(response, 'Hook working')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_bitbucket_git(self):
         response = self.client.post(
-            reverse('hook-bitbucket'),
+            reverse('webhook', kwargs={'service': 'bitbucket'}),
             {'payload': BITBUCKET_PAYLOAD_GIT}
         )
         self.assertContains(response, 'No matching repositories found!')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_bitbucket_hg(self):
         response = self.client.post(
-            reverse('hook-bitbucket'),
+            reverse('webhook', kwargs={'service': 'bitbucket'}),
             {'payload': BITBUCKET_PAYLOAD_HG}
         )
         self.assertContains(response, 'No matching repositories found!')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_bitbucket_hg_no_commit(self):
         response = self.client.post(
-            reverse('hook-bitbucket'),
+            reverse('webhook', kwargs={'service': 'bitbucket'}),
             {'payload': BITBUCKET_PAYLOAD_HG_NO_COMMIT}
         )
         self.assertContains(response, 'No matching repositories found!')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_bitbucket_webhook(self):
         response = self.client.post(
-            reverse('hook-bitbucket'),
+            reverse('webhook', kwargs={'service': 'bitbucket'}),
             {'payload': BITBUCKET_PAYLOAD_WEBHOOK}
         )
         self.assertContains(response, 'No matching repositories found!')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_bitbucket_hosted(self):
         response = self.client.post(
-            reverse('hook-bitbucket'),
+            reverse('webhook', kwargs={'service': 'bitbucket'}),
             {'payload': BITBUCKET_PAYLOAD_HOSTED}
         )
         self.assertContains(response, 'No matching repositories found!')
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_hook_bitbucket_webhook_closed(self):
         response = self.client.post(
-            reverse('hook-bitbucket'),
+            reverse('webhook', kwargs={'service': 'bitbucket'}),
             {'payload': BITBUCKET_PAYLOAD_WEBHOOK_CLOSED}
         )
         self.assertContains(response, 'No matching repositories found!')
 
-    @override_settings(ENABLE_HOOKS=False, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=False)
     def test_disabled(self):
         """Test for hooks disabling."""
         self.assert_disabled()
 
         response = self.client.post(
-            reverse('hook-github'),
+            reverse('webhook', kwargs={'service': 'github'}),
             {'payload': GITHUB_PAYLOAD}
         )
         self.assertEqual(response.status_code, 405)
         response = self.client.post(
-            reverse('hook-gitlab'), GITLAB_PAYLOAD,
+            reverse('webhook', kwargs={'service': 'gitlab'}), GITLAB_PAYLOAD,
             content_type="application/json"
         )
         self.assertEqual(response.status_code, 405)
         response = self.client.post(
-            reverse('hook-bitbucket'),
+            reverse('webhook', kwargs={'service': 'bitbucket'}),
             {'payload': BITBUCKET_PAYLOAD_GIT}
         )
         self.assertEqual(response.status_code, 405)
@@ -634,12 +859,12 @@ class HooksViewTest(ViewTestCase):
         )
         self.assertEqual(response.status_code, 405)
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_wrong_payload_github(self):
         """Test for invalid payloads with github."""
         # missing
         response = self.client.post(
-            reverse('hook-github'),
+            reverse('webhook', kwargs={'service': 'github'}),
         )
         self.assertContains(
             response,
@@ -648,7 +873,7 @@ class HooksViewTest(ViewTestCase):
         )
         # wrong
         response = self.client.post(
-            reverse('hook-github'),
+            reverse('webhook', kwargs={'service': 'github'}),
             {'payload': 'XX'},
         )
         self.assertContains(
@@ -658,7 +883,7 @@ class HooksViewTest(ViewTestCase):
         )
         # missing data
         response = self.client.post(
-            reverse('hook-github'),
+            reverse('webhook', kwargs={'service': 'github'}),
             {'payload': '{}'},
         )
         self.assertContains(
@@ -667,12 +892,12 @@ class HooksViewTest(ViewTestCase):
             status_code=400
         )
 
-    @override_settings(ENABLE_HOOKS=True, BACKGROUND_HOOKS=False)
+    @override_settings(ENABLE_HOOKS=True)
     def test_wrong_payload_gitlab(self):
         """Test for invalid payloads with gitlab."""
         # missing
         response = self.client.post(
-            reverse('hook-gitlab'),
+            reverse('webhook', kwargs={'service': 'gitlab'}),
         )
         self.assertContains(
             response,
@@ -681,7 +906,7 @@ class HooksViewTest(ViewTestCase):
         )
         # missing content-type header
         response = self.client.post(
-            reverse('hook-gitlab'),
+            reverse('webhook', kwargs={'service': 'gitlab'}),
             {'payload': 'anything'}
         )
         self.assertContains(
@@ -691,7 +916,7 @@ class HooksViewTest(ViewTestCase):
         )
         # wrong
         response = self.client.post(
-            reverse('hook-gitlab'), 'xx',
+            reverse('webhook', kwargs={'service': 'gitlab'}), 'xx',
             content_type="application/json"
         )
         self.assertContains(
@@ -699,13 +924,228 @@ class HooksViewTest(ViewTestCase):
             'Could not parse JSON payload!',
             status_code=400
         )
+        # missing params
+        response = self.client.post(
+            reverse('webhook', kwargs={'service': 'gitlab'}), '{"other":42}',
+            content_type="application/json"
+        )
+        self.assertContains(
+            response,
+            'Hook working',
+            status_code=200
+        )
         # missing data
         response = self.client.post(
-            reverse('hook-gitlab'), '{}',
+            reverse('webhook', kwargs={'service': 'gitlab'}), '{}',
             content_type="application/json"
         )
         self.assertContains(
             response,
             'Invalid data in json payload!',
             status_code=400
+        )
+
+    @override_settings(ENABLE_HOOKS=True)
+    def test_hook_pagure(self):
+        response = self.client.post(
+            reverse('webhook', kwargs={'service': 'pagure'}),
+            {'payload': PAGURE_PAYLOAD}
+        )
+        self.assertContains(response, 'No matching repositories found!')
+
+        # missing data
+        response = self.client.post(
+            reverse('webhook', kwargs={'service': 'gitlab'}), '{"msg": ""}',
+            content_type="application/json"
+        )
+        self.assertContains(
+            response,
+            'Hook working',
+            status_code=200
+        )
+
+
+class HookBackendTestCase(SimpleTestCase):
+    hook = None
+
+    def assert_hook(self, payload, expected):
+        handler = HOOK_HANDLERS[self.hook]
+        result = handler(json.loads(payload))
+        if result:
+            result['repos'] = list(sorted(result['repos']))
+        if expected:
+            expected['repos'] = list(sorted(expected['repos']))
+        self.assertEqual(expected, result)
+
+
+class BitbucketBackendTest(HookBackendTestCase):
+    hook = 'bitbucket'
+
+    def test_ping(self):
+        self.assert_hook('{"diagnostics": "ping"}', None)
+
+    def test_git(self):
+        self.assert_hook(
+            BITBUCKET_PAYLOAD_GIT,
+            {
+                'branch': 'master',
+                'full_name': 'marcus/project-x.git',
+                'repo_url': 'https://bitbucket.org/marcus/project-x/',
+                'repos': [
+                    'ssh://git@bitbucket.org/marcus/project-x.git',
+                    'git@bitbucket.org:marcus/project-x.git',
+                    'https://bitbucket.org/marcus/project-x.git'
+                ],
+                'service_long_name': 'Bitbucket'
+            }
+        )
+
+    def test_hg(self):
+        self.assert_hook(
+            BITBUCKET_PAYLOAD_HG,
+            {
+                'branch': 'featureA',
+                'full_name': 'marcus/project-x.git',
+                'repo_url': 'https://bitbucket.org/marcus/project-x/',
+                'repos': [
+                    'https://bitbucket.org/marcus/project-x',
+                    'ssh://hg@bitbucket.org/marcus/project-x',
+                    'hg::ssh://hg@bitbucket.org/marcus/project-x',
+                    'hg::https://bitbucket.org/marcus/project-x'
+                ],
+                'service_long_name': 'Bitbucket'
+            }
+        )
+
+    def test_hg_no_commit(self):
+        self.assert_hook(
+            BITBUCKET_PAYLOAD_HG_NO_COMMIT,
+            {
+                'branch': None,
+                'full_name': 'marcus/project-x.git',
+                'repo_url': 'https://bitbucket.org/marcus/project-x/',
+                'repos': [
+                    'https://bitbucket.org/marcus/project-x',
+                    'ssh://hg@bitbucket.org/marcus/project-x',
+                    'hg::ssh://hg@bitbucket.org/marcus/project-x',
+                    'hg::https://bitbucket.org/marcus/project-x'
+                ],
+                'service_long_name': 'Bitbucket'
+            }
+        )
+
+    def test_webhook(self):
+        self.assert_hook(
+            BITBUCKET_PAYLOAD_WEBHOOK,
+            {
+                'branch': 'name-of-branch',
+                'full_name': 'team_name/repo_name.git',
+                'repo_url': 'https://api.bitbucket.org/bitbucket/bitbucket',
+                'repos': [
+                    'ssh://git@api.bitbucket.org/team_name/repo_name.git',
+                    'ssh://git@bitbucket.org/team_name/repo_name.git',
+                    'git@api.bitbucket.org:team_name/repo_name.git',
+                    'git@bitbucket.org:team_name/repo_name.git',
+                    'https://api.bitbucket.org/team_name/repo_name.git',
+                    'https://bitbucket.org/team_name/repo_name.git',
+                    'https://api.bitbucket.org/team_name/repo_name',
+                    'https://bitbucket.org/team_name/repo_name',
+                    'ssh://hg@api.bitbucket.org/team_name/repo_name',
+                    'ssh://hg@bitbucket.org/team_name/repo_name',
+                    'hg::ssh://hg@api.bitbucket.org/team_name/repo_name',
+                    'hg::ssh://hg@bitbucket.org/team_name/repo_name',
+                    'hg::https://api.bitbucket.org/team_name/repo_name',
+                    'hg::https://bitbucket.org/team_name/repo_name'
+                ],
+                'service_long_name': 'Bitbucket'
+            }
+        )
+
+    def test_hosted(self):
+        self.assert_hook(
+            BITBUCKET_PAYLOAD_HOSTED,
+            {
+                'branch': 'develop',
+                'full_name': '~DSNOECK/weblate-training.git',
+                'repo_url': 'https://example.com/weblate-training/browse',
+                'repos': [
+                    'ssh://git@bitbucket.org/~DSNOECK/weblate-training.git',
+                    'ssh://git@example.com/~DSNOECK/weblate-training.git',
+                    'git@bitbucket.org:~DSNOECK/weblate-training.git',
+                    'git@example.com:~DSNOECK/weblate-training.git',
+                    'https://bitbucket.org/~DSNOECK/weblate-training.git',
+                    'https://example.com/~DSNOECK/weblate-training.git',
+                    'https://bitbucket.org/~DSNOECK/weblate-training',
+                    'https://example.com/~DSNOECK/weblate-training',
+                    'ssh://hg@bitbucket.org/~DSNOECK/weblate-training',
+                    'ssh://hg@example.com/~DSNOECK/weblate-training',
+                    'hg::ssh://hg@bitbucket.org/~DSNOECK/weblate-training',
+                    'hg::ssh://hg@example.com/~DSNOECK/weblate-training',
+                    'hg::https://bitbucket.org/~DSNOECK/weblate-training',
+                    'hg::https://example.com/~DSNOECK/weblate-training'
+                ],
+                'service_long_name': 'Bitbucket'
+            }
+        )
+
+    def test_webhook_closed(self):
+        self.assert_hook(
+            BITBUCKET_PAYLOAD_WEBHOOK_CLOSED,
+            {
+                'branch': 'name-of-branch',
+                'full_name': 'team_name/repo_name.git',
+                'repo_url': 'https://api.bitbucket.org/bitbucket/bitbucket',
+                'repos': [
+                    'ssh://git@api.bitbucket.org/team_name/repo_name.git',
+                    'ssh://git@bitbucket.org/team_name/repo_name.git',
+                    'git@api.bitbucket.org:team_name/repo_name.git',
+                    'git@bitbucket.org:team_name/repo_name.git',
+                    'https://api.bitbucket.org/team_name/repo_name.git',
+                    'https://bitbucket.org/team_name/repo_name.git',
+                    'https://api.bitbucket.org/team_name/repo_name',
+                    'https://bitbucket.org/team_name/repo_name',
+                    'ssh://hg@api.bitbucket.org/team_name/repo_name',
+                    'ssh://hg@bitbucket.org/team_name/repo_name',
+                    'hg::ssh://hg@api.bitbucket.org/team_name/repo_name',
+                    'hg::ssh://hg@bitbucket.org/team_name/repo_name',
+                    'hg::https://api.bitbucket.org/team_name/repo_name',
+                    'hg::https://bitbucket.org/team_name/repo_name'
+                ],
+                'service_long_name': 'Bitbucket'
+            }
+        )
+
+    def test_server(self):
+        self.assert_hook(
+            BITBUCKET_PAYLOAD_SERVER,
+            {
+                'branch': 'master',
+                'full_name': 'SANDPIT/my-repo.git',
+                'repo_url': 'https://example.com/projects/SANDPIT/repos/my-repo/browse',
+                'repos': [
+                    'https://example.com/scm/sandpit/my-repo.git',
+                    'ssh://git@example.com:7999/sandpit/my-repo.git',
+                ],
+                'service_long_name': 'Bitbucket'
+            }
+        )
+
+
+class AzureBackendTest(HookBackendTestCase):
+    hook = 'azure'
+
+    def test_ping(self):
+        self.assert_hook('{"diagnostics": "ping"}', None)
+
+    def test_git(self):
+        url = 'https://f.visualstudio.com/c/_git/ATEST'
+        self.assert_hook(
+            AZURE_PAYLOAD,
+            {
+                'branch': 'master',
+                'full_name': 'ATEST',
+                'repo_url': url,
+                'repos': [url],
+                'service_long_name': 'Azure'
+            }
         )

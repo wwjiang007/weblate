@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,69 +23,80 @@ from __future__ import unicode_literals
 import os
 import shutil
 
-from django.db.models.signals import post_delete, post_save, m2m_changed
+from django.db.models.signals import m2m_changed, post_delete, post_save
 from django.dispatch import receiver
 
+from weblate.celery import app
+from weblate.trans.models._conf import WeblateConf
 from weblate.trans.models.agreement import ContributorAgreement
-from weblate.trans.models.conf import WeblateConf
-from weblate.trans.models.project import Project
+from weblate.trans.models.alert import Alert
+from weblate.trans.models.change import Change
+from weblate.trans.models.comment import Comment
 from weblate.trans.models.component import Component
+from weblate.trans.models.componentlist import AutoComponentList, ComponentList
+from weblate.trans.models.dictionary import Dictionary
+from weblate.trans.models.project import Project
+from weblate.trans.models.source import Source
+from weblate.trans.models.suggestion import Suggestion, Vote
 from weblate.trans.models.translation import Translation
 from weblate.trans.models.unit import Unit
-from weblate.trans.models.comment import Comment
-from weblate.trans.models.suggestion import Suggestion, Vote
-from weblate.trans.models.search import IndexUpdate
-from weblate.trans.models.change import Change
-from weblate.trans.models.dictionary import Dictionary
-from weblate.trans.models.source import Source
 from weblate.trans.models.whiteboard import WhiteboardMessage
-from weblate.trans.models.componentlist import (
-    ComponentList, AutoComponentList,
-)
 from weblate.trans.signals import user_pre_delete
 from weblate.utils.decorators import disable_for_loaddata
+from weblate.utils.files import remove_readonly
 
 __all__ = [
     'Project', 'Component', 'Translation', 'Unit', 'Suggestion',
-    'Comment', 'Vote', 'IndexUpdate', 'Change', 'Dictionary', 'Source',
+    'Comment', 'Vote', 'Change', 'Dictionary', 'Source',
     'WhiteboardMessage', 'ComponentList',
     'WeblateConf', 'ContributorAgreement',
+    'Alert',
 ]
 
 
-@receiver(post_delete, sender=Project)
-@receiver(post_delete, sender=Component)
-def delete_object_dir(sender, instance, **kwargs):
-    """Handler to delete (sub)project directory on project deletion."""
-    # Do not delete linked components
-    if hasattr(instance, 'is_repo_link') and instance.is_repo_link:
-        return
-
+def delete_object_dir(instance):
+    """Remove path if it exists"""
     project_path = instance.full_path
-
-    # Remove path if it exists
     if os.path.exists(project_path):
-        shutil.rmtree(project_path)
+        shutil.rmtree(project_path, onerror=remove_readonly)
+
+
+@receiver(post_delete, sender=Project)
+def project_post_delete(sender, instance, **kwargs):
+    """Handler to delete (sub)project directory on project deletion."""
+    # Invalidate stats
+    instance.stats.invalidate()
+
+    # Remove directory
+    delete_object_dir(instance)
+
+
+@receiver(post_delete, sender=Component)
+def component_post_delete(sender, instance, **kwargs):
+    """Handler to delete (sub)project directory on project deletion."""
+    # Invalidate stats
+    instance.stats.invalidate()
+
+    # Schedule project cleanup
+    from weblate.trans.tasks import cleanup_project
+    cleanup_project.delay(instance.project.pk)
+
+    # Do not delete linked components
+    if not instance.is_repo_link:
+        delete_object_dir(instance)
 
 
 @receiver(post_save, sender=Source)
 @disable_for_loaddata
 def update_source(sender, instance, **kwargs):
     """Update unit priority or checks based on source change."""
-    related_units = Unit.objects.filter(
-        id_hash=instance.id_hash,
-        translation__component=instance.component,
-    )
-    if instance.priority_modified:
-        units = related_units.exclude(
-            priority=instance.priority
-        )
-        units.update(priority=instance.priority)
-
     if instance.check_flags_modified:
-        for unit in related_units:
+        for unit in instance.units:
             unit.run_checks()
+        instance.run_checks()
+        for unit in instance.units:
             unit.translation.invalidate_cache()
+            unit.update_priority()
 
 
 @receiver(post_delete, sender=Comment)
@@ -95,8 +106,8 @@ def update_comment_flag(sender, instance, **kwargs):
     """Update related unit comment flags"""
     for unit in instance.related_units:
         # Update unit stats
-        unit.update_has_comment()
-        unit.translation.invalidate_cache()
+        if unit.update_has_comment():
+            unit.translation.invalidate_cache()
 
 
 @receiver(post_delete, sender=Suggestion)
@@ -106,8 +117,8 @@ def update_suggestion_flag(sender, instance, **kwargs):
     """Update related unit suggestion flags"""
     for unit in instance.related_units:
         # Update unit stats
-        unit.update_has_suggestion()
-        unit.translation.invalidate_cache()
+        if unit.update_has_suggestion():
+            unit.translation.invalidate_cache()
 
 
 @receiver(user_pre_delete)
@@ -131,7 +142,7 @@ def user_commit_pending(sender, instance, **kwargs):
             # Non content changes
             continue
         if last_author == instance:
-            translation.commit_pending(None)
+            translation.commit_pending('user delete', None)
 
 
 @receiver(m2m_changed, sender=ComponentList.components.through)
@@ -142,19 +153,39 @@ def change_componentlist(sender, instance, **kwargs):
 @receiver(post_save, sender=AutoComponentList)
 @disable_for_loaddata
 def auto_componentlist(sender, instance, **kwargs):
-    for component in Component.objects.all():
+    for component in Component.objects.iterator():
         instance.check_match(component)
 
 
 @receiver(post_save, sender=Project)
 @disable_for_loaddata
 def auto_project_componentlist(sender, instance, **kwargs):
-    for component in instance.component_set.all():
+    for component in instance.component_set.iterator():
         auto_component_list(sender, component)
 
 
 @receiver(post_save, sender=Component)
 @disable_for_loaddata
 def auto_component_list(sender, instance, **kwargs):
-    for auto in AutoComponentList.objects.all():
+    for auto in AutoComponentList.objects.iterator():
         auto.check_match(instance)
+
+
+@receiver(post_save, sender=Component)
+@disable_for_loaddata
+def post_save_update_checks(sender, instance, **kwargs):
+    if instance.old_component.check_flags == instance.check_flags:
+        return
+    update_checks.delay(instance.pk)
+
+
+@app.task
+def update_checks(pk):
+    component = Component.objects.get(pk=pk)
+    for translation in component.translation_set.iterator():
+        for unit in translation.unit_set.iterator():
+            unit.run_checks()
+    for source in component.source_set.iterator():
+        source.run_checks()
+    for translation in component.translation_set.iterator():
+        translation.invalidate_cache()

@@ -11,6 +11,21 @@ check() {
 }
 
 run_coverage() {
-    python -Wd -m coverage run --source . --append "$@"
+    python -W default -W ignore:unclosed:ResourceWarning -m coverage run --source . --append "$@"
 }
 
+cleanup_database() {
+    rm -f weblate.db
+
+    if [ $CI_DATABASE = "mysql" ] ; then
+        mysql --host=$CI_DB_HOST -e 'SET GLOBAL character_set_server=utf8' -uroot
+        mysql --host=$CI_DB_HOST -e 'SET GLOBAL collation_server=utf8_general_ci' -uroot
+        mysql --host=$CI_DB_HOST -e 'DROP DATABASE IF EXISTS weblate;' -uroot
+        mysql --host=$CI_DB_HOST -e 'CREATE DATABASE weblate CHARACTER SET utf8 COLLATE utf8_general_ci;' -uroot
+    fi
+
+    if [ $CI_DATABASE = "postgresql" ] ; then
+        psql --host=$CI_DB_HOST -c 'DROP DATABASE IF EXISTS weblate;' -U postgres
+        psql --host=$CI_DB_HOST -c 'CREATE DATABASE weblate;' -U postgres
+    fi
+}

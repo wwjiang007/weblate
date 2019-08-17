@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,12 +23,12 @@ from __future__ import unicode_literals
 from django.utils.translation import ugettext_lazy as _
 
 from weblate.addons.base import BaseAddon
-from weblate.addons.events import EVENT_POST_UPDATE, EVENT_POST_ADD
+from weblate.addons.events import EVENT_DAILY, EVENT_POST_ADD
 from weblate.lang.models import Language
 
 
 class LangaugeConsistencyAddon(BaseAddon):
-    events = (EVENT_POST_UPDATE, EVENT_POST_ADD)
+    events = (EVENT_DAILY, EVENT_POST_ADD)
     name = 'weblate.consistency.languages'
     verbose = _('Language consistency')
     description = _(
@@ -38,26 +38,13 @@ class LangaugeConsistencyAddon(BaseAddon):
     icon = 'language'
     project_scope = True
 
-    @classmethod
-    def create(cls, component, **kwargs):
-        result = super(LangaugeConsistencyAddon, cls).create(
-            component, **kwargs
-        )
-        for target in component.project.component_set.all():
-            result.post_update(target, '')
-        return result
-
     def ensure_all_have(self, project, languages):
-        for language in languages:
-            for component in project.component_set.all():
-                translation = component.translation_set.filter(
-                    language=language
-                )
-                if translation.exists():
-                    continue
+        for component in project.component_set.iterator():
+            missing = languages.exclude(translation__component=component)
+            for language in missing:
                 component.add_new_language(language, None, send_signal=False)
 
-    def post_update(self, component, previous_head):
+    def daily(self, component):
         self.ensure_all_have(
             component.project,
             Language.objects.filter(translation__component=component)
@@ -66,5 +53,6 @@ class LangaugeConsistencyAddon(BaseAddon):
     def post_add(self, translation):
         self.ensure_all_have(
             translation.component.project,
-            [translation.language]
+            Language.objects.filter(pk=translation.language_id)
+
         )

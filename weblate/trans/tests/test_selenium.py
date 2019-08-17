@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,56 +18,55 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import print_function
-from datetime import timedelta
-from unittest import SkipTest
-from io import BytesIO
+from __future__ import print_function, unicode_literals
+
 import math
-import time
 import os
-import json
+import socket
+import time
 from contextlib import contextmanager
-from base64 import b64encode
-from six.moves.http_client import HTTPConnection
+from datetime import timedelta
+from io import BytesIO
+from unittest import SkipTest
+
 import django
+import six
+import social_django.utils
 from django.conf import settings
 from django.contrib.sites.models import Site
-from django.test.utils import override_settings
-from django.urls import reverse
 from django.core import mail
-
+from django.test.utils import modify_settings, override_settings
+from django.urls import reverse
 from PIL import Image
-
 from selenium import webdriver
 from selenium.common.exceptions import (
-    WebDriverException, ElementNotVisibleException,
+    ElementNotVisibleException,
     NoSuchElementException,
+    WebDriverException,
 )
-from selenium.webdriver.remote.file_detector import UselessFileDetector
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait, Select
+from selenium.webdriver.remote.file_detector import UselessFileDetector
 from selenium.webdriver.support.expected_conditions import (
-    staleness_of, presence_of_element_located,
+    presence_of_element_located,
+    staleness_of,
 )
+from selenium.webdriver.support.ui import Select, WebDriverWait
 
-import six
-
-import social_django.utils
-
-from weblate.lang.models import Language
 import weblate.screenshots.views
-from weblate.trans.models import Project, Component, Change, Unit
-from weblate.trans.tests.test_views import RegistrationTestMixin
+from weblate.fonts.tests.utils import FONT
+from weblate.lang.models import Language
+from weblate.trans.models import Change, Component, Dictionary, Project, Unit
 from weblate.trans.tests.test_models import BaseLiveServerTestCase
-from weblate.trans.tests.utils import create_test_user
+from weblate.trans.tests.test_views import RegistrationTestMixin
+from weblate.trans.tests.utils import create_billing, create_test_user
 from weblate.vcs.ssh import get_key_data
 
 # Check whether we should run Selenium tests
 DO_SELENIUM = (
-    'DO_SELENIUM' in os.environ and
-    'SAUCE_USERNAME' in os.environ and
-    'SAUCE_ACCESS_KEY' in os.environ
+    'DO_SELENIUM' in os.environ
+    and 'SAUCE_USERNAME' in os.environ
+    and 'SAUCE_ACCESS_KEY' in os.environ
 )
 
 TEST_BACKENDS = (
@@ -82,6 +81,11 @@ TEST_BACKENDS = (
     'weblate.accounts.auth.WeblateUserBackend',
 )
 
+SOURCE_FONT = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+    "static", "font-source", "TTF", "SourceSansPro-Bold.ttf",
+)
+
 
 class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
     caps = {
@@ -90,19 +94,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
     }
     driver = None
     image_path = None
-
-    def set_test_status(self, passed=True):
-        connection = HTTPConnection("saucelabs.com")
-        connection.request(
-            'PUT',
-            '/rest/v1/{0}/jobs/{1}'.format(
-                self.username, self.driver.session_id
-            ),
-            json.dumps({"passed": passed}),
-            headers={"Authorization": "Basic {0}".format(self.sauce_auth)}
-        )
-        result = connection.getresponse()
-        return result.status == 200
+    port = 9090
 
     def run(self, result=None):
         if result is None:
@@ -113,10 +105,10 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         super(SeleniumTests, self).run(result)
 
         if DO_SELENIUM:
-            self.set_test_status(
-                errors == len(result.errors) and
-                failures == len(result.failures)
-            )
+            if errors == len(result.errors) and failures == len(result.failures):
+                self.driver.execute_script('sauce:job-result=passed')
+            else:
+                self.driver.execute_script('sauce:job-result=failed')
 
     @contextmanager
     def wait_for_page_load(self, timeout=30):
@@ -128,9 +120,13 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
 
     @classmethod
     def setUpClass(cls):
+        if 'DRONE_BUILD_NUMBER' in os.environ:
+            # Listen on Docker interface in Drone
+            cls.host = socket.gethostbyname(socket.gethostname())
         if DO_SELENIUM:
             cls.caps['name'] = 'Weblate CI build'
-            cls.caps['screenResolution'] = '1280x1024'
+            if 'screenResolution' not in cls.caps:
+                cls.caps['screenResolution'] = '1280x1024'
             # Fill in Travis details in caps
             if 'TRAVIS_JOB_NUMBER' in os.environ:
                 cls.caps['tunnel-identifier'] = os.environ['TRAVIS_JOB_NUMBER']
@@ -140,13 +136,14 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
                     'django-{0}'.format(django.get_version()),
                     'CI'
                 ]
+            elif 'DRONE_BUILD_NUMBER' in os.environ:
+                cls.caps['tunnel-identifier'] = os.environ['DRONE_BUILD_NUMBER']
+                cls.caps['build'] = os.environ['DRONE_BUILD_NUMBER']
+                cls.caps['tags'] = ['CI']
 
             # Use Sauce connect
             cls.username = os.environ['SAUCE_USERNAME']
             cls.key = os.environ['SAUCE_ACCESS_KEY']
-            cls.sauce_auth = b64encode(
-                '{}:{}'.format(cls.username, cls.key).encode('utf-8')
-            )
             # We do not want to use file detector as it magically uploads
             # anything what matches local filename
             cls.driver = webdriver.Remote(
@@ -158,7 +155,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
                 ),
                 file_detector=UselessFileDetector(),
             )
-            cls.driver.implicitly_wait(10)
+            cls.driver.implicitly_wait(5)
             cls.actions = webdriver.ActionChains(cls.driver)
             jobid = cls.driver.session_id
             print(
@@ -173,6 +170,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         if self.driver is None:
             raise SkipTest('Selenium Tests disabled')
         super(SeleniumTests, self).setUp()
+        self.driver.execute_script('sauce:context={}'.format(self.id()))
         self.driver.get('{0}{1}'.format(self.live_server_url, reverse('home')))
         self.driver.set_window_size(1280, 1024)
         site = Site.objects.get(pk=1)
@@ -193,12 +191,9 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         """Captures named full page screenshot."""
         self.scroll_top()
         # Get window and document dimensions
-        window_height = self.driver.execute_script(
-            'return window.innerHeight'
-        )
-        scroll_height = self.driver.execute_script(
-            'return document.body.scrollHeight'
-        )
+        window_height = self.driver.execute_script('return window.innerHeight')
+        scroll_height = self.driver.execute_script('return document.body.scrollHeight')
+        scroll_width = self.driver.execute_script('return document.body.scrollWidth')
         # Calculate number of screnshots
         num = int(math.ceil(float(scroll_height) / float(window_height)))
 
@@ -214,7 +209,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
             )
 
         # Create final image
-        stitched = Image.new('RGB', (screenshots[0].width, scroll_height))
+        stitched = Image.new('RGB', (scroll_width, scroll_height))
 
         # Stitch images together
         for i, img in enumerate(screenshots):
@@ -281,15 +276,22 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
             )
         return user
 
-    def open_admin(self):
+    def open_admin(self, login=True):
         # Login as superuser
-        user = self.do_login(superuser=True)
+        if login:
+            user = self.do_login(superuser=True)
+        else:
+            user = None
 
         # Open admin page
         with self.wait_for_page_load():
             self.click(
                 self.driver.find_element_by_id('admin-button'),
             )
+        with self.wait_for_page_load():
+            self.click("Tools")
+        with self.wait_for_page_load():
+            self.click("Django admin interface")
         return user
 
     def test_failed_login(self):
@@ -303,22 +305,29 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         self.do_login()
 
         # Load profile
+        self.click(self.driver.find_element_by_id('user-dropdown'))
         with self.wait_for_page_load():
-            self.click(
-                self.driver.find_element_by_id('profile-button')
-            )
+            self.click(self.driver.find_element_by_id('settings-button'))
 
         # Wait for profile to load
-        self.driver.find_element_by_id('subscriptions')
+        self.driver.find_element_by_id('notifications')
+
+        # Load translation memory
+        self.click(self.driver.find_element_by_id('user-dropdown'))
+        with self.wait_for_page_load():
+            self.click(self.driver.find_element_by_id('memory-button'))
+
+        self.screenshot('memory.png')
 
         # Finally logout
+        self.click(self.driver.find_element_by_id('user-dropdown'))
         with self.wait_for_page_load():
             self.click(
                 self.driver.find_element_by_id('logout-button')
             )
 
         # We should be back on home page
-        self.driver.find_element_by_id('suggestions')
+        self.driver.find_element_by_id('browse-projects')
 
     def register_user(self):
         # registration page
@@ -375,21 +384,34 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         # Confirm account
         self.driver.get(url)
 
-        # Check we're logged in
-        self.assertTrue(
-            'Test Example' in
-            self.driver.find_element_by_id('profile-button').text
-        )
-
         # Check we got message
         self.assertTrue(
             'You have activated' in
             self.driver.find_element_by_tag_name('body').text
         )
 
+        # Check we're logged in
+        self.click(self.driver.find_element_by_id('user-dropdown'))
+        self.assertTrue(
+            'Test Example' in
+            self.driver.find_element_by_id('profile-button').text
+        )
+
     def test_register_nocookie(self):
         """Test registration without cookies."""
         self.test_register(True)
+
+    @override_settings(WEBLATE_GPG_IDENTITY='Weblate <weblate@example.com>')
+    def test_gpg(self):
+        with self.wait_for_page_load():
+            self.click(
+                self.driver.find_element_by_partial_link_text('About Weblate')
+            )
+        with self.wait_for_page_load():
+            self.click(
+                self.driver.find_element_by_partial_link_text('Keys')
+            )
+        self.screenshot('about-gpg.png')
 
     def test_ssh(self):
         """Test SSH admin interface."""
@@ -409,11 +431,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
                 )
 
         # Add SSH host key
-        self.driver.find_element_by_id(
-            'ssh-host'
-        ).send_keys(
-            'github.com'
-        )
+        self.driver.find_element_by_id('id_host').send_keys('github.com')
         with self.wait_for_page_load():
             self.click(
                 self.driver.find_element_by_id('ssh-add-button'),
@@ -422,8 +440,6 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         self.screenshot('ssh-keys-added.png')
 
         # Open SSH page for final screenshot
-        with self.wait_for_page_load():
-            self.click('Home')
         with self.wait_for_page_load():
             self.click('SSH keys')
         self.screenshot('ssh-keys.png')
@@ -437,6 +453,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
             repo='https://github.com/WeblateOrg/demo.git',
             filemask='weblate/langdata/locale/*/LC_MESSAGES/django.po',
             new_base='weblate/langdata/locale/django.pot',
+            file_format='po',
         )
         Component.objects.create(
             name='Django',
@@ -445,6 +462,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
             repo='weblate://weblateorg/language-names',
             filemask='weblate/locale/*/LC_MESSAGES/django.po',
             new_base='weblate/locale/django.pot',
+            file_format='po',
         )
 
     def view_site(self):
@@ -457,10 +475,13 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
             self.click(element)
 
     def test_activity(self):
+        self.do_login()
         # Generate nice changes data
         for day in range(365):
-            for i in range(int(10 + 10 * math.sin(2 * math.pi * day / 30))):
-                change = Change.objects.create()
+            for _unused in range(int(10 + 10 * math.sin(2 * math.pi * day / 30))):
+                change = Change.objects.create(
+                    action=Change.ACTION_CREATE_PROJECT
+                )
                 change.timestamp -= timedelta(days=day)
                 change.save()
 
@@ -485,11 +506,12 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
             user.social_auth.create(
                 provider='bitbucket', uid='weblate'
             )
+            self.click(self.driver.find_element_by_id('user-dropdown'))
             with self.wait_for_page_load():
                 self.click(
-                    self.driver.find_element_by_id('profile-button')
+                    self.driver.find_element_by_id('settings-button')
                 )
-            self.click('Authentication')
+            self.click('Account')
             self.screenshot('authentication.png')
         finally:
             social_django.utils.BACKENDS = orig_backends
@@ -501,11 +523,33 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
             'machine translation engines to get the best possible '
             'translations and applies them in this project.'
         )
+        self.create_component()
+        language = Language.objects.get(code='cs')
 
-        def capture_unit(name, tab='toggle-history'):
+        source = Unit.objects.get(
+            source=text, translation__language=language,
+        ).source_info
+        source.context = 'Help text for automatic translation tool'
+        source.save()
+        Dictionary.objects.create(
+            user=None,
+            project=source.component.project,
+            language=language,
+            source='machine translation',
+            target='strojový překlad',
+        )
+        Dictionary.objects.create(
+            user=None,
+            project=source.component.project,
+            language=language,
+            source='project',
+            target='projekt',
+        )
+        source.component.alert_set.all().delete()
+
+        def capture_unit(name, tab):
             unit = Unit.objects.get(
-                source=text,
-                translation__language_code='cs',
+                source=text, translation__language=language,
             )
             with self.wait_for_page_load():
                 self.driver.get('{0}{1}'.format(
@@ -524,7 +568,6 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
             )
 
         self.do_login(superuser=True)
-        self.create_component()
         capture_unit('source-information.png', 'toggle-nearby')
         self.click('Tools')
         with self.wait_for_page_load():
@@ -543,7 +586,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         )
         element = self.driver.find_element_by_id('id_image')
         element.send_keys(
-            element._upload('docs/images/automatic-translation.png')
+            element._upload('docs/images/automatic-translation.png')  # noqa: SLF001
         )
         with self.wait_for_page_load():
             element.submit()
@@ -562,7 +605,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         self.click(self.driver.find_element_by_class_name('add-string'))
 
         # Unit should have screenshot assigned now
-        capture_unit('screenshot-context.png')
+        capture_unit('screenshot-context.png', 'toggle-machine')
 
     def test_admin(self):
         """Test admin interface."""
@@ -570,10 +613,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         self.screenshot('admin-wrench.png')
         self.create_component()
         # Open admin page
-        with self.wait_for_page_load():
-            self.click(
-                self.driver.find_element_by_id('admin-button'),
-            )
+        self.open_admin(login=False)
 
         # Component list
         with self.wait_for_page_load():
@@ -699,7 +739,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
             'id_repoweb'
         ).send_keys(
             'https://github.com/WeblateOrg/demo/blob/'
-            '%(branch)s/%(file)s#L%(line)s'
+            '{{branch}}/{{filename}}#L{{line}}'
         )
         self.driver.find_element_by_id(
             'id_filemask'
@@ -795,7 +835,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         self.screenshot('manage-users.png')
         self.screenshot('project-access.png')
         # The project is now watched
-        self.click('Watched projects')
+        self.click('Projects')
         with self.wait_for_page_load():
             self.click('WeblateOrg')
 
@@ -805,17 +845,14 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
             self.click('Status widgets')
         self.screenshot('promote.png')
         with self.wait_for_page_load():
-            self.click(
-                self.driver.find_element_by_id('engage-link')
-            )
+            self.click(self.driver.find_element_by_id('engage-link'))
         self.screenshot('engage.png')
         with self.wait_for_page_load():
-            self.click('Translation project for WeblateOrg')
+            self.click(self.driver.find_element_by_id('engage-project'))
 
         # Glossary
-        self.click('Glossaries')
         with self.wait_for_page_load():
-            self.click('Manage all glossaries')
+            self.click('Glossaries')
         with self.wait_for_page_load():
             self.click('Czech')
         self.click('Add new word')
@@ -825,11 +862,14 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         with self.wait_for_page_load():
             element.submit()
         self.screenshot('glossary-edit.png')
-        self.click('Watched projects')
+        self.click('Projects')
         with self.wait_for_page_load():
             self.click('WeblateOrg')
-        self.click('Glossaries')
+        with self.wait_for_page_load():
+            self.click('Glossaries')
         self.screenshot('project-glossaries.png')
+        with self.wait_for_page_load():
+            self.click('WeblateOrg')
 
         # Addons
         self.click('Components')
@@ -939,7 +979,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         )
         element = self.driver.find_element_by_id('id_a2a808c8ccbece08_1')
         self.clear_field(element)
-        element.send_keys('some word')
+        element.send_keys('několik slov')
         with self.wait_for_page_load():
             element.submit()
         self.screenshot('checks.png')
@@ -980,13 +1020,14 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
         self.screenshot('source-review.png')
 
         # Profile
+        self.click(self.driver.find_element_by_id('user-dropdown'))
         with self.wait_for_page_load():
             self.click(
-                self.driver.find_element_by_id('profile-button')
+                self.driver.find_element_by_id('settings-button')
             )
         self.click('Preferences')
         self.screenshot('dashboard-dropdown.png')
-        self.click('Subscriptions')
+        self.click('Notifications')
         self.screenshot('profile-subscriptions.png')
         self.click('Licenses')
         self.screenshot('profile-licenses.png')
@@ -996,31 +1037,182 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin):
             self.click('Dashboard')
         self.screenshot('your-translations.png')
 
+    @modify_settings(INSTALLED_APPS={'append': 'weblate.billing'})
+    def test_add_component(self):
+        """Test user adding project and component."""
+        user = self.do_login()
+        create_billing(user)
 
-# What other platforms we want to test
-EXTRA_PLATFORMS = {
-    'Chrome': {
-        'browserName': 'chrome',
-        'platform': 'Windows 10',
-    },
-}
+        # Open billing page
+        self.click(self.driver.find_element_by_id('user-dropdown'))
+        with self.wait_for_page_load():
+            self.click(
+                self.driver.find_element_by_id('billing-button')
+            )
+        self.screenshot('user-billing.png')
 
+        # Click on add project
+        with self.wait_for_page_load():
+            self.click(
+                self.driver.find_element_by_class_name('billing-add-project')
+            )
 
-def create_extra_classes():
-    """Create classes for testing with other browsers"""
-    classes = {}
-    for platform, caps in EXTRA_PLATFORMS.items():
-        name = '{0}_{1}'.format(
-            platform,
-            SeleniumTests.__name__,
+        # Add project
+        self.driver.find_element_by_id('id_name').send_keys('WeblateOrg')
+        self.driver.find_element_by_id(
+            'id_web'
+        ).send_keys(
+            'https://weblate.org/'
         )
-        classdict = dict(SeleniumTests.__dict__)
-        classdict.update({
-            'caps': caps,
-        })
-        classes[name] = type(name, (SeleniumTests,), classdict)
+        self.driver.find_element_by_id(
+            'id_mail'
+        ).send_keys(
+            'weblate@lists.cihar.com'
+        )
+        self.driver.find_element_by_id(
+            'id_instructions'
+        ).send_keys(
+            'https://weblate.org/contribute/'
+        )
+        self.screenshot('user-add-project.png')
+        with self.wait_for_page_load():
+            self.driver.find_element_by_id('id_name').submit()
+        self.screenshot('user-add-project-done.png')
 
-    globals().update(classes)
+        # Click on add component
+        with self.wait_for_page_load():
+            self.click(self.driver.find_element_by_class_name('project-add-component'))
 
+        # Add component
+        self.driver.find_element_by_id('id_name').send_keys('Language names')
+        self.driver.find_element_by_id(
+            'id_repo'
+        ).send_keys(
+            'https://github.com/WeblateOrg/demo.git'
+        )
+        self.screenshot('user-add-component-init.png')
+        with self.wait_for_page_load(timeout=1200):
+            self.driver.find_element_by_id('id_name').submit()
 
-create_extra_classes()
+        self.screenshot('user-add-component-discovery.png')
+        self.driver.find_element_by_id('id_id_discovery_0_1').click()
+        with self.wait_for_page_load(timeout=1200):
+            self.driver.find_element_by_id('id_name').submit()
+
+        self.driver.find_element_by_id(
+            'id_repoweb'
+        ).send_keys(
+            'https://github.com/WeblateOrg/demo/blob/'
+            '{{branch}}/{{filename}}#L{{line}}'
+        )
+        self.driver.find_element_by_id(
+            'id_filemask'
+        ).send_keys(
+            'weblate/langdata/locale/*/LC_MESSAGES/django.po'
+        )
+        self.driver.find_element_by_id(
+            'id_new_base'
+        ).send_keys(
+            'weblate/langdata/locale/django.pot'
+        )
+        Select(
+            self.driver.find_element_by_id('id_file_format')
+        ).select_by_value('po')
+        self.driver.find_element_by_id('id_license').send_keys('GPL-3.0+')
+        self.clear_field(
+            self.driver.find_element_by_id(
+                'id_language_regex'
+            )
+        ).send_keys('^(cs|he|hu)$')
+        self.screenshot('user-add-component.png')
+
+    def test_alerts(self):
+        project = Project.objects.create(name='WeblateOrg', slug='weblateorg')
+        Component.objects.create(
+            name='Duplicates',
+            slug='duplicates',
+            project=project,
+            repo='https://github.com/WeblateOrg/test.git',
+            filemask='po-duplicates/*.dpo',
+            new_base='po-duplicates/hello.pot',
+            file_format='po',
+        )
+        self.do_login()
+        self.click('Tools')
+        with self.wait_for_page_load():
+            self.click('All projects')
+        with self.wait_for_page_load():
+            self.click('WeblateOrg')
+        with self.wait_for_page_load():
+            self.click('Duplicates')
+        self.click('Alerts')
+        self.screenshot('alerts.png')
+
+    def test_fonts(self):
+        self.create_component()
+        self.do_login(superuser=True)
+        self.click('Tools')
+        with self.wait_for_page_load():
+            self.click('All projects')
+        with self.wait_for_page_load():
+            self.click('WeblateOrg')
+        self.click('Manage')
+        with self.wait_for_page_load():
+            self.click('Fonts')
+
+        self.click(self.driver.find_element_by_id('tab_fonts'))
+
+        # Upload font
+        element = self.driver.find_element_by_id('id_font')
+        element.send_keys(element._upload(FONT))  # noqa: SF01,SLF001
+        with self.wait_for_page_load():
+            self.click(self.driver.find_element_by_id('upload_font_submit'))
+
+        self.screenshot('font-edit.png')
+
+        with self.wait_for_page_load():
+            self.click("Fonts")
+
+        # Upload second font
+        element = self.driver.find_element_by_id('id_font')
+        element.send_keys(element._upload(SOURCE_FONT))  # noqa: SF01,SLF001
+        with self.wait_for_page_load():
+            self.click(self.driver.find_element_by_id('upload_font_submit'))
+
+        with self.wait_for_page_load():
+            self.click("Fonts")
+
+        self.screenshot('font-list.png')
+
+        self.click(self.driver.find_element_by_id('tab_groups'))
+
+        # Create group
+        Select(
+            self.driver.find_element_by_id('id_group_font')
+        ).select_by_visible_text('Source Sans Pro Bold')
+        element = self.driver.find_element_by_id('id_group_name')
+        element.send_keys('default-font')
+        with self.wait_for_page_load():
+            element.submit()
+
+        Select(
+            self.driver.find_element_by_id('id_font')
+        ).select_by_visible_text('Droid Sans Fallback Regular')
+        element = self.driver.find_element_by_id('id_language')
+        Select(element).select_by_visible_text('Japanese')
+        with self.wait_for_page_load():
+            element.submit()
+        Select(
+            self.driver.find_element_by_id('id_font')
+        ).select_by_visible_text('Droid Sans Fallback Regular')
+        element = self.driver.find_element_by_id('id_language')
+        Select(element).select_by_visible_text('Korean')
+        with self.wait_for_page_load():
+            element.submit()
+
+        self.screenshot('font-group-edit.png')
+
+        with self.wait_for_page_load():
+            self.click('Font groups')
+
+        self.screenshot('font-group-list.png')

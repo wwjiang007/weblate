@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,16 +20,14 @@
 
 from __future__ import unicode_literals
 
-from unittest import TestCase
+from django.test import SimpleTestCase
 
-from weblate.utils.hash import (
-    calculate_hash, hash_to_checksum, checksum_to_hash,
-)
+from weblate.utils.hash import calculate_hash, checksum_to_hash, hash_to_checksum
 
 
-class HashTest(TestCase):
+class HashTest(SimpleTestCase):
     def test_hash(self):
-        """Ensure hash is not changing"""
+        """Ensure hash is not changing."""
         text = 'Message'
         text_hash = calculate_hash(None, text)
         self.assertEqual(
@@ -38,7 +36,7 @@ class HashTest(TestCase):
         )
 
     def test_hash_context(self):
-        """Ensure hash works with context"""
+        """Ensure hash works with context."""
         text = 'Message'
         context = 'Context'
         text_hash = calculate_hash(context, text)
@@ -48,7 +46,7 @@ class HashTest(TestCase):
         )
 
     def test_hash_unicode(self):
-        """Ensure hash works for unicode"""
+        """Ensure hash works for unicode."""
         text = 'Příšerně žluťoučký kůň úpěl ďábelské ódy'
         text_hash = calculate_hash(None, text)
         self.assertEqual(
@@ -57,7 +55,7 @@ class HashTest(TestCase):
         )
 
     def test_checksum(self):
-        """Hash to checksum conversion"""
+        """Hash to checksum conversion."""
         text_hash = calculate_hash(None, 'Message')
         checksum = hash_to_checksum(text_hash)
         self.assertEqual(

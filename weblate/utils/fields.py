@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,12 +22,17 @@ from __future__ import unicode_literals
 
 import json
 
-from django.db import models
 from django.core.serializers.json import DjangoJSONEncoder
+from django.db import models
 
 
 class JSONField(models.TextField):
     """JSON serializaed TextField"""
+
+    def __init__(self, **kwargs):
+        kwargs['default'] = {}
+        super(JSONField, self).__init__(**kwargs)
+
     def to_python(self, value):
         """Convert a string from the database to a Python value."""
         if not value:

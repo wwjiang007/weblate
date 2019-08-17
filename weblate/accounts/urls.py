@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,9 +18,9 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from django.conf.urls import url, include
-
 import social_django.views
+from django.conf import settings
+from django.conf.urls import include, url
 
 import weblate.accounts.views
 
@@ -61,34 +61,46 @@ urlpatterns = [
         weblate.accounts.views.EmailSentView.as_view(),
         name='email-sent'
     ),
-    url(r'^password/', weblate.accounts.views.password, name='password'),
+    url(r'^password/$', weblate.accounts.views.password, name='password'),
     url(
-        r'^reset-api-key/',
+        r'^reset-api-key/$',
         weblate.accounts.views.reset_api_key,
         name='reset-api-key'
     ),
     url(
-        r'^reset/', weblate.accounts.views.reset_password,
+        r'^reset/$', weblate.accounts.views.reset_password,
         name='password_reset'
     ),
     url(
-        r'^logout/',
+        r'^logout/$',
         weblate.accounts.views.WeblateLogoutView.as_view(),
         name='logout'
     ),
-    url(r'^profile/', weblate.accounts.views.user_profile, name='profile'),
+    url(r'^profile/$', weblate.accounts.views.user_profile, name='profile'),
+    url(r'^userdata/$', weblate.accounts.views.userdata, name='userdata'),
+    url(r'^unsubscribe/$', weblate.accounts.views.unsubscribe, name='unsubscribe'),
     url(
-        r'^watch/(?P<project>[^/]+)/',
+        r'^watch/(?P<project>[^/]+)/$',
         weblate.accounts.views.watch,
         name='watch'
     ),
     url(
-        r'^unwatch/(?P<project>[^/]+)/',
+        r'^unwatch/(?P<project>[^/]+)/$',
         weblate.accounts.views.unwatch,
         name='unwatch'
     ),
-    url(r'^remove/', weblate.accounts.views.user_remove, name='remove'),
-    url(r'^confirm/', weblate.accounts.views.confirm, name='confirm'),
+    url(
+        r'^mute/(?P<project>[^/]+)/(?P<component>[^/]+)/$',
+        weblate.accounts.views.mute_component,
+        name='mute'
+    ),
+    url(
+        r'^mute/(?P<project>[^/]+)/$',
+        weblate.accounts.views.mute_project,
+        name='mute'
+    ),
+    url(r'^remove/$', weblate.accounts.views.user_remove, name='remove'),
+    url(r'^confirm/$', weblate.accounts.views.confirm, name='confirm'),
     url(
         r'^login/$',
         weblate.accounts.views.WeblateLoginView.as_view(),
@@ -98,3 +110,9 @@ urlpatterns = [
     url(r'^email/$', weblate.accounts.views.email_login, name='email_login'),
     url(r'', include((social_urls, 'social_auth'), namespace='social')),
 ]
+
+if 'simple_sso.sso_server' in settings.INSTALLED_APPS:
+    # pylint: disable=wrong-import-position
+    from simple_sso.sso_server.server import Server
+    server = Server()
+    urlpatterns.append(url(r'^sso/', include(server.get_urls())))

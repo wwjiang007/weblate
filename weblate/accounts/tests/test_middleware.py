@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,12 +22,12 @@
 Tests for user handling.
 """
 
+from django.http import HttpRequest, HttpResponseRedirect
 from django.test import TestCase
 from django.test.utils import override_settings
-from django.http import HttpRequest, HttpResponseRedirect
 
-from weblate.auth.models import User, get_anonymous
 from weblate.accounts.middleware import RequireLoginMiddleware
+from weblate.auth.models import User, get_anonymous
 
 
 class MiddlewareTest(TestCase):

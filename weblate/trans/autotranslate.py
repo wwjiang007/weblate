@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,8 +21,8 @@
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 
-from weblate.trans.models import Unit, Change, Component
 from weblate.machinery import MACHINE_TRANSLATION_SERVICES
+from weblate.trans.models import Change, Component, Unit
 from weblate.utils.state import STATE_TRANSLATED
 
 
@@ -42,21 +42,8 @@ class AutoTranslate(object):
         )
 
     def update(self, unit, state, target):
-        unit.state = state
-        unit.target = target
-        # Create single change object for whole merge
-        Change.objects.create(
-            action=Change.ACTION_AUTO,
-            unit=unit,
-            user=self.user,
-            author=self.user
-        )
-        # Save unit to backend
-        unit.save_backend(self.request, False, False, user=self.user)
+        unit.translate(self.request, target, state, Change.ACTION_AUTO, False)
         self.updated += 1
-
-    def pre_process(self):
-        self.translation.commit_pending(None)
 
     def post_process(self):
         if self.updated > 0:
@@ -90,8 +77,6 @@ class AutoTranslate(object):
         units = self.get_units().filter(
             source__in=sources.values('source')
         )
-
-        self.pre_process()
 
         for unit in units.select_for_update().iterator():
             # Get first matching entry
@@ -132,7 +117,7 @@ class AutoTranslate(object):
                     self.translation.language.code,
                     unit.get_source_plurals()[0],
                     unit,
-                    self.user
+                    self.request
                 )
 
                 for item in result:
@@ -156,8 +141,6 @@ class AutoTranslate(object):
         translations = self.fetch_mt(engines, threshold)
 
         with transaction.atomic():
-            self.pre_process()
-
             # Perform the translation
             for unit in self.get_units().select_for_update().iterator():
                 # Copy translation

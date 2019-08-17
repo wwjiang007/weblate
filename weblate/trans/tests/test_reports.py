@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,14 +21,12 @@
 from __future__ import unicode_literals
 
 from datetime import timedelta
-import json
 
 from django.urls import reverse
 from django.utils import timezone
 
 from weblate.trans.tests.test_views import ViewTestCase
-from weblate.trans.views.reports import generate_credits, generate_counts
-
+from weblate.trans.views.reports import generate_counts, generate_credits
 
 COUNTS_DATA = [{
     'count': 1,
@@ -38,13 +36,27 @@ COUNTS_DATA = [{
     'words': 2,
     'words_edit': 0,
     'words_new': 2,
-    'email': 'weblate@example.org'
+    'chars': 14,
+    'chars_edit': 0,
+    'chars_new': 14,
+    'email': 'weblate@example.org',
+    't_chars': 14,
+    't_chars_edit': 0,
+    't_chars_new': 14,
+    't_words': 2,
+    't_words_edit': 0,
+    't_words_new': 2,
+    'count_approve': 0,
+    'words_approve': 0,
+    'chars_approve': 0,
+    't_chars_approve': 0,
+    't_words_approve': 0,
 }]
 
 
-class ReportsTest(ViewTestCase):
+class BaseReportsTest(ViewTestCase):
     def setUp(self):
-        super(ReportsTest, self).setUp()
+        super(BaseReportsTest, self).setUp()
         self.user.is_superuser = True
         self.user.save()
 
@@ -54,20 +66,22 @@ class ReportsTest(ViewTestCase):
             'Nazdar svete!\n'
         )
 
+
+class ReportsTest(BaseReportsTest):
     def test_credits_empty(self):
         data = generate_credits(
-            self.component,
             timezone.now() - timedelta(days=1),
-            timezone.now() + timedelta(days=1)
+            timezone.now() + timedelta(days=1),
+            translation__component=self.component,
         )
         self.assertEqual(data, [])
 
     def test_credits_one(self):
         self.add_change()
         data = generate_credits(
-            self.component,
             timezone.now() - timedelta(days=1),
-            timezone.now() + timedelta(days=1)
+            timezone.now() + timedelta(days=1),
+            translation__component=self.component,
         )
         self.assertEqual(
             data,
@@ -81,10 +95,24 @@ class ReportsTest(ViewTestCase):
         )
         self.test_credits_one()
 
+    def test_counts_one(self):
+        self.add_change()
+        data = generate_counts(
+            timezone.now() - timedelta(days=1),
+            timezone.now() + timedelta(days=1),
+            component=self.component,
+        )
+        self.assertEqual(data, COUNTS_DATA)
+
+
+class ReportsComponentTest(BaseReportsTest):
+    def get_kwargs(self):
+        return self.kw_component
+
     def get_credits(self, style):
         self.add_change()
         return self.client.post(
-            reverse('credits', kwargs=self.kw_component),
+            reverse('credits', kwargs=self.get_kwargs()),
             {
                 'period': '',
                 'style': style,
@@ -95,14 +123,15 @@ class ReportsTest(ViewTestCase):
 
     def test_credits_view_json(self):
         response = self.get_credits('json')
-        data = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(
-            data,
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(
+            response.content.decode('utf-8'),
             [{'Czech': [['weblate@example.org', 'Weblate Test']]}]
         )
 
     def test_credits_view_rst(self):
         response = self.get_credits('rst')
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.content.decode('utf-8'),
             '\n\n* Czech\n\n    * Weblate Test <weblate@example.org>\n\n'
@@ -110,6 +139,7 @@ class ReportsTest(ViewTestCase):
 
     def test_credits_view_html(self):
         response = self.get_credits('html')
+        self.assertEqual(response.status_code, 200)
         self.assertHTMLEqual(
             response.content.decode('utf-8'),
             '<table>\n'
@@ -118,15 +148,6 @@ class ReportsTest(ViewTestCase):
             'Weblate Test</a></li></ul></td>\n</tr>\n'
             '</table>'
         )
-
-    def test_counts_one(self):
-        self.add_change()
-        data = generate_counts(
-            self.component,
-            timezone.now() - timedelta(days=1),
-            timezone.now() + timedelta(days=1)
-        )
-        self.assertEqual(data, COUNTS_DATA)
 
     def get_counts(self, style, **kwargs):
         self.add_change()
@@ -138,44 +159,110 @@ class ReportsTest(ViewTestCase):
         }
         params.update(kwargs)
         return self.client.post(
-            reverse('counts', kwargs=self.kw_component),
+            reverse('counts', kwargs=self.get_kwargs()),
             params
         )
 
     def test_counts_view_json(self):
         response = self.get_counts('json')
-        data = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(data, COUNTS_DATA)
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content.decode('utf-8'), COUNTS_DATA)
+
+    def test_counts_view_30days(self):
+        response = self.get_counts('json', period='30days')
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content.decode('utf-8'), COUNTS_DATA)
+
+    def test_counts_view_this_month(self):
+        response = self.get_counts('json', period='this-month')
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content.decode('utf-8'), COUNTS_DATA)
 
     def test_counts_view_month(self):
         response = self.get_counts('json', period='month')
-        data = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(data, [])
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content.decode('utf-8'), [])
 
     def test_counts_view_year(self):
         response = self.get_counts('json', period='year')
-        data = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(data, [])
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content.decode('utf-8'), [])
+
+    def test_counts_view_this_year(self):
+        response = self.get_counts('json', period='this-year')
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content.decode('utf-8'), COUNTS_DATA)
 
     def test_counts_view_rst(self):
         response = self.get_counts('rst')
+        self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'weblate@example.org')
 
     def test_counts_view_html(self):
         response = self.get_counts('html')
+        self.assertEqual(response.status_code, 200)
         self.assertHTMLEqual(
             response.content.decode('utf-8'),
-            '<table>\n'
-            '<tr><th>Name</th><th>Email</th>'
-            '<th>Words total</th><th>Count total</th>'
-            '<th>Words edited</th><th>Count edited</th>'
-            '<th>Words new</th><th>Count new</th>'
-            '</tr>'
-            '\n'
-            '<tr>\n<td>Weblate Test</td>\n'
-            '<td>weblate@example.org</td>\n'
-            '<td>2</td>\n<td>1</td>\n'
-            '<td>2</td>\n<td>1</td>\n'
-            '<td>0</td>\n<td>0</td>\n'
-            '\n</tr>\n</table>'
+            '''
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Count total</th>
+        <th>Source words total</th>
+        <th>Source chars total</th>
+        <th>Target words total</th>
+        <th>Target chars total</th>
+        <th>Count new</th>
+        <th>Source words new</th>
+        <th>Source chars new</th>
+        <th>Target words new</th>
+        <th>Target chars new</th>
+        <th>Count approved</th>
+        <th>Source words approved</th>
+        <th>Source chars approved</th>
+        <th>Target words approved</th>
+        <th>Target chars approved</th>
+        <th>Count edited</th>
+        <th>Source words edited</th>
+        <th>Source chars edited</th>
+        <th>Target words edited</th>
+        <th>Target chars edited</th>
+    </tr>
+    <tr>
+        <td>Weblate Test</td>
+        <td>weblate@example.org</td>
+        <td>1</td>
+        <td>2</td>
+        <td>14</td>
+        <td>2</td>
+        <td>14</td>
+        <td>1</td>
+        <td>2</td>
+        <td>14</td>
+        <td>2</td>
+        <td>14</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+    </tr>
+</table>
+'''
         )
+
+
+class ReportsProjectTest(ReportsComponentTest):
+    def get_kwargs(self):
+        return self.kw_project
+
+
+class ReportsGlobalTest(ReportsComponentTest):
+    def get_kwargs(self):
+        return {}

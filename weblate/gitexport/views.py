@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,48 +18,24 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from base64 import b64decode
-from email import message_from_string
 import os.path
 import subprocess
+from base64 import b64decode
+from email import message_from_string
 
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
-from django.http.response import HttpResponseServerError, HttpResponse
+from django.http.response import HttpResponse, HttpResponseServerError
 from django.shortcuts import redirect
 from django.utils.encoding import force_text
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_exempt
 
 from weblate.auth.models import User
-from weblate.trans.views.helper import get_component
-
-
-GIT_PATHS = [
-    '/usr/lib/git',
-    '/usr/lib/git-core',
-]
-
-
-def find_git_http_backend():
-    """Find git http backend"""
-
-    if hasattr(find_git_http_backend, 'result'):
-        return find_git_http_backend.result
-
-    try:
-        path = subprocess.check_output(['git', '--exec-path']).decode('utf-8')
-        if path:
-            GIT_PATHS.insert(0, path)
-    except OSError:
-        pass
-
-    for path in GIT_PATHS:
-        name = os.path.join(path, 'git-http-backend')
-        if os.path.exists(name):
-            find_git_http_backend.result = name
-            return name
-    return None
+from weblate.gitexport.models import SUPPORTED_VCS
+from weblate.gitexport.utils import find_git_http_backend
+from weblate.utils.errors import report_error
+from weblate.utils.views import get_component
 
 
 def response_authenticate():
@@ -89,8 +65,7 @@ def authenticate(request, auth):
 
             request.user = user
             return True
-        else:
-            return False
+        return False
     except (ValueError, TypeError):
         return False
 
@@ -104,16 +79,22 @@ def git_export(request, project, component, path):
     HTTP. Performs permission checks and hands over execution to the wrapper.
     """
     # Probably browser access
-    if path == '':
+    if not path:
         return redirect(
             'component',
             project=project,
             component=component,
             permanent=False
         )
+    # Strip possible double path separators
+    path = path.lstrip('/\\')
 
     # HTTP authentication
     auth = request.META.get('HTTP_AUTHORIZATION', b'')
+
+    # Reject non pull access early
+    if request.GET.get('service', '') not in ('', 'git-upload-pack'):
+        raise PermissionDenied('Only pull is supported')
 
     if auth and not authenticate(request, auth):
         return response_authenticate()
@@ -127,6 +108,8 @@ def git_export(request, project, component, path):
         raise
     if not request.user.has_perm('vcs.access', obj):
         raise PermissionDenied('No VCS permissions')
+    if obj.vcs not in SUPPORTED_VCS:
+        raise Http404('Not a git repository')
 
     return run_git_http(request, obj, path)
 
@@ -139,18 +122,18 @@ def run_git_http(request, obj, path):
         return HttpResponseServerError('git-http-backend not found')
 
     # Invoke Git HTTP backend
+    query = request.META.get('QUERY_STRING', '')
+    process_env = {
+        'REQUEST_METHOD': request.method,
+        'PATH_TRANSLATED': os.path.join(obj.full_path, path),
+        'GIT_HTTP_EXPORT_ALL': '1',
+        'CONTENT_TYPE': request.META.get('CONTENT_TYPE', ''),
+        'QUERY_STRING': query,
+        'HTTP_CONTENT_ENCODING': request.META.get('HTTP_CONTENT_ENCODING', ''),
+    }
     process = subprocess.Popen(
         [git_http_backend],
-        env={
-            'REQUEST_METHOD': request.method,
-            'PATH_TRANSLATED': os.path.join(obj.full_path, path),
-            'GIT_HTTP_EXPORT_ALL': '1',
-            'CONTENT_TYPE': request.META.get('CONTENT_TYPE', ''),
-            'QUERY_STRING': request.META.get('QUERY_STRING', ''),
-            'HTTP_CONTENT_ENCODING': request.META.get(
-                'HTTP_CONTENT_ENCODING', ''
-            ),
-        },
+        env=process_env,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -160,7 +143,12 @@ def run_git_http(request, obj, path):
 
     # Log error
     if output_err:
-        obj.log_error('git: {0}'.format(force_text(output_err)))
+        try:
+            raise Exception('Git http backend error: {}'.format(
+                force_text(output_err).splitlines()[0]
+            ))
+        except Exception as error:
+            report_error(error, request, prefix='Git backend failure')
 
     # Handle failure
     if retcode:

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,27 +21,39 @@
 from __future__ import unicode_literals
 
 import re
-
 from datetime import date
+from uuid import uuid4
 
-from django.utils.html import escape, urlize
-from django.templatetags.static import static
-from django.template.loader import render_to_string
-from django.utils.safestring import mark_safe
-from django.utils.encoding import force_text
-from django.utils.translation import ugettext as _, ungettext, ugettext_lazy
-from django.utils import timezone
+import six
 from django import template
+from django.template.loader import render_to_string
+from django.templatetags.static import static
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.encoding import force_text
+from django.utils.html import escape, linebreaks, urlize
+from django.utils.safestring import mark_safe
+from django.utils.translation import ugettext as _
+from django.utils.translation import ugettext_lazy, ungettext
 
-import weblate
+from weblate.accounts.avatar import get_user_display
+from weblate.accounts.models import Profile
+from weblate.checks import CHECKS, highlight_string
+from weblate.lang.models import Language
+from weblate.trans.filter import get_filter_choice
+from weblate.trans.models import (
+    Alert,
+    Component,
+    ContributorAgreement,
+    Dictionary,
+    Project,
+    Translation,
+    Unit,
+    WhiteboardMessage,
+)
 from weblate.trans.simplediff import html_diff
 from weblate.trans.util import split_plural
-from weblate.lang.models import Language
-from weblate.trans.models import (
-    Project, Component, Dictionary, WhiteboardMessage, Unit,
-    ContributorAgreement,
-)
-from weblate.checks import CHECKS, highlight_string
+from weblate.utils.docs import get_doc_url
 from weblate.utils.stats import BaseStats
 
 register = template.Library()
@@ -57,8 +69,9 @@ SPACE_TAB = HIGHLIGTH_SPACE.format(
 )
 
 HL_CHECK = (
-    '<span class="hlcheck">{0}'
+    '<span class="hlcheck">'
     '<span class="highlight-number"></span>'
+    '{0}'
     '</span>'
 )
 
@@ -92,7 +105,8 @@ PERM_TEMPLATE = '''
 '''
 
 SOURCE_LINK = '''
-<a href="{0}" target="_blank">{1} <i class="fa fa-external-link"></i></a>
+<a href="{0}" target="_blank" rel="noopener noreferrer" class="long-filename">{1}
+<i class="fa fa-external-link"></i></a>
 '''
 
 
@@ -150,7 +164,7 @@ def fmt_search(value, search_match, match):
                 value,
                 flags=re.IGNORECASE
             )
-        elif match in ('replacement', 'replaced'):
+        if match in ('replacement', 'replaced'):
             return value.replace(
                 search_match,
                 '<span class="{0}">{1}</span>'.format(
@@ -192,6 +206,9 @@ def format_translation(value, language, plural=None, diff=None,
         # HTML escape
         value = escape(force_text(raw_value))
 
+        # Content of the Copy to clipboard button
+        copy = value
+
         # Format diff if there is any
         value = fmt_diff(value, diff, idx)
 
@@ -218,12 +235,13 @@ def format_translation(value, language, plural=None, diff=None,
         # Join paragraphs
         content = mark_safe(newline.join(paras))
 
-        parts.append({'title': title, 'content': content})
+        parts.append({'title': title, 'content': content, 'copy': copy})
 
     return {
         'simple': simple,
         'items': parts,
         'language': language,
+        'unit': unit,
     }
 
 
@@ -283,14 +301,14 @@ def dictionary_count(lang, project):
 @register.simple_tag
 def documentation(page, anchor=''):
     """Return link to Weblate documentation."""
-    return weblate.get_doc_url(page, anchor)
+    return get_doc_url(page, anchor)
 
 
 @register.inclusion_tag('documentation-icon.html')
 def documentation_icon(page, anchor='', right=False):
     return {
         'right': right,
-        'doc_url': weblate.get_doc_url(page, anchor),
+        'doc_url': get_doc_url(page, anchor),
     }
 
 
@@ -318,11 +336,11 @@ def show_message(tags, message):
 
 
 @register.inclusion_tag('list-checks.html')
-def show_checks(project, checks, user):
+def show_checks(obj, checks, user):
     return {
         'checks': checks,
         'user': user,
-        'project': project,
+        'object': obj,
     }
 
 
@@ -341,19 +359,19 @@ def naturaltime_past(value, now):
         return ungettext(
             '%(count)s year ago', '%(count)s years ago', count
         ) % {'count': count}
-    elif delta.days >= 30:
+    if delta.days >= 30:
         count = delta.days // 30
         if count == 1:
             return _('a month ago')
         return ungettext(
             '%(count)s month ago', '%(count)s months ago', count
         ) % {'count': count}
-    elif delta.days >= 14:
+    if delta.days >= 14:
         count = delta.days // 7
         return ungettext(
             '%(count)s week ago', '%(count)s weeks ago', count
         ) % {'count': count}
-    elif delta.days > 0:
+    if delta.days > 0:
         if delta.days == 7:
             return _('a week ago')
         if delta.days == 1:
@@ -361,28 +379,27 @@ def naturaltime_past(value, now):
         return ungettext(
             '%(count)s day ago', '%(count)s days ago', delta.days
         ) % {'count': delta.days}
-    elif delta.seconds == 0:
+    if delta.seconds == 0:
         return _('now')
-    elif delta.seconds < 60:
+    if delta.seconds < 60:
         if delta.seconds == 1:
             return _('a second ago')
         return ungettext(
             '%(count)s second ago', '%(count)s seconds ago', delta.seconds
         ) % {'count': delta.seconds}
-    elif delta.seconds // 60 < 60:
+    if delta.seconds // 60 < 60:
         count = delta.seconds // 60
         if count == 1:
             return _('a minute ago')
         return ungettext(
             '%(count)s minute ago', '%(count)s minutes ago', count
         ) % {'count': count}
-    else:
-        count = delta.seconds // 60 // 60
-        if count == 1:
-            return _('an hour ago')
-        return ungettext(
-            '%(count)s hour ago', '%(count)s hours ago', count
-        ) % {'count': count}
+    count = delta.seconds // 60 // 60
+    if count == 1:
+        return _('an hour ago')
+    return ungettext(
+        '%(count)s hour ago', '%(count)s hours ago', count
+    ) % {'count': count}
 
 
 def naturaltime_future(value, now):
@@ -400,19 +417,19 @@ def naturaltime_future(value, now):
         return ungettext(
             '%(count)s year from now', '%(count)s years from now', count
         ) % {'count': count}
-    elif delta.days >= 30:
+    if delta.days >= 30:
         count = delta.days // 30
         if count == 1:
             return _('a month from now')
         return ungettext(
             '%(count)s month from now', '%(count)s months from now', count
         ) % {'count': count}
-    elif delta.days >= 14:
+    if delta.days >= 14:
         count = delta.days // 7
         return ungettext(
             '%(count)s week from now', '%(count)s weeks from now', count
         ) % {'count': count}
-    elif delta.days > 0:
+    if delta.days > 0:
         if delta.days == 1:
             return _('tomorrow')
         if delta.days == 7:
@@ -420,9 +437,9 @@ def naturaltime_future(value, now):
         return ungettext(
             '%(count)s day from now', '%(count)s days from now', delta.days
         ) % {'count': delta.days}
-    elif delta.seconds == 0:
+    if delta.seconds == 0:
         return _('now')
-    elif delta.seconds < 60:
+    if delta.seconds < 60:
         if delta.seconds == 1:
             return _('a second from now')
         return ungettext(
@@ -430,7 +447,7 @@ def naturaltime_future(value, now):
             '%(count)s seconds from now',
             delta.seconds
         ) % {'count': delta.seconds}
-    elif delta.seconds // 60 < 60:
+    if delta.seconds // 60 < 60:
         count = delta.seconds // 60
         if count == 1:
             return _('a minute from now')
@@ -439,13 +456,12 @@ def naturaltime_future(value, now):
             '%(count)s minutes from now',
             count
         ) % {'count': count}
-    else:
-        count = delta.seconds // 60 // 60
-        if count == 1:
-            return _('an hour from now')
-        return ungettext(
-            '%(count)s hour from now', '%(count)s hours from now', count
-        ) % {'count': count}
+    count = delta.seconds // 60 // 60
+    if count == 1:
+        return _('an hour from now')
+    return ungettext(
+        '%(count)s hour from now', '%(count)s hours from now', count
+    ) % {'count': count}
 
 
 @register.filter
@@ -478,22 +494,41 @@ def naturaltime(value, now=None):
 def translation_progress_data(approved, translated, fuzzy, checks):
     return {
         'approved': '{0:.1f}'.format(approved),
-        'good': '{0:.1f}'.format(translated - checks - approved),
+        'good': '{0:.1f}'.format(max(translated - checks - approved, 0)),
         'checks': '{0:.1f}'.format(checks),
         'fuzzy': '{0:.1f}'.format(fuzzy),
         'percent': '{0:.1f}'.format(translated),
     }
 
 
-def get_stats(obj):
-    if isinstance(obj, BaseStats):
+def get_stats_parent(obj, parent):
+    if not isinstance(obj, BaseStats):
+        obj = obj.stats
+    if parent is None:
         return obj
-    return obj.stats
+    return obj.get_parent_stats(parent)
+
+
+@register.simple_tag
+def global_stats(obj, stats, parent):
+    """Return attribute from global stats."""
+    if not parent:
+        return None
+    if isinstance(parent, six.string_types):
+        parent = getattr(obj, parent)
+    return get_stats_parent(stats, parent)
+
+
+@register.simple_tag
+def get_stats(obj, attr):
+    if not attr:
+        attr = 'stats'
+    return getattr(obj, attr)
 
 
 @register.inclusion_tag('progress.html')
-def translation_progress(obj):
-    stats = get_stats(obj)
+def translation_progress(obj, parent=None):
+    stats = get_stats_parent(obj, parent)
     return translation_progress_data(
         stats.approved_percent,
         stats.translated_percent,
@@ -503,8 +538,8 @@ def translation_progress(obj):
 
 
 @register.inclusion_tag('progress.html')
-def words_progress(obj):
-    stats = get_stats(obj)
+def words_progress(obj, parent=None):
+    stats = get_stats_parent(obj, parent)
     return translation_progress_data(
         stats.approved_words_percent,
         stats.translated_words_percent,
@@ -611,15 +646,9 @@ def get_location_links(profile, unit):
         else:
             filename = location_parts[0]
             line = 0
-        if profile.editor_link:
-            link = profile.editor_link % {
-                'file': filename,
-                'line': line,
-                'branch': unit.translation.component.branch
-            }
-        else:
-            link = unit.translation.component.get_repoweb_link(filename, line)
-        location = location.replace('/', '/\u200B')
+        link = unit.translation.component.get_repoweb_link(
+            filename, line, profile.editor_link
+        )
         if link is None:
             ret.append(escape(location))
         else:
@@ -627,8 +656,8 @@ def get_location_links(profile, unit):
     return mark_safe('\n'.join(ret))
 
 
-@register.simple_tag
-def whiteboard_messages(project=None, component=None, language=None):
+@register.simple_tag(takes_context=True)
+def whiteboard_messages(context, project=None, component=None, language=None):
     """Display whiteboard messages for given context"""
     ret = []
 
@@ -636,18 +665,22 @@ def whiteboard_messages(project=None, component=None, language=None):
         project, component, language
     )
 
+    user = context['user']
+
     for whiteboard in whiteboards:
-        if whiteboard.message_html:
-            content = mark_safe(whiteboard.message)
-        else:
-            content = mark_safe(urlize(whiteboard.message, autoescape=True))
+        can_delete = (
+            user.has_perm('component.edit', whiteboard.component)
+            or user.has_perm('project.edit', whiteboard.project)
+        )
 
         ret.append(
             render_to_string(
                 'message.html',
                 {
                     'tags': ' '.join((whiteboard.category, 'whiteboard')),
-                    'message':  content,
+                    'message': whiteboard.render(),
+                    'whiteboard': whiteboard,
+                    'can_delete': can_delete,
                 }
             )
         )
@@ -711,3 +744,71 @@ def show_contributor_agreement(context, component):
             'next': context['request'].get_full_path(),
         }
     )
+
+
+@register.simple_tag(takes_context=True)
+def get_translate_url(context, obj):
+    """Get translate URL based on user preference."""
+    if not isinstance(obj, Translation):
+        return ''
+    if context['user'].profile.translate_mode == Profile.TRANSLATE_ZEN:
+        name = 'zen'
+    else:
+        name = 'translate'
+    return reverse(name, kwargs=obj.get_reverse_url_kwargs())
+
+
+@register.simple_tag(takes_context=True)
+def init_unique_row_id(context):
+    context['row_uuid'] = uuid4().hex
+    return ''
+
+
+@register.simple_tag(takes_context=True)
+def get_unique_row_id(context, obj):
+    """Get unique row ID for multiline tables."""
+    return '{}-{}'.format(context['row_uuid'], obj.pk)
+
+
+@register.simple_tag
+def get_filter_name(name):
+    names = dict(get_filter_choice(True))
+    return names[name]
+
+
+@register.inclusion_tag('trans/embed-alert.html')
+def indicate_alerts(obj):
+    alerts = False
+    component = None
+    project = None
+
+    if isinstance(obj, Translation):
+        component = obj.component
+    elif isinstance(obj, Component):
+        component = obj
+    elif isinstance(obj, Project):
+        alerts = Alert.objects.filter(component__project=obj).exists()
+        project = obj
+
+    if component:
+        alerts = component.alert_set.exists()
+        project = component.project
+
+    return {'alerts': alerts, 'component': component, 'project': project}
+
+
+@register.filter
+def replace_english(value, language):
+    return value.replace('English', force_text(language))
+
+
+@register.simple_tag
+def render_comment(comment):
+    mentioned = comment.get_mentions()
+    result = linebreaks(urlize(comment.comment, autoescape=True))
+    for user in mentioned:
+        result = result.replace(
+            '@{}'.format(user.username),
+            get_user_display(user, icon=False, link=True, prefix='@'),
+        )
+    return mark_safe(result)

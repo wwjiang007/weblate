@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,21 +21,21 @@
 from __future__ import unicode_literals
 
 import re
-import sys
+from itertools import islice
 
-from django.urls import reverse
 from django.db import models
+from django.db.models.functions import Lower
+from django.urls import reverse
 from django.utils.encoding import python_2_unicode_compatible
-
 from whoosh.analysis import LanguageAnalyzer, NgramAnalyzer, SimpleAnalyzer
 
-from weblate.lang.models import Language
 from weblate.checks.same import strip_string
-from weblate.formats.auto import AutoFormat
+from weblate.formats.auto import AutodetectFormat
+from weblate.lang.models import Language
+from weblate.trans.defines import GLOSSARY_LENGTH
 from weblate.trans.models.project import Project
 from weblate.utils.db import re_escape
 from weblate.utils.errors import report_error
-
 
 SPLIT_RE = re.compile(r'[\s,.:!?]+', re.UNICODE)
 
@@ -46,14 +46,14 @@ class DictionaryManager(models.Manager):
     def upload(self, request, project, language, fileobj, method):
         """Handle dictionary upload."""
         from weblate.trans.models.change import Change
-        store = AutoFormat.parse(fileobj)
+        store = AutodetectFormat.parse(fileobj)
 
         ret = 0
 
         # process all units
-        for dummy, unit in store.iterate_merge(False):
-            source = unit.get_source()
-            target = unit.get_target()
+        for _unused, unit in store.iterate_merge(False):
+            source = unit.source
+            target = unit.target
 
             # Ignore too long words
             if len(source) > 190 or len(target) > 190:
@@ -84,7 +84,7 @@ class DictionaryManager(models.Manager):
                     continue
                 if method == 'add':
                     # Add word
-                    word = self.create(
+                    self.create(
                         user=request.user,
                         action=Change.ACTION_DICTIONARY_UPLOAD,
                         project=project,
@@ -114,6 +114,10 @@ class DictionaryManager(models.Manager):
         )
         return created
 
+
+class DictionaryQuerySet(models.QuerySet):
+    # pylint: disable=no-init
+
     def get_words(self, unit):
         """Return list of word pairs for an unit."""
         words = set()
@@ -124,7 +128,7 @@ class DictionaryManager(models.Manager):
         # - language analyzer if available (it is for English)
         analyzers = [
             SimpleAnalyzer(expression=SPLIT_RE, gaps=True),
-            LanguageAnalyzer(source_language.base_code()),
+            LanguageAnalyzer(source_language.base_code),
         ]
 
         # Add ngram analyzer for languages like Chinese or Japanese
@@ -137,12 +141,14 @@ class DictionaryManager(models.Manager):
             text = strip_string(text, flags).lower()
             for analyzer in analyzers:
                 # Some Whoosh analyzers break on unicode
-                new_words = []
                 try:
-                    new_words = [token.text for token in analyzer(text)]
+                    words.update(token.text for token in analyzer(text))
                 except (UnicodeDecodeError, IndexError) as error:
-                    report_error(error, sys.exc_info())
-                words.update(new_words)
+                    report_error(error)
+                if len(words) > 1000:
+                    break
+            if len(words) > 1000:
+                break
 
         if '' in words:
             words.remove('')
@@ -157,22 +163,24 @@ class DictionaryManager(models.Manager):
             project=unit.translation.component.project,
             language=unit.translation.language,
             source__iregex=r'(^|[ \t\n\r\f\v])({0})($|[ \t\n\r\f\v])'.format(
-                '|'.join([re_escape(word) for word in words])
+                '|'.join(re_escape(word) for word in islice(words, 1000))
             )
         )
+
+    def order(self):
+        return self.order_by(Lower('source'))
 
 
 @python_2_unicode_compatible
 class Dictionary(models.Model):
     project = models.ForeignKey(Project, on_delete=models.deletion.CASCADE)
     language = models.ForeignKey(Language, on_delete=models.deletion.CASCADE)
-    source = models.CharField(max_length=190, db_index=True)
-    target = models.CharField(max_length=190)
+    source = models.CharField(max_length=GLOSSARY_LENGTH, db_index=True)
+    target = models.CharField(max_length=GLOSSARY_LENGTH)
 
-    objects = DictionaryManager()
+    objects = DictionaryManager.from_queryset(DictionaryQuerySet)()
 
     class Meta(object):
-        ordering = ['source']
         app_label = 'trans'
 
     def __str__(self):

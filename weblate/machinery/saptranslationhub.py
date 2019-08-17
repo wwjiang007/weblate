@@ -21,14 +21,13 @@
 import base64
 import json
 
-from django.conf import settings
-
 import six
+from django.conf import settings
 from six.moves.urllib.request import Request, urlopen
 
 from weblate import USER_AGENT
-from weblate.utils.site import get_site_url
 from weblate.machinery.base import MachineTranslation, MissingConfiguration
+from weblate.utils.site import get_site_url
 
 
 class SAPTranslationHub(MachineTranslation):
@@ -73,10 +72,9 @@ class SAPTranslationHub(MachineTranslation):
         languages_url = settings.MT_SAP_BASE_URL + 'languages'
         response = self.json_req(languages_url)
 
-        lang = [d['id'] for d in response['languages']]
-        return lang
+        return [d['id'] for d in response['languages']]
 
-    def download_translations(self, source, language, text, unit, user):
+    def download_translations(self, source, language, text, unit, request):
         """Download list of possible translations from a service."""
 
         # should the machine translation service be used?
@@ -102,7 +100,6 @@ class SAPTranslationHub(MachineTranslation):
         request = Request(
             translation_url if six.PY3 else translation_url.encode("utf-8")
         )
-        request.timeout = 0.5
         request.add_header('User-Agent', USER_AGENT.encode('utf-8'))
         request.add_header('Referer', get_site_url().encode('utf-8'))
         request.add_header('Content-Type', 'application/json; charset=utf-8')
@@ -112,7 +109,7 @@ class SAPTranslationHub(MachineTranslation):
 
         # Read and possibly convert response
         content = urlopen(
-            request, request_data_as_bytes
+            request, request_data_as_bytes, timeout=0.5
         ).read().decode('utf-8')
         # Replace literal \t
         content = content.strip().replace(
@@ -128,11 +125,11 @@ class SAPTranslationHub(MachineTranslation):
         # prepare the translations for weblate
         for item in response['units']:
             for translation in item['translations']:
-                translations.append((
-                    translation['value'],
-                    translation.get('qualityIndex', 100),
-                    self.name,
-                    text
-                ))
+                translations.append({
+                    'text': translation['value'],
+                    'quality': translation.get('qualityIndex', 100),
+                    'service': self.name,
+                    'source': text
+                })
 
         return translations

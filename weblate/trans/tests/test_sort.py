@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,8 +19,10 @@
 #
 
 """
-Tests for unicode sorting.
+Tests for Unicode sorting.
 """
+
+from __future__ import unicode_literals
 
 from unittest import SkipTest
 
@@ -30,25 +32,10 @@ import weblate.trans.util
 
 
 class SortTest(TestCase):
-    def sort_tester(self):
+    def test_sort(self):
+        if not weblate.trans.util.LOCALE_SETUP:
+            raise SkipTest("Could not set up locales")
         result = weblate.trans.util.sort_choices(
-            ((2, 'zkouška'), (3, 'zkouzka'), (1, 'zkouaka'))
+            ((2, "zkouška"), (3, "zkouzka"), (1, "zkouaka"))
         )
-        self.assertEqual(
-            [1, 2, 3],
-            [x[0] for x in result]
-        )
-
-    def test_sort_pyuca(self):
-        if not weblate.trans.util.HAS_PYUCA:
-            raise SkipTest('pyuca not installed')
-        self.sort_tester()
-
-    def test_sort_fallback(self):
-        backup = weblate.trans.util.HAS_PYUCA
-        try:
-            weblate.trans.util.HAS_PYUCA = False
-
-            self.sort_tester()
-        finally:
-            weblate.trans.util.HAS_PYUCA = backup
+        self.assertEqual([1, 2, 3], [x[0] for x in result])

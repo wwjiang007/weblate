@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,9 +23,10 @@ from __future__ import unicode_literals
 
 import random
 
-from django.test import TestCase
+from django.test import SimpleTestCase
 
-from weblate.lang.models import Plural, Language
+from weblate.checks.flags import Flags
+from weblate.lang.models import Language, Plural
 
 
 class MockLanguage(Language):
@@ -43,6 +44,7 @@ class MockProject(object):
     def __init__(self):
         self.id = 1
         self.source_language = MockLanguage('en')
+        self.use_shared_tm = True
 
 
 class MockComponent(object):
@@ -67,7 +69,7 @@ class MockUnit(object):
         if id_hash is None:
             id_hash = random.randint(0, 65536)
         self.id_hash = id_hash
-        self.flags = flags
+        self.flags = Flags(flags)
         self.translation = MockTranslation(code)
         self.source = source
         self.fuzzy = False
@@ -76,13 +78,13 @@ class MockUnit(object):
 
     @property
     def all_flags(self):
-        return self.flags.split(',')
+        return self.flags
 
     def get_source_plurals(self):
         return [self.source]
 
 
-class CheckTestCase(TestCase):
+class CheckTestCase(SimpleTestCase):
     """Generic test, also serves for testing base class."""
     check = None
 
@@ -91,6 +93,7 @@ class CheckTestCase(TestCase):
         self.test_good_matching = ('string', 'string', '')
         self.test_good_none = ('string', 'string', '')
         self.test_good_ignore = ()
+        self.test_good_flag = ()
         self.test_failure_1 = ()
         self.test_failure_2 = ()
         self.test_failure_3 = ()
@@ -139,6 +142,17 @@ class CheckTestCase(TestCase):
 
     def test_single_failure_3(self):
         self.do_test(True, self.test_failure_3)
+
+    def test_check_good_flag(self):
+        if self.check is None or not self.test_good_flag:
+            return
+        self.assertFalse(
+            self.check.check_target(
+                [self.test_good_flag[0]],
+                [self.test_good_flag[1]],
+                MockUnit(None, self.test_good_flag[2])
+            )
+        )
 
     def test_check_good_matching_singular(self):
         if self.check is None:

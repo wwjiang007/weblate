@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,50 +23,66 @@ import os.path
 from django.conf import settings
 from django.contrib.messages import get_messages
 from django.core.exceptions import PermissionDenied
-from django.shortcuts import get_object_or_404
 from django.http import Http404, HttpResponse
-from django.utils.encoding import smart_text
-
+from django.shortcuts import get_object_or_404
+from django.utils.encoding import force_text, smart_text
+from django.utils.safestring import mark_safe
 from rest_framework import parsers, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ParseError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
-from rest_framework.views import APIView
 from rest_framework.utils import formatting
+from rest_framework.views import APIView
 
 from weblate.api.serializers import (
-    ProjectSerializer, ComponentSerializer, TranslationSerializer,
-    LanguageSerializer, LockRequestSerializer, LockSerializer,
-    RepoRequestSerializer, StatisticsSerializer, UnitSerializer,
-    ChangeSerializer, SourceSerializer, ScreenshotSerializer,
-    UploadRequestSerializer, ScreenshotFileSerializer,
+    ChangeSerializer,
+    ComponentSerializer,
+    LanguageSerializer,
+    LockRequestSerializer,
+    LockSerializer,
+    ProjectSerializer,
+    RepoRequestSerializer,
+    ScreenshotFileSerializer,
+    ScreenshotSerializer,
+    SourceSerializer,
+    StatisticsSerializer,
+    TranslationSerializer,
+    UnitSerializer,
+    UploadRequestSerializer,
 )
 from weblate.auth.models import User
 from weblate.checks.models import Check
 from weblate.formats.exporters import EXPORTERS
-from weblate.trans.models import (
-    Project, Component, Translation, Change, Unit, Source,
-    IndexUpdate, Suggestion,
-)
-from weblate.trans.stats import get_project_stats
 from weblate.lang.models import Language
 from weblate.screenshots.models import Screenshot
-from weblate.trans.views.helper import download_translation_file
-from weblate.utils.state import STATE_TRANSLATED
-from weblate import get_doc_url
+from weblate.trans.models import (
+    Change,
+    Component,
+    Project,
+    Source,
+    Suggestion,
+    Translation,
+    Unit,
+)
+from weblate.trans.stats import get_project_stats
+from weblate.utils.celery import get_queue_stats
+from weblate.utils.docs import get_doc_url
+from weblate.utils.stats import GlobalStats
+from weblate.utils.views import download_translation_file, zip_download_dir
 
 REPO_OPERATIONS = {
-    'push': ('vcs.push', 'do_push'),
-    'pull': ('vcs.update', 'do_update'),
-    'reset': ('vcs.reset', 'do_reset'),
-    'commit': ('vcs.commit', 'commit_pending'),
+    'push': ('vcs.push', 'do_push', ()),
+    'pull': ('vcs.update', 'do_update', ()),
+    'reset': ('vcs.reset', 'do_reset', ()),
+    'cleanup': ('vcs.reset', 'do_cleanup', ()),
+    'commit': ('vcs.commit', 'commit_pending', ('api',)),
 }
 
 DOC_TEXT = """
-See <a href="{0}">the Weblate's Web API documentation</a> for detailed
-description of the API.
+<p>See <a href="{0}">the Weblate's Web API documentation</a> for detailed
+description of the API.</p>
 """
 
 
@@ -80,9 +96,9 @@ def get_view_description(view_cls, html=False):
     description = view_cls.__doc__ or ''
     description = formatting.dedent(smart_text(description))
 
-    if hasattr(view_cls, 'serializer_class'):
+    if hasattr(getattr(view_cls, 'serializer_class', 'None'), 'Meta'):
         doc_url = get_doc_url(
-            'api'
+            'api',
             '{0}s'.format(
                 view_cls.serializer_class.Meta.model.__name__.lower()
             )
@@ -90,13 +106,11 @@ def get_view_description(view_cls, html=False):
     else:
         doc_url = get_doc_url('api')
 
-    description = '\n\n'.join((
-        description,
-        DOC_TEXT.format(doc_url)
-    ))
-
     if html:
-        return formatting.markup_description(description)
+        return (
+            formatting.markup_description(description)
+            + mark_safe(DOC_TEXT.format(doc_url))
+        )
     return description
 
 
@@ -134,15 +148,22 @@ class DownloadViewSet(viewsets.ReadOnlyModelViewSet):
             request, force
         )
 
-    def download_file(self, filename, content_type):
+    def download_file(self, filename, content_type, component=None):
         """Wrapper for file download"""
-        with open(filename, 'rb') as handle:
-            response = HttpResponse(
-                handle.read(),
-                content_type=content_type
+        if os.path.isdir(filename):
+            response = zip_download_dir(filename)
+            filename = '{}.zip'.format(
+                component.slug if component else 'weblate'
             )
+        else:
+            with open(filename, 'rb') as handle:
+                response = HttpResponse(
+                    handle.read(),
+                    content_type=content_type
+                )
+            filename = os.path.basename(filename)
         response['Content-Disposition'] = 'attachment; filename="{0}"'.format(
-            os.path.basename(filename)
+            filename
         )
         return response
 
@@ -150,12 +171,14 @@ class DownloadViewSet(viewsets.ReadOnlyModelViewSet):
 class WeblateViewSet(DownloadViewSet):
     """Allow to skip content negotiation for certain requests."""
     def repository_operation(self, request, obj, project, operation):
-        permission, method = REPO_OPERATIONS[operation]
+        permission, method, args = REPO_OPERATIONS[operation]
 
         if not request.user.has_perm(permission, project):
             raise PermissionDenied()
 
-        return getattr(obj, method)(request)
+        args = args + (request,)
+
+        return getattr(obj, method)(*args)
 
     @action(
         detail=True,
@@ -193,7 +216,7 @@ class WeblateViewSet(DownloadViewSet):
             raise PermissionDenied()
 
         data = {
-            'needs_commit': obj.repo_needs_commit(),
+            'needs_commit': obj.needs_commit(),
             'needs_merge': obj.repo_needs_merge(),
             'needs_push': obj.repo_needs_push(),
         }
@@ -222,7 +245,7 @@ class WeblateViewSet(DownloadViewSet):
                 changes = Change.objects.filter(
                     action__in=Change.ACTIONS_REPOSITORY,
                     component=obj.component,
-                )
+                ).order_by('-id')
             else:
                 data['url'] = reverse(
                     'api:component-repository',
@@ -236,7 +259,7 @@ class WeblateViewSet(DownloadViewSet):
                 changes = Change.objects.filter(
                     action__in=Change.ACTIONS_REPOSITORY,
                     component=obj,
-                )
+                ).order_by('-id')
 
             if changes.exists() and changes[0].is_merge_failure():
                 data['merge_failure'] = changes[0].target
@@ -262,7 +285,7 @@ class ProjectViewSet(WeblateViewSet):
     def components(self, request, **kwargs):
         obj = self.get_object()
 
-        queryset = obj.component_set.all()
+        queryset = obj.component_set.all().order_by('id')
         page = self.paginate_queryset(queryset)
 
         serializer = ComponentSerializer(
@@ -278,13 +301,24 @@ class ProjectViewSet(WeblateViewSet):
     def statistics(self, request, **kwargs):
         obj = self.get_object()
 
+        serializer = StatisticsSerializer(
+            obj,
+            context={'request': request},
+        )
+
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def languages(self, request, **kwargs):
+        obj = self.get_object()
+
         return Response(get_project_stats(obj))
 
     @action(detail=True, methods=['get'])
     def changes(self, request, **kwargs):
         obj = self.get_object()
 
-        queryset = Change.objects.for_project(obj)
+        queryset = Change.objects.prefetch().filter(project=obj).order_by('id')
         page = self.paginate_queryset(queryset)
 
         serializer = ChangeSerializer(
@@ -333,12 +367,13 @@ class ComponentViewSet(MultipleFieldMixin, WeblateViewSet):
     def monolingual_base(self, request, **kwargs):
         obj = self.get_object()
 
-        if not obj.template:
+        if not obj.has_template():
             raise Http404('No template found!')
 
         return self.download_file(
             obj.get_template_filename(),
-            obj.template_store.mimetype
+            obj.template_store.mimetype(),
+            component=obj
         )
 
     @action(detail=True, methods=['get'])
@@ -357,7 +392,7 @@ class ComponentViewSet(MultipleFieldMixin, WeblateViewSet):
     def translations(self, request, **kwargs):
         obj = self.get_object()
 
-        queryset = obj.translation_set.all()
+        queryset = obj.translation_set.all().order_by('id')
         page = self.paginate_queryset(queryset)
 
         serializer = TranslationSerializer(
@@ -373,7 +408,7 @@ class ComponentViewSet(MultipleFieldMixin, WeblateViewSet):
     def statistics(self, request, **kwargs):
         obj = self.get_object()
 
-        queryset = obj.translation_set.all()
+        queryset = obj.translation_set.all().order_by('id')
         page = self.paginate_queryset(queryset)
 
         serializer = StatisticsSerializer(
@@ -388,7 +423,7 @@ class ComponentViewSet(MultipleFieldMixin, WeblateViewSet):
     def changes(self, request, **kwargs):
         obj = self.get_object()
 
-        queryset = Change.objects.for_component(obj)
+        queryset = Change.objects.prefetch().filter(component=obj).order_by('id')
         page = self.paginate_queryset(queryset)
 
         serializer = ChangeSerializer(
@@ -432,12 +467,13 @@ class TranslationViewSet(MultipleFieldMixin, WeblateViewSet):
     )
     def file(self, request, **kwargs):
         obj = self.get_object()
+        user = request.user
         if request.method == 'GET':
             fmt = self.format_kwarg or request.query_params.get('format')
             return download_translation_file(obj, fmt)
 
-        if (not request.user.has_perm('upload.perform', obj) or
-                obj.component.locked):
+        if (not user.has_perm('upload.perform', obj)
+                or obj.component.locked):
             raise PermissionDenied()
 
         if 'file' not in request.data:
@@ -445,26 +481,41 @@ class TranslationViewSet(MultipleFieldMixin, WeblateViewSet):
 
         serializer = UploadRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        serializer.check_perms(request.user, obj)
 
-        if (serializer.validated_data['overwrite'] and
-                not request.user.has_perm('upload.overwrite', obj)):
-            raise PermissionDenied()
+        data = serializer.validated_data
 
-        not_found, skipped, accepted, total = obj.merge_upload(
-            request,
-            serializer.validated_data['file'],
-            serializer.validated_data['overwrite'],
-        )
+        author_name = None
+        author_email = None
+        if request.user.has_perm('upload.authorship', obj):
+            author_name = data.get('author_name')
+            author_email = data.get('author_email')
 
-        return Response(data={
-            'not_found': not_found,
-            'skipped': skipped,
-            'accepted': accepted,
-            'total': total,
-            # Compatibility with older less detailed API
-            'result': accepted > 0,
-            'count': total,
-        })
+        try:
+            not_found, skipped, accepted, total = obj.merge_upload(
+                request,
+                data['file'],
+                data['overwrite'],
+                author_name,
+                author_email,
+                data['method'],
+                data['fuzzy'],
+            )
+
+            return Response(data={
+                'not_found': not_found,
+                'skipped': skipped,
+                'accepted': accepted,
+                'total': total,
+                # Compatibility with older less detailed API
+                'result': accepted > 0,
+                'count': total,
+            })
+        except Exception as error:
+            return Response(
+                data={'result': False, 'detail': force_text(error)},
+                status=400
+            )
 
     @action(detail=True, methods=['get'])
     def statistics(self, request, **kwargs):
@@ -481,7 +532,7 @@ class TranslationViewSet(MultipleFieldMixin, WeblateViewSet):
     def changes(self, request, **kwargs):
         obj = self.get_object()
 
-        queryset = Change.objects.for_translation(obj)
+        queryset = Change.objects.prefetch().filter(translation=obj).order_by('id')
         page = self.paginate_queryset(queryset)
 
         serializer = ChangeSerializer(
@@ -496,7 +547,7 @@ class TranslationViewSet(MultipleFieldMixin, WeblateViewSet):
     def units(self, request, **kwargs):
         obj = self.get_object()
 
-        queryset = obj.unit_set.all()
+        queryset = obj.unit_set.all().order_by('id')
         page = self.paginate_queryset(queryset)
 
         serializer = UnitSerializer(
@@ -611,21 +662,24 @@ class Metrics(APIView):
         """
         Return a list of all users.
         """
+        stats = GlobalStats()
+        queues = get_queue_stats()
+
         return Response({
-            'units': Unit.objects.count(),
-            'units_translated': Unit.objects.filter(
-                state=STATE_TRANSLATED
-            ).count(),
+            'units': stats.all,
+            'units_translated': stats.translated,
             'users': User.objects.count(),
             'changes': Change.objects.count(),
             'projects': Project.objects.count(),
             'components': Component.objects.count(),
             'translations': Translation.objects.count(),
-            'languages': Language.objects.filter(
-                translation__pk__gt=0
-            ).distinct().count(),
+            'languages': stats.languages,
             'checks': Check.objects.count(),
             'suggestions': Suggestion.objects.count(),
-            'index_updates': IndexUpdate.objects.count(),
+            'index_updates': queues.get('search', 0),
+            'celery_queue': queues.get('celery', 0),
+            'celery_memory_queue': queues.get('memory', 0),
+            'celery_notification_queue': queues.get('notification', 0),
+            'celery_queues': queues,
             'name': settings.SITE_TITLE,
         })

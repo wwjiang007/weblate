@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,16 +18,16 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from base64 import b64encode
 import shutil
 import subprocess
 import tempfile
+from base64 import b64encode
 
-from django.urls import reverse
 from django.http.request import HttpRequest
+from django.urls import reverse
 
-from weblate.gitexport.views import authenticate
 from weblate.gitexport.models import get_export_url
+from weblate.gitexport.views import authenticate
 from weblate.trans.models import Project
 from weblate.trans.tests.test_models import BaseLiveServerTestCase
 from weblate.trans.tests.test_views import ViewTestCase
@@ -101,10 +101,17 @@ class GitExportTest(ViewTestCase):
     def git_receive(self, **kwargs):
         return self.client.get(
             self.get_git_url('info/refs'),
-            QUERY_STRING='?service=git-receive-pack',
+            QUERY_STRING='?service=git-upload-pack',
             CONTENT_TYPE='application/x-git-upload-pack-advertisement',
             **kwargs
         )
+
+    def test_reject_push(self):
+        response = self.client.get(
+            self.get_git_url('info/refs'),
+            {'service': 'git-receive-pack'}
+        )
+        self.assertEqual(403, response.status_code)
 
     def test_wrong_auth(self):
         response = self.git_receive(HTTP_AUTHORIZATION='foo')

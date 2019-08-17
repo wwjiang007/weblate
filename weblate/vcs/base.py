@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,28 +20,31 @@
 """Version control system abstraction for Weblate needs."""
 
 from __future__ import unicode_literals
-from distutils.version import LooseVersion
+
 import hashlib
+import logging
 import os
 import os.path
-import sys
 import subprocess
-import logging
+import sys
+from distutils.version import LooseVersion
 
+from dateutil import parser
 from django.core.cache import cache
 from django.utils.encoding import force_text
 from django.utils.functional import cached_property
-
 from filelock import FileLock
-
 from pkg_resources import Requirement, resource_filename
 
 from weblate.trans.util import (
-    get_clean_env, add_configuration_error, path_separator
+    add_configuration_error,
+    delete_configuration_error,
+    get_clean_env,
+    path_separator,
 )
-from weblate.vcs.ssh import get_wrapper_filename, create_ssh_wrapper
+from weblate.vcs.ssh import SSH_WRAPPER
 
-LOGGER = logging.getLogger('weblate-vcs')
+LOGGER = logging.getLogger('weblate.vcs')
 
 
 class RepositoryException(Exception):
@@ -73,6 +76,7 @@ class Repository(object):
     _cmd_update_remote = None
     _cmd_push = None
     _cmd_status = ['status']
+    _cmd_list_changed_files = None
 
     name = None
     req_version = None
@@ -97,15 +101,16 @@ class Repository(object):
             self.path.rstrip('/').rstrip('\\') + '.lock',
             timeout=120
         )
+        self.local = local
         if not local:
             # Create ssh wrapper for possible use
-            create_ssh_wrapper()
-        if not self.is_valid():
-            self.init()
+            SSH_WRAPPER.create()
+            if not self.is_valid():
+                self.init()
 
     @classmethod
     def log(cls, message):
-        return LOGGER.debug('weblate: %s: %s', cls._cmd, message)
+        return LOGGER.debug('%s: %s', cls._cmd, message)
 
     def check_config(self):
         """Check VCS configuration."""
@@ -137,10 +142,14 @@ class Repository(object):
     @staticmethod
     def _getenv():
         """Generate environment for process execution."""
-        return get_clean_env({'GIT_SSH': get_wrapper_filename()})
+        return get_clean_env({
+            'GIT_SSH': SSH_WRAPPER.filename,
+            'GIT_TERMINAL_PROMPT': '0',
+        })
 
     @classmethod
-    def _popen(cls, args, cwd=None, err=False, fullcmd=False, raw=False):
+    def _popen(cls, args, cwd=None, err=False, fullcmd=False, raw=False,
+               local=False):
         """Execute the command using popen."""
         if args is None:
             raise RepositoryException(0, 'Not supported functionality', '')
@@ -149,7 +158,7 @@ class Repository(object):
         process = subprocess.Popen(
             args,
             cwd=cwd,
-            env=cls._getenv(),
+            env={} if local else cls._getenv(),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             stdin=subprocess.PIPE,
@@ -157,7 +166,7 @@ class Repository(object):
         output, output_err = process.communicate()
         retcode = process.poll()
         cls.log(
-            '{0} [retcode={1}]'.format(
+            'exec {0} [retcode={1}]'.format(
                 ' '.join([force_text(arg) for arg in args]),
                 retcode,
             )
@@ -181,7 +190,9 @@ class Repository(object):
         # On Windows we pass Unicode object, on others UTF-8 encoded bytes
         if sys.platform != "win32":
             args = [arg.encode('utf-8') for arg in args]
-        self.last_output = self._popen(args, self.path, fullcmd=fullcmd)
+        self.last_output = self._popen(
+            args, self.path, fullcmd=fullcmd, local=self.local
+        )
         return self.last_output
 
     def clean_revision_cache(self):
@@ -193,6 +204,9 @@ class Repository(object):
     @cached_property
     def last_revision(self):
         """Return last local revision."""
+        return self.get_last_revision()
+
+    def get_last_revision(self):
         return self.execute(self._cmd_last_revision, needs_lock=False)
 
     @cached_property
@@ -211,7 +225,7 @@ class Repository(object):
     @classmethod
     def clone(cls, source, target, branch=None):
         """Clone repository and return object for cloned repository."""
-        create_ssh_wrapper()
+        SSH_WRAPPER.create()
         cls._clone(source, target, branch)
         return cls(target, branch)
 
@@ -222,10 +236,8 @@ class Repository(object):
 
     def status(self):
         """Return status of the repository."""
-        return self.execute(
-            self._cmd_status,
-            needs_lock=False
-        )
+        with self.lock:
+            return self.execute(self._cmd_status)
 
     def push(self):
         """Push given branch to remote repository."""
@@ -235,7 +247,7 @@ class Repository(object):
         """Reset working copy to match remote branch."""
         raise NotImplementedError()
 
-    def merge(self, abort=False):
+    def merge(self, abort=False, message=None):
         """Merge remote branch or reverts the merge."""
         raise NotImplementedError()
 
@@ -243,21 +255,33 @@ class Repository(object):
         """Rebase working copy on top of remote branch."""
         raise NotImplementedError()
 
-    def needs_commit(self, filename=None):
+    def needs_commit(self, *filenames):
         """Check whether repository needs commit."""
         raise NotImplementedError()
+
+    def count_missing(self):
+        """Count missing commits."""
+        return len(self.log_revisions(
+            self.ref_to_remote.format(self.get_remote_branch_name())
+        ))
+
+    def count_outgoing(self):
+        """Count outgoing commits."""
+        return len(self.log_revisions(
+            self.ref_from_remote.format(self.get_remote_branch_name())
+        ))
 
     def needs_merge(self):
         """Check whether repository needs merge with upstream
         (is missing some revisions).
         """
-        raise NotImplementedError()
+        return self.count_missing() > 0
 
     def needs_push(self):
         """Check whether repository needs push to upstream
         (has additional revisions).
         """
-        raise NotImplementedError()
+        return self.count_outgoing() > 0
 
     def _get_revision_info(self, revision):
         """Return dictionary with detailed revision information."""
@@ -265,12 +289,18 @@ class Repository(object):
 
     def get_revision_info(self, revision):
         """Return dictionary with detailed revision information."""
-        key = 'rev-info-{}'.format(revision)
+        key = 'rev-info-{}-{}'.format(self.get_identifier(), revision)
         result = cache.get(key)
         if not result:
             result = self._get_revision_info(revision)
             # Keep the cache for one day
             cache.set(key, result, 86400)
+
+        # Parse timestamps into datetime objects
+        for name, value in result.items():
+            if 'date' in name:
+                result[name] = parser.parse(value)
+
         return result
 
     @classmethod
@@ -283,10 +313,10 @@ class Repository(object):
         except (OSError, RepositoryException):
             cls._is_supported = False
             return False
-        if cls.req_version is None:
+        if (cls.req_version is None
+                or LooseVersion(version) >= LooseVersion(cls.req_version)):
             cls._is_supported = True
-        elif LooseVersion(version) >= LooseVersion(cls.req_version):
-            cls._is_supported = True
+            delete_configuration_error(cls.name.lower())
         else:
             cls._is_supported = False
             add_configuration_error(
@@ -308,7 +338,7 @@ class Repository(object):
     @classmethod
     def _get_version(cls):
         """Return VCS program version."""
-        return cls._popen(['--version'])
+        return cls._popen(['--version'], local=True)
 
     def set_committer(self, name, mail):
         """Configure commiter name."""
@@ -322,18 +352,38 @@ class Repository(object):
         """Remove files and creates new revision."""
         raise NotImplementedError()
 
+    @staticmethod
+    def update_hash(objhash, filename, extra=None):
+        with open(filename, 'rb') as handle:
+            data = handle.read()
+        if extra:
+            objhash.update(extra.encode('utf-8'))
+        objhash.update('blob {0}\0'.format(len(data)).encode('ascii'))
+        objhash.update(data)
+
     def get_object_hash(self, path):
-        """Return hash of object in the VCS in a way compatible with Git."""
+        """Return hash of object in the VCS.
+
+        For files in a way compatible with Git, for dirs it behaves differently
+        as we do not need to track some attributes (eg. permissions)."""
         real_path = os.path.join(
             self.path,
             self.resolve_symlinks(path)
         )
         objhash = hashlib.sha1()
 
-        with open(real_path, 'rb') as handle:
-            data = handle.read()
-            objhash.update('blob {0}\0'.format(len(data)).encode('ascii'))
-            objhash.update(data)
+        if os.path.isdir(real_path):
+            files = []
+            for root, _unused, filenames in os.walk(real_path):
+                for filename in filenames:
+                    full_name = os.path.join(root, filename)
+                    files.append((
+                        full_name, os.path.relpath(full_name, self.path)
+                    ))
+            for filename, name in sorted(files):
+                self.update_hash(objhash, filename, name)
+        else:
+            self.update_hash(objhash, real_path)
 
         return objhash.hexdigest()
 
@@ -356,15 +406,8 @@ class Repository(object):
     @staticmethod
     def get_examples_paths():
         """Generator of possible paths for examples."""
-        yield os.path.join(
-            os.path.dirname(
-                os.path.dirname(os.path.dirname(__file__))
-            ),
-            'examples'
-        )
+        yield os.path.join(os.path.dirname(os.path.dirname(__file__)), 'examples')
         yield resource_filename(Requirement.parse('weblate'), 'examples')
-        yield '/usr/share/weblate/examples/'
-        yield '/usr/local/share/weblate/examples/'
 
     @classmethod
     def find_merge_driver(cls, name):
@@ -382,3 +425,38 @@ class Repository(object):
         if merge_driver is None or not os.path.exists(merge_driver):
             return None
         return merge_driver
+
+    def cleanup(self):
+        """Remove not tracked files from the repository."""
+        raise NotImplementedError()
+
+    def log_revisions(self, refspec):
+        """Log revisions for given refspec.
+
+        This is not universal as refspec is different per vcs.
+        """
+        raise NotImplementedError()
+
+    def list_changed_files(self, refspec):
+        """List changed files for given refspec.
+
+        This is not universal as refspec is different per vcs.
+        """
+        lines = self.execute(
+            self._cmd_list_changed_files + [refspec],
+            needs_lock=False
+        ).splitlines()
+        # Strip action prefix we do not use
+        return [x[2:] for x in lines]
+
+    def list_upstream_changed_files(self):
+        """List files missing upstream."""
+        return self.list_changed_files(
+            self.ref_to_remote.format(self.get_remote_branch_name())
+        )
+
+    def get_remote_branch_name(self):
+        return 'origin/{0}'.format(self.branch)
+
+    def list_remote_branches(self):
+        return []

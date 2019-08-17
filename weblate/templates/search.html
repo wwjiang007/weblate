@@ -12,11 +12,12 @@
 <li><a href="{% url 'project-language' project=project.slug lang=language.code %}">{{ language }}</a></li>
 {% endif %}
 {% endif %}
-<li><a href="{% url 'search' %}">{% trans "Search" %}</a></li>
+<li><a href="{% if back_url %}{{ back_url }}#search{% else %}{% url 'search' %}{% endif %}">{% trans "Search" %}</a></li>
 {% endblock %}
 
 {% block content %}
 
+{% if show_results %}
 {% if page_obj.object_list %}
 <table class="table table-bordered">
 <tbody>
@@ -41,6 +42,7 @@
 {% else %}
 {% trans "No matching strings found." as msg %}
 {% show_message "info" msg %}
+{% endif %}
 {% endif %}
 
 {% include "search-form.html" %}

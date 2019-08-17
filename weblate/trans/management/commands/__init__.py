@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -25,8 +25,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from weblate.lang.models import Language
-from weblate.trans.models import Unit, Component, Translation
 from weblate.logger import LOGGER
+from weblate.trans.models import Component, Translation, Unit
 
 
 class WeblateCommand(BaseCommand):
@@ -51,6 +51,8 @@ class WeblateCommand(BaseCommand):
 
 class WeblateComponentCommand(WeblateCommand):
     """Command which accepts project/component/--all params to process."""
+    needs_repo = False
+
     def add_arguments(self, parser):
         parser.add_argument(
             '--all',
@@ -114,7 +116,12 @@ class WeblateComponentCommand(WeblateCommand):
         """Return list of components matching parameters."""
         if options['all']:
             # all components
-            result = Component.objects.all()
+            if self.needs_repo:
+                result = Component.objects.exclude(
+                    repo__startswith='weblate:/'
+                )
+            else:
+                result = Component.objects.all()
         elif not options['component']:
             # no argumets to filter projects
             self.stderr.write(

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -40,11 +40,12 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        """Create default set of languages, optionally updating them
-        to match current shipped definitions.
+        """Create default set of languages.
+
+        Optionally updating them to match current shipped definitions.
         """
         activate(options['locale'])
-        for language in Language.objects.order_by('name'):
+        for language in Language.objects.order():
             name = ugettext(language.name)
             if options['lower']:
                 name = name[0].lower() + name[1:]

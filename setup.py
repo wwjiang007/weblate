@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,84 +21,71 @@
 
 import io
 import os
-import sys
+
 from setuptools import setup
 
 # allow setup.py to be run from any path
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
-with io.open('README.rst', encoding='utf-8') as readme:
+with io.open("README.rst", encoding="utf-8") as readme:
     README = readme.read()
 
-with open('requirements.txt') as requirements:
+with open("requirements.txt") as requirements:
     REQUIRES = requirements.read().splitlines()
 
-DATA_FILES = [
-    ('share/weblate/' + root, [os.path.join(root, f) for f in files])
-    for root, dirs, files in os.walk('examples')
-]
-
 setup(
-    name='Weblate',
-    version='3.1',
-    packages=[
-        'weblate',
-    ],
+    name="Weblate",
+    version="3.9",
+    packages=["weblate"],
     include_package_data=True,
-    license='GPLv3+',
+    license="GPLv3+",
     description=(
-        'A web-based translation tool with tight version control integration'
+        "A web-based continuous localization system with "
+        "tight version control integration"
     ),
     long_description=README,
-    keywords='i18n l10n gettext git mercurial translate',
-    url='https://weblate.org/',
-    download_url='https://weblate.org/download/',
-    bugtrack_url='https://github.com/WeblateOrg/weblate/issues',
-    author='Michal Čihař',
-    author_email='michal@cihar.com',
+    long_description_content_type="text/x-rst",
+    keywords="i18n l10n gettext git mercurial translate",
+    url="https://weblate.org/",
+    download_url="https://weblate.org/download/",
+    project_urls={
+        "Issue Tracker": "https://github.com/WeblateOrg/weblate/issues",
+        "Documentation": "https://docs.weblate.org/",
+        "Source Code": "https://github.com/WeblateOrg/weblate",
+        "Twitter": "https://twitter.com/WeblateOrg",
+    },
+    author="Michal Čihař",
+    author_email="michal@cihar.com",
     install_requires=REQUIRES,
     zip_safe=False,
     extras_require={
-        'Mercurial': ['Mercurial>=2.8'],
-        'Unicode': ['pyuca>=1.1', 'python-bidi>=0.4.0', 'chardet'],
-        'Avatars': [
-            'pyLibravatar',
-            'pydns' if sys.version_info[0] == 2 else 'py3dns'
-        ],
-        'YAML': ['PyYAML>=3.0'],
-        'OCR': ['tesserocr>=1.2'],
-        'PHP': ['phply>=1.2.3'],
+        "Mercurial": ["Mercurial>=2.8"],
+        "Unicode": ["chardet"],
+        "YAML": ["ruamel.yaml"],
+        "OCR": ["tesserocr>=1.2"],
+        "PHP": ["phply>=1.2.3"],
+        "Subtitles": ["aeidon>=1.2.1"],
     },
     classifiers=[
-        'Environment :: Web Environment',
-        'Framework :: Django',
-        'Intended Audience :: Developers',
-        'Intended Audience :: System Administrators',
-        'License :: OSI Approved :: '
-        'GNU General Public License v3 or later (GPLv3+)',
-        'Operating System :: OS Independent',
-        'Development Status :: 5 - Production/Stable',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Topic :: Software Development :: Internationalization',
-        'Topic :: Software Development :: Localization',
-        'Topic :: Internet :: WWW/HTTP',
-        'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
+        "Environment :: Web Environment",
+        "Framework :: Django",
+        "Intended Audience :: Developers",
+        "Intended Audience :: System Administrators",
+        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+        "Operating System :: OS Independent",
+        "Development Status :: 5 - Production/Stable",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.4",
+        "Programming Language :: Python :: 3.5",
+        "Topic :: Software Development :: Internationalization",
+        "Topic :: Software Development :: Localization",
+        "Topic :: Internet :: WWW/HTTP",
+        "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     ],
-    entry_points={
-        'console_scripts': [
-            'weblate = weblate.runner:main',
-        ],
-    },
-    tests_require=(
-        'selenium',
-        'httpretty',
-        'boto3',
-    ),
-    test_suite='runtests.runtests',
-    data_files=DATA_FILES,
+    entry_points={"console_scripts": ["weblate = weblate.runner:main"]},
+    tests_require=("selenium", "httpretty", "boto3"),
+    test_suite="runtests.runtests",
 )

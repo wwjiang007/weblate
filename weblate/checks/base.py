@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,7 +18,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-import weblate
+from weblate.utils.docs import get_doc_url
 
 
 class Check(object):
@@ -31,7 +31,8 @@ class Check(object):
     ignore_untranslated = True
     default_disabled = False
     severity = 'info'
-    enable_check_value = False
+    batch_update = False
+    param_type = None
 
     def get_identifier(self):
         return self.check_id
@@ -61,14 +62,10 @@ class Check(object):
 
     def check_target(self, sources, targets, unit):
         """Check target strings."""
-        if self.enable_check_value:
-            return self.check_target_unit_with_flag(
-                sources, targets, unit
-            )
-        if self.should_skip(unit):
-            return False
         # No checking of not translated units
         if self.ignore_untranslated and not unit.translated:
+            return False
+        if self.should_skip(unit):
             return False
         return self.check_target_unit(sources, targets, unit)
 
@@ -108,8 +105,8 @@ class Check(object):
             return False
 
         return (
-            (src in chars and tgt not in chars) or
-            (src not in chars and tgt in chars)
+            (src in chars and tgt not in chars)
+            or (src not in chars and tgt in chars)
         )
 
     def check_ends(self, target, ends):
@@ -121,11 +118,11 @@ class Check(object):
 
     def is_language(self, unit, vals):
         """Detect whether language is in given list, ignores variants."""
-        return unit.translation.language.code.split('_')[0] in vals
+        return unit.translation.language.base_code in vals
 
     def get_doc_url(self):
         """Return link to documentation."""
-        return weblate.get_doc_url('user/checks', self.doc_id)
+        return get_doc_url('user/checks', self.doc_id)
 
     def check_highlight(self, source, unit):
         """Return parts of the text that match to hightlight them
@@ -169,14 +166,21 @@ class SourceCheck(Check):
         raise NotImplementedError()
 
 
-class TargetCheckWithFlag(Check):
+class TargetCheckParametrized(Check):
     """Basic class for target checks with flag value."""
     default_disabled = True
-    enable_check_value = True
     target = True
 
-    def check_target_unit_with_flag(self, sources, targets, unit):
+    def check_target(self, sources, targets, unit):
         """Check flag value"""
+        if unit.all_flags.has_value(self.enable_string):
+            return self.check_target_params(
+                sources, targets, unit,
+                unit.all_flags.get_value(self.enable_string)
+            )
+        return False
+
+    def check_target_params(self, sources, targets, unit, value):
         raise NotImplementedError()
 
     def check_single(self, source, target, unit):

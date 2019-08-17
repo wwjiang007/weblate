@@ -15,34 +15,55 @@ writing one.
 For example, the following automatic fixup would replace every occurrence of string
 ``foo`` in translation with ``bar``:
 
-.. literalinclude:: ../../examples/fix_foo.py
+.. literalinclude:: ../../weblate/examples/fix_foo.py
     :language: python
 
 To install custom checks, you need to provide a fully-qualified path to the Python class
-in the :setting:`AUTOFIX_LIST`, see :ref:`custom-modules`.
+in the :setting:`AUTOFIX_LIST`, see :ref:`custom-check-modules`.
 
 .. _custom-checks:
 
-Customizing checks
-------------------
+Customizing behavior
+--------------------
 
-Fine tuning existing checks
-+++++++++++++++++++++++++++
+You can fine tune Weblate behavior (mostly checks) for each source string (in
+source strings review, see :ref:`additional`) or in the :ref:`component`
+(:guilabel:`Translation flags`). Some file formats also allow to specify flags
+directly in the format.
 
-You can fine tune checks for each source string (in source strings review, see
-:ref:`additional`) or in the :ref:`component` (:guilabel:`Quality checks
-flags`); here is a list of flags currently accepted:
+Here is a list of flags currently accepted:
 
 ``rst-text``
     Treat text as RST document, effects :ref:`check-same`.
+``md-text``
+    Treat text as Markdown document.
+``dos-eol``
+    Use DOS end of line markers instead of Unix ones (``\r\n`` instead of ``\n``).
+``url``
+    The string should consist of URL only.
+``priority:N``
+    Priority of the string. Higher priority strings are presented first to translate. 
+    The default priority is 100, the higher priority string has, the earlier is 
+    offered to translate.
 ``max-length:N``
     Limit maximal length for string to N chars, see :ref:`check-max-length`
 ``xml-text``
     Treat text as XML document, affects :ref:`check-xml-invalid` and :ref:`check-xml-tags`.
-``python-format``, ``c-format``, ``php-format``, ``python-brace-format``, ``javascript-format``
+``font-family:NAME``
+    Define font family for rendering checks, see :ref:`fonts`.
+``font-weight:WEIGHT``
+    Define font weight for rendering checks, see :ref:`fonts`.
+``font-size:SIZE``
+    Define font size for rendering checks, see :ref:`fonts`.
+``font-spacing:SPACING``
+    Define font spacing for rendering checks, see :ref:`fonts`.
+``python-format``, ``c-format``, ``php-format``, ``python-brace-format``, ``javascript-format``, ``c-sharp-format``, ``java-format``, ``java-messageformat``, ``auto-java-messageformat``, ``qt-format``, ``qt-plural-format``, ``ruby-format``
     Treats all strings like format strings, affects :ref:`check-python-format`,
     :ref:`check-c-format`, :ref:`check-php-format`,
-    :ref:`check-python-brace-format`, :ref:`check-javascript-format`, :ref:`check-same`.
+    :ref:`check-qt-format`, :ref:`check-qt-plural-format`, :ref:`check-ruby-format`,
+    :ref:`check-python-brace-format`, :ref:`check-javascript-format`,
+    :ref:`check-c-sharp-format`, :ref:`check-java-format`,
+    :ref:`check-java-messageformat`, :ref:`check-same`.
 ``ignore-end-space``
     Skip the "Trailing space" quality check.
 ``ignore-inconsistent``
@@ -70,7 +91,7 @@ flags`); here is a list of flags currently accepted:
 ``ignore-c-format``
     Skip the "C format" quality check.
 ``ignore-javascript-format``
-    Skip the "Javascript format" quality check.
+    Skip the "JavaScript format" quality check.
 ``ignore-optional-plural``
     Skip the "Optional plural" quality check.
 ``ignore-end-exclamation``
@@ -97,6 +118,16 @@ flags`); here is a list of flags currently accepted:
     Skip the "Trailing stop" quality check.
 ``ignore-angularjs-format``
     Skip the "AngularJS interpolation string" quality check.
+``ignore-c-sharp-format``
+    Skip the "C# format" quality check.
+``ignore-java-format``
+    Skip the "Java format" quality check.
+``ignore-qt-format``
+    Skip the "Qt format" quality check.
+``ignore-qt-plural-format``
+    Skip the "Qt plural format" quality check.
+``ignore-ruby-format``
+    Skip the "Ruby format" quality check.
 
 .. note::
 
@@ -106,8 +137,44 @@ flags`); here is a list of flags currently accepted:
 These flags are understood both in :ref:`component` settings, per source string
 settings and in translation file itself (eg. in GNU Gettext).
 
+.. _fonts:
+
+Managing fonts
+--------------
+
+.. versionadded:: 3.7
+
+The :ref:`check-max-size` check needs fonts to properly calculate dimensions
+of rendered text. The fonts can be managed in Weblate in the font management
+tool which you can find as :guilabel:`Fonts` under :guilabel:`Tools` menu of
+your translation project.
+
+You can upload TrueType or OpenType fonts, configure font groups and use those
+in the the check.
+
+The font groups allow you to define different fonts for different languages,
+what is typically needed for non latin languages:
+
+.. image:: /images/font-group-edit.png
+
+The font groups are identified by name, which can not contain whitespace or
+special chars to be easy to use in check definition:
+
+.. image:: /images/font-group-list.png
+
+After upload the font family and style is automatically recognized:
+
+.. image:: /images/font-edit.png
+
+You can have number of fonts loaded into Weblate:
+
+.. image:: /images/font-list.png
+
+
+.. _own-checks:
+
 Writing own checks
-++++++++++++++++++
+------------------
 
 Weblate comes with wide range of quality checks (see :ref:`checks`), though
 they might not 100% cover all you want to check. The list of performed checks
@@ -118,7 +185,7 @@ one if you want to deal with plurals in your code, the latter one does this for
 you). You will find below some examples.
 
 To install custom checks, you need to provide a fully-qualified path to the Python class
-in the :setting:`CHECK_LIST`, see :ref:`custom-modules`.
+in the :setting:`CHECK_LIST`, see :ref:`custom-check-modules`.
 
 Checking translation text does not contain "foo"
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -126,7 +193,7 @@ Checking translation text does not contain "foo"
 This is a pretty simple check which just checks whether translation does not
 contain string "foo".
 
-.. literalinclude:: ../../examples/check_foo.py
+.. literalinclude:: ../../weblate/examples/check_foo.py
     :language: python
 
 Checking Czech translation text plurals differ
@@ -135,74 +202,5 @@ Checking Czech translation text plurals differ
 Check using language information to verify that two plural forms in Czech
 language are not same.
 
-.. literalinclude:: ../../examples/check_czech.py
+.. literalinclude:: ../../weblate/examples/check_czech.py
     :language: python
-
-.. _custom-modules:
-
-Using custom modules and classes
---------------------------------
-
-You have implemented code for :ref:`custom-autofix` or :ref:`custom-checks` and
-now it's time to install it into Weblate. That can be achieved by adding its
-fully-qualified path to Python class to appropriate settings.
-
-This means that the module with class needs to be placed somewhere where the Python
-interpreter can import it - either in system path (usually something like
-:file:`/usr/lib/python2.7/site-packages/`) or in Weblate directory, which is
-also added to the interpreter search path.
-
-Assuming you've created :file:`mahongo.py` containing your custom quality check,
-you can place it among Weblate checks in :file:`weblate/trans/checks/` folder
-and then add it as following:
-
-.. code-block:: python
-
-    CHECK_LIST = (
-        'weblate.checks.mahongo.MahongoCheck',
-    )
-
-As you can see, it's a comma-separated path to your module and class name.
-
-Alternatively, you can create a proper Python package out of your customization:
-
-1. Place your Python module with check into folder which will match your 
-   package name. We're using `weblate_custom_checks` in following examples.
-2. Add empty :file:`__init__.py` file to the same directory. This ensures Python
-   can import this whole package.
-3. Write :file:`setup.py` in parent directory to describe your package:
-
-    .. code-block:: python
-
-        from setuptools import setup
-
-        setup(
-            name = "weblate_custom_checks",
-            version = "0.0.1",
-            author = "Michal Cihar",
-            author_email = "michal@cihar.com",
-            description = "Sample Custom check for Weblate.",
-            license = "BSD",
-            keywords = "weblate check example",
-            packages=['weblate_custom_checks'],
-        )
-
-4. Now you can install it using :command:`python setup.py install`
-5. Once installed into system Python path, you can use it from there:
-
-    .. code-block:: python
-
-        CHECK_LIST = (
-            'weblate_custom_checks.mahongo.MahongoCheck',
-        )
-
-
-Overall your module structure should look like:
-
-.. code-block:: text
-
-    weblate_custom_checks
-    ├── setup.py
-    └── weblate_custom_checks
-        ├── __init__.py
-        └── mahongo.py

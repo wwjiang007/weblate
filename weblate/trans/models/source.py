@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,14 +21,14 @@
 from __future__ import unicode_literals
 
 from django.apps import apps
-from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.urls import reverse
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.functional import cached_property
 
+from weblate.checks import CHECKS
+from weblate.checks.models import Check
 from weblate.trans.validators import validate_check_flags
-from weblate.trans.util import PRIORITY_CHOICES
 
 
 @python_2_unicode_compatible
@@ -38,10 +38,6 @@ class Source(models.Model):
         'Component', on_delete=models.deletion.CASCADE
     )
     timestamp = models.DateTimeField(auto_now_add=True)
-    priority = models.IntegerField(
-        default=100,
-        choices=PRIORITY_CHOICES,
-    )
     check_flags = models.TextField(
         default='',
         validators=[validate_check_flags],
@@ -52,7 +48,6 @@ class Source(models.Model):
     class Meta(object):
         app_label = 'trans'
         unique_together = ('id_hash', 'component')
-        ordering = ('id', )
 
     @cached_property
     def units_model(self):
@@ -62,7 +57,6 @@ class Source(models.Model):
 
     def __init__(self, *args, **kwargs):
         super(Source, self).__init__(*args, **kwargs)
-        self.priority_modified = False
         self.check_flags_modified = False
 
     def __str__(self):
@@ -70,33 +64,30 @@ class Source(models.Model):
 
     def save(self, force_insert=False, **kwargs):
         """
-        Wrapper around save to indicate whether priority has been
+        Wrapper around save to indicate whether flags has been
         modified.
         """
         if force_insert:
-            self.priority_modified = (self.priority != 100)
             self.check_flags_modified = (self.check_flags != '')
         else:
             old = Source.objects.get(pk=self.pk)
-            self.priority_modified = (old.priority != self.priority)
             self.check_flags_modified = (old.check_flags != self.check_flags)
         super(Source, self).save(force_insert, **kwargs)
 
-    @property
+    @cached_property
     def unit(self):
         try:
-            translation = self.component.translation_set.all()[0]
+            return self.units[0]
         except IndexError:
             return None
-        try:
-            return translation.unit_set.get(id_hash=self.id_hash)
-        except ObjectDoesNotExist:
-            return None
 
+    @cached_property
     def units(self):
         return self.units_model.objects.filter(
             id_hash=self.id_hash,
             translation__component=self.component
+        ).prefetch_related(
+            'translation', 'translation__component'
         )
 
     def get_absolute_url(self):
@@ -104,3 +95,64 @@ class Source(models.Model):
             'project': self.component.project.slug,
             'component': self.component.slug,
         })
+
+    def run_checks(self, unit=None, project=None, batch=False):
+        """Update checks for this unit."""
+        if unit is None:
+            try:
+                unit = self.units[0]
+            except IndexError:
+                return
+
+        content_hash = unit.content_hash
+        src = unit.get_source_plurals()
+        if project is None:
+            project = self.component.project
+
+        # Fetch old checks
+        if self.component.checks_cache is not None:
+            old_checks = self.component.checks_cache.get(
+                (content_hash, None), []
+            )
+        else:
+            old_checks = set(
+                Check.objects.filter(
+                    content_hash=content_hash,
+                    project=project,
+                    language=None
+                ).values_list('check', flat=True)
+            )
+        create = []
+
+        # Run all source checks
+        for check, check_obj in CHECKS.items():
+            if batch and check_obj.batch_update:
+                if check in old_checks:
+                    # Do not remove batch checks in batch processing
+                    old_checks.remove(check)
+                continue
+            if check_obj.source and check_obj.check_source(src, unit):
+                if check in old_checks:
+                    # We already have this check
+                    old_checks.remove(check)
+                else:
+                    # Create new check
+                    create.append(Check(
+                        content_hash=content_hash,
+                        project=project,
+                        language=None,
+                        ignore=False,
+                        check=check
+                    ))
+
+        if create:
+            Check.objects.bulk_create_ignore(create)
+
+        # Remove stale checks
+        if old_checks:
+            Check.objects.filter(
+                content_hash=content_hash,
+                project=project,
+                language=None,
+                check__in=old_checks
+            ).delete()

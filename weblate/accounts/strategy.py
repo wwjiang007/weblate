@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,9 +21,16 @@
 from importlib import import_module
 
 from django.conf import settings
+from django.urls import reverse
 from django.utils.http import is_safe_url
-
 from social_django.strategy import DjangoStrategy
+
+from weblate.utils.site import get_site_url
+
+
+def create_session(*args):
+    engine = import_module(settings.SESSION_ENGINE)
+    return engine.SessionStore(*args)
 
 
 class WeblateStrategy(DjangoStrategy):
@@ -32,11 +39,8 @@ class WeblateStrategy(DjangoStrategy):
         Restores session data based on passed ID.
         """
         super(WeblateStrategy, self).__init__(storage, request, tpl)
-        if (request and
-                'verification_code' in request.GET and
-                'id' in request.GET):
-            engine = import_module(settings.SESSION_ENGINE)
-            self.session = engine.SessionStore(request.GET['id'])
+        if request and 'verification_code' in request.GET and 'id' in request.GET:
+            self.session = create_session(request.GET['id'])
 
     def request_data(self, merge=True):
         if not self.request:
@@ -52,5 +56,19 @@ class WeblateStrategy(DjangoStrategy):
         # - https://github.com/python-social-auth/social-core/pull/92
         # - https://github.com/python-social-auth/social-core/issues/62
         if 'next' in data and not is_safe_url(data['next'], allowed_hosts=None):
-            data['next'] = '/accounts/profile/#auth'
+            data['next'] = '{0}#account'.format(reverse('profile'))
         return data
+
+    def build_absolute_uri(self, path=None):
+        if self.request:
+            self.request.__dict__['_current_scheme_host'] = get_site_url()
+        return super(WeblateStrategy, self).build_absolute_uri(path)
+
+    def clean_partial_pipeline(self, token):
+        # The cleanup somehow breaks our partial pipelines, simply skip
+        # it for now
+        # See https://github.com/python-social-auth/social-core/issues/287
+        return
+
+    def really_clean_partial_pipeline(self, token):
+        super(WeblateStrategy, self).clean_partial_pipeline(token)

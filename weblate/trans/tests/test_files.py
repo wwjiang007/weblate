@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,7 +22,7 @@
 
 from __future__ import unicode_literals
 
-from unittest import SkipTest
+from copy import copy
 
 from django.contrib.messages import ERROR
 from django.test import SimpleTestCase
@@ -42,6 +42,7 @@ TEST_BADPLURALS = get_test_file('cs-badplurals.po')
 TEST_MO = get_test_file('cs.mo')
 TEST_XLIFF = get_test_file('cs.poxliff')
 TEST_ANDROID = get_test_file('strings-cs.xml')
+TEST_XLSX = get_test_file('cs.xlsx')
 
 TRANSLATION_OURS = 'Nazdar světe!\n'
 TRANSLATION_PO = 'Ahoj světe!\n'
@@ -94,40 +95,11 @@ class ImportTest(ImportBaseTest):
         unit = self.get_unit()
         self.assertEqual(unit.target, TRANSLATION_PO)
 
-    def test_import_header(self):
-        """Test importing with header merge."""
-        response = self.do_import(
-            merge_header='1',
-        )
-        self.assertRedirects(response, self.translation_url)
-
-        # Verify stats
-        translation = self.get_translation()
-        self.assertEqual(translation.stats.translated, 1)
-        self.assertEqual(translation.stats.fuzzy, 0)
-        self.assertEqual(translation.stats.all, 4)
-
-        # Verify unit
-        unit = self.get_unit()
-        self.assertEqual(unit.target, TRANSLATION_PO)
-
-        # Verify header
-        if (self.test_file == TEST_PO and
-                hasattr(unit.translation.store.store, 'parseheader')):
-            header = unit.translation.store.store.parseheader()
-            self.assertEqual(
-                header['POT-Creation-Date'], '2000-01-02 03:04+0100'
-            )
-            self.assertIn(
-                'Testing Weblate, 2015.',
-                unit.translation.store.store.header().getnotes()
-            )
-
     def test_import_author(self):
         """Test importing normally."""
         response = self.do_import(
             author_name='Testing User',
-            author_email='noreply@weblate.org'
+            author_email='john@example.com',
         )
         self.assertRedirects(response, self.translation_url)
 
@@ -249,7 +221,7 @@ class ImportFuzzyTest(ImportBaseTest):
         self.assertEqual(translation.stats.all, 4)
 
     def test_import_process(self):
-        """Test importing normally."""
+        """Test importing including fuzzy strings."""
         response = self.do_import(
             fuzzy='process'
         )
@@ -262,7 +234,7 @@ class ImportFuzzyTest(ImportBaseTest):
         self.assertEqual(translation.stats.all, 4)
 
     def test_import_approve(self):
-        """Test importing normally."""
+        """Test importing ignoring fuzzy flag."""
         response = self.do_import(
             fuzzy='approve'
         )
@@ -270,6 +242,20 @@ class ImportFuzzyTest(ImportBaseTest):
 
         # Verify stats
         translation = self.get_translation()
+        self.assertEqual(translation.stats.translated, 1)
+        self.assertEqual(translation.stats.fuzzy, 0)
+        self.assertEqual(translation.stats.all, 4)
+
+    def test_import_review(self):
+        """Test importing as approved."""
+        self.project.enable_review = True
+        self.project.save()
+        response = self.do_import(method='approve', fuzzy='approve')
+        self.assertRedirects(response, self.translation_url)
+
+        # Verify stats
+        translation = self.get_translation()
+        self.assertEqual(translation.stats.approved, 1)
         self.assertEqual(translation.stats.translated, 1)
         self.assertEqual(translation.stats.fuzzy, 0)
         self.assertEqual(translation.stats.all, 4)
@@ -309,15 +295,8 @@ class ImportPHPMonoTest(ImportTest):
 
 
 class StringsImportTest(ImportTest):
-    """Testing of mo file imports."""
-    test_file = TEST_PO
-
     def create_component(self):
         return self.create_iphone()
-
-    def test_import_fuzzy(self):
-        # Does not make sense here
-        raise SkipTest('Fuzzy flag not supported on Strings format')
 
 
 class AndroidImportTest(ViewTestCase):
@@ -338,6 +317,22 @@ class AndroidImportTest(ViewTestCase):
         self.assertEqual(translation.stats.translated, 2)
         self.assertEqual(translation.stats.fuzzy, 0)
         self.assertEqual(translation.stats.all, 4)
+
+    def test_replace(self):
+        self.user.is_superuser = True
+        self.user.save()
+        kwargs = copy(self.kw_translation)
+        kwargs['lang'] = 'en'
+        with open(TEST_ANDROID, 'rb') as handle:
+            self.client.post(
+                reverse('upload_translation', kwargs=kwargs),
+                {'file': handle, 'method': 'replace'}
+            )
+        # Verify stats
+        translation = self.get_translation()
+        self.assertEqual(translation.stats.translated, 0)
+        self.assertEqual(translation.stats.fuzzy, 0)
+        self.assertEqual(translation.stats.all, 2)
 
 
 class CSVImportTest(ViewTestCase):
@@ -369,8 +364,20 @@ class CSVQuotesEscapedImportTest(CSVImportTest):
     test_file = TEST_CSV_QUOTES_ESCAPED
 
 
+class XlsxImportTest(CSVImportTest):
+    test_file = TEST_XLSX
+
+
 class ExportTest(ViewTestCase):
     """Testing of file export."""
+    source = 'Hello, world!\n'
+    target = 'Nazdar svete!\n'
+    test_match_1 = 'Weblate Hello World 2016'
+    test_match_2 = 'Nazdar svete!'
+    test_header = 'attachment; filename=test-test-cs.po'
+    test_source = 'Orangutan has %d banana'
+    test_source_plural = 'Orangutan has %d bananas'
+
     def create_component(self):
         # Needs to create PO file to have language pack option
         return self.create_po()
@@ -378,10 +385,7 @@ class ExportTest(ViewTestCase):
     def setUp(self):
         super(ExportTest, self).setUp()
         # Add some content so that .mo files is non empty
-        self.edit_unit(
-            'Hello, world!\n',
-            'Nazdar svete!\n'
-        )
+        self.edit_unit(self.source, self.target)
 
     def test_export(self):
         response = self.client.get(
@@ -390,66 +394,92 @@ class ExportTest(ViewTestCase):
                 kwargs=self.kw_translation
             )
         )
-        self.assertContains(response, 'Weblate Hello World 2016')
-        self.assertContains(response, 'Nazdar svete!')
-        self.assertEqual(
-            response['Content-Disposition'],
-            'attachment; filename=test-test-cs.po'
-        )
+        self.assertContains(response, self.test_match_1)
+        self.assertContains(response, self.test_match_2)
+        self.assertEqual(response['Content-Disposition'], self.test_header)
 
     def export_format(self, fmt, **extra):
-        kwargs = {'fmt': fmt}
-        kwargs.update(self.kw_translation)
+        extra['format'] = fmt
         return self.client.get(
             reverse(
-                'download_translation_format',
-                kwargs=kwargs
+                'download_translation',
+                kwargs=self.kw_translation,
             ),
-            **extra
+            extra
         )
 
     def test_export_po(self):
         response = self.export_format('po')
-        self.assertContains(
-            response, 'Orangutan has %d bananas'
-        )
+        self.assertContains(response, self.test_source)
+        self.assertContains(response, self.test_source_plural)
         self.assertContains(
             response, '/projects/test/test/cs/'
         )
 
     def test_export_po_todo(self):
         response = self.export_format('po', type='todo')
-        self.assertContains(
-            response, 'Orangutan has %d bananas'
-        )
+        self.assertContains(response, self.test_source)
+        self.assertContains(response, self.test_source_plural)
         self.assertContains(
             response, '/projects/test/test/cs/'
         )
 
     def test_export_tmx(self):
         response = self.export_format('tmx')
-        self.assertContains(
-            response, 'Orangutan has %d banana'
-        )
+        self.assertContains(response, self.test_source)
 
     def test_export_xliff(self):
         response = self.export_format('xliff')
-        self.assertContains(
-            response, 'Orangutan has %d banana'
-        )
+        self.assertContains(response, self.test_source)
+        self.assertContains(response, self.test_source_plural)
 
     def test_export_xliff11(self):
         response = self.export_format('xliff11')
         self.assertContains(
             response, 'urn:oasis:names:tc:xliff:document:1.1'
         )
-        self.assertContains(
-            response, 'Orangutan has %d banana'
+        self.assertContains(response, self.test_source)
+
+    def test_export_xlsx(self):
+        response = self.export_format('xlsx')
+        self.assertEqual(
+            response['Content-Disposition'],
+            'attachment; filename=test-test-cs.xlsx'
+        )
+        self.assertEqual(
+            response['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            '; charset=utf-8'
+        )
+
+    def test_export_xlsx_empty(self):
+        response = self.export_format('xlsx', type='check:inconsistent')
+        self.assertEqual(
+            response['Content-Disposition'],
+            'attachment; filename=test-test-cs.xlsx'
+        )
+        self.assertEqual(
+            response['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            '; charset=utf-8'
         )
 
     def test_export_invalid(self):
         response = self.export_format('invalid')
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 302)
+
+
+class ExportMultifileTest(ExportTest):
+    source = 'Weblate - continuous localization'
+    target = 'Weblate - průběžná lokalizace'
+    test_match_1 = b'PK\001\002'
+    test_match_2 = b'PK\005\006'
+    test_header = 'attachment; filename=test-test-cs.zip'
+    test_source = 'https://www.youtube.com/watch?v=IVlXt6QdgdA'
+    test_source_plural = 'https://www.youtube.com/watch?v=IVlXt6QdgdA'
+
+    def create_component(self):
+        return self.create_appstore()
 
 
 class FormTest(SimpleTestCase):
@@ -458,5 +488,25 @@ class FormTest(SimpleTestCase):
         form.remove_translation_choice('suggest')
         self.assertEqual(
             [x[0] for x in form.fields['method'].choices],
-            ['translate', 'fuzzy']
+            ['translate', 'approve', 'fuzzy', 'replace']
         )
+
+
+class ImportReplaceTest(ImportBaseTest):
+    """Testing of file imports."""
+    test_file = TEST_BADPLURALS
+
+    def test_import(self):
+        """Test importing normally."""
+        response = self.do_import(method="replace")
+        self.assertRedirects(response, self.translation_url)
+
+        # Verify stats
+        translation = self.get_translation()
+        self.assertEqual(translation.stats.translated, 1)
+        self.assertEqual(translation.stats.fuzzy, 0)
+        self.assertEqual(translation.stats.all, 1)
+
+        # Verify unit
+        unit = self.get_unit()
+        self.assertEqual(unit.target, TRANSLATION_PO)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2017 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,16 +17,3 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-
-
-from django.db.models.signals import post_migrate
-from django.dispatch import receiver
-
-from weblate.memory.storage import setup_index
-
-
-@receiver(post_migrate)
-def create_index(sender=None, **kwargs):
-    """Automatically creates storage directory."""
-    if sender.label == 'memory':
-        setup_index()

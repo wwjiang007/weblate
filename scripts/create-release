@@ -13,42 +13,53 @@ if ! git diff --exit-code --quiet ; then
 fi
 
 # Grab version
-version=`DJANGO_SETTINGS_MODULE=weblate.settings_example python -c 'import weblate; print weblate.VERSION_BASE'`
+version=`DJANGO_SETTINGS_MODULE=weblate.settings_example python -c 'import weblate; print(weblate.VERSION_BASE)'`
 namever=weblate-$version
 tarver=Weblate-$version
 
 # What are we going to build?
 if [ "x$1" = "x--tag" ] ; then
-    sed -i "s/^VERSION =.*/VERSION = '$version'/" weblate/__init__.py
-    if ! git diff --exit-code --quiet ; then
-        git commit -s -m "Releasing $version" -- weblate/__init__.py
-    fi
-    rev=$namever
-    git tag -s $rev -m "Version $version"
-    cd ../weblate-test
-    git tag -s $rev -m "Test data for version $version"
-    cd ../weblate
+    ./scripts/prepare-release
+    git tag -s $namever -m "Version $version"
+    cd ~/weblate/test
+    git pull -q
+    git tag -s $namever -m "Test data for version $version"
+    cd ~/weblate/weblate
 fi
 
 # Compile po files
 ./scripts/generate-locales
 
-if [ "x$1" = "x--tag" ] ; then
-    # PyPi archive
-    fakeroot ./setup.py sdist upload
-    # Create Wheel
-    # Skipped for now as it tends to include even files not in dist
-    #    fakeroot ./setup.py bdist_wheel --universal upload
-else
-    # Create tarball
-    fakeroot ./setup.py sdist
-fi
+# Create tarballs
+fakeroot ./setup.py sdist
 
-# Build tarballs
+# Recompress tarballs
 zcat dist/$tarver.tar.gz | xz > dist/$tarver.tar.xz
 zcat dist/$tarver.tar.gz | bzip2 > dist/$tarver.tar.bz2
 
+# Upload release
 if [ "x$1" = "x--tag" ] ; then
+    # PyPi archive upload
+    twine upload --sign --identity 63CB1DF1EF12CF2AC0EE5A329C27B31342B7511D dist/$tarver.tar.gz
+
+    # Sign remaining files
+    gpg --detach-sign --armor --local-user 63CB1DF1EF12CF2AC0EE5A329C27B31342B7511D dist/$tarver.tar.xz
+    gpg --detach-sign --armor --local-user 63CB1DF1EF12CF2AC0EE5A329C27B31342B7511D dist/$tarver.tar.bz2
+
     # Download server
     scp dist/Weblate-$version.tar.* web:/srv/http/dl.cihar.com/weblate/
+
+    # Git tags
+    git push --tags
+    cd ~/weblate/test
+    git push --tags
+    cd ~/weblate/weblate
+
+    # Upload to GitHub
+    ./scripts/extract-release-notes $version > dist/Weblate-$version.md
+    hub release create --file=dist/Weblate-$version.md $namever
+    hub release edit -m '' --attach=dist/$tarver.tar.gz $namever
+    hub release edit -m '' --attach=dist/$tarver.tar.gz.asc $namever
+    hub release edit -m '' --attach=dist/$tarver.tar.xz $namever
+    hub release edit -m '' --attach=dist/$tarver.tar.xz.asc $namever
 fi

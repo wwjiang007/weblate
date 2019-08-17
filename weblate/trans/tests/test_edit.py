@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,20 +21,24 @@
 """Test for translation views."""
 
 from __future__ import unicode_literals
+
 import time
 
 from django.urls import reverse
 
-from weblate.trans.tests.test_views import ViewTestCase
 from weblate.trans.models import Change
+from weblate.trans.tests.test_views import ViewTestCase
 from weblate.utils.hash import hash_to_checksum
-from weblate.utils.state import STATE_TRANSLATED, STATE_FUZZY
+from weblate.utils.state import STATE_FUZZY, STATE_TRANSLATED
 
 
 class EditTest(ViewTestCase):
     """Test for manipulating translation."""
     has_plurals = True
-    monolingual = False
+    source = 'Hello, world!\n'
+    target = 'Nazdar svete!\n'
+    second_target = 'Ahoj svete!\n'
+    already_translated = 0
 
     def setUp(self):
         super(EditTest, self).setUp()
@@ -42,43 +46,34 @@ class EditTest(ViewTestCase):
         self.translate_url = reverse('translate', kwargs=self.kw_translation)
 
     def test_edit(self):
-        response = self.edit_unit(
-            'Hello, world!\n',
-            'Nazdar svete!\n'
-        )
+        response = self.edit_unit(self.source, self.target)
         # We should get to second message
-        self.assert_redirects_offset(response, self.translate_url, 1)
-        unit = self.get_unit()
-        self.assertEqual(unit.target, 'Nazdar svete!\n')
+        self.assert_redirects_offset(response, self.translate_url, 2)
+        unit = self.get_unit(source=self.source)
+        self.assertEqual(unit.target, self.target)
         self.assertEqual(len(unit.checks()), 0)
         self.assertEqual(unit.state, STATE_TRANSLATED)
-        self.assert_backend(1)
+        self.assert_backend(self.already_translated + 1)
 
         # Test that second edit with no change does not break anything
-        response = self.edit_unit(
-            'Hello, world!\n',
-            'Nazdar svete!\n'
-        )
+        response = self.edit_unit(self.source, self.target)
         # We should get to second message
-        self.assert_redirects_offset(response, self.translate_url, 1)
-        unit = self.get_unit()
-        self.assertEqual(unit.target, 'Nazdar svete!\n')
+        self.assert_redirects_offset(response, self.translate_url, 2)
+        unit = self.get_unit(source=self.source)
+        self.assertEqual(unit.target, self.target)
         self.assertEqual(len(unit.checks()), 0)
         self.assertEqual(unit.state, STATE_TRANSLATED)
-        self.assert_backend(1)
+        self.assert_backend(self.already_translated + 1)
 
         # Test that third edit still works
-        response = self.edit_unit(
-            'Hello, world!\n',
-            'Ahoj svete!\n'
-        )
+        response = self.edit_unit(self.source, self.second_target)
         # We should get to second message
-        self.assert_redirects_offset(response, self.translate_url, 1)
-        unit = self.get_unit()
-        self.assertEqual(unit.target, 'Ahoj svete!\n')
+        self.assert_redirects_offset(response, self.translate_url, 2)
+        unit = self.get_unit(source=self.source)
+        self.assertEqual(unit.target, self.second_target)
         self.assertEqual(len(unit.checks()), 0)
         self.assertEqual(unit.state, STATE_TRANSLATED)
-        self.assert_backend(1)
+        self.assert_backend(self.already_translated + 1)
 
     def test_plurals(self):
         """Test plural editing."""
@@ -92,7 +87,7 @@ class EditTest(ViewTestCase):
             target_2='Opice má %d banánů.\n',
         )
         # We should get to second message
-        self.assert_redirects_offset(response, self.translate_url, 1)
+        self.assert_redirects_offset(response, self.translate_url, 2)
         # Check translations
         unit = self.get_unit('Orangutan')
         plurals = unit.get_target_plurals()
@@ -112,35 +107,24 @@ class EditTest(ViewTestCase):
 
     def test_fuzzy(self):
         """Test for fuzzy flag handling."""
-        unit = self.get_unit()
+        unit = self.get_unit(source=self.source)
         self.assertNotEqual(unit.state, STATE_FUZZY)
-        self.edit_unit(
-            'Hello, world!\n',
-            'Nazdar svete!\n',
-            fuzzy='yes',
-            review='10',
-        )
-        unit = self.get_unit()
+        self.edit_unit(self.source, self.target, fuzzy='yes', review='10')
+        unit = self.get_unit(source=self.source)
         self.assertEqual(unit.state, STATE_FUZZY)
-        self.assertEqual(unit.target, 'Nazdar svete!\n')
+        self.assertEqual(unit.target, self.target)
         self.assertFalse(unit.has_failing_check)
-        self.edit_unit(
-            'Hello, world!\n',
-            'Nazdar svete!\n',
-        )
-        unit = self.get_unit()
+        self.edit_unit(self.source, self.target)
+        unit = self.get_unit(source=self.source)
         self.assertEqual(unit.state, STATE_TRANSLATED)
-        self.assertEqual(unit.target, 'Nazdar svete!\n')
+        self.assertEqual(unit.target, self.target)
         self.assertFalse(unit.has_failing_check)
-        self.edit_unit(
-            'Hello, world!\n',
-            'Nazdar svete!\n',
-            fuzzy='yes'
-        )
-        unit = self.get_unit()
+        self.edit_unit(self.source, self.target, fuzzy='yes')
+        unit = self.get_unit(source=self.source)
         self.assertEqual(unit.state, STATE_FUZZY)
-        self.assertEqual(unit.target, 'Nazdar svete!\n')
-        self.assertFalse(unit.has_failing_check)
+        self.assertEqual(unit.target, self.target)
+        # Should have was translated check
+        self.assertTrue(unit.has_failing_check)
 
 
 class EditValidationTest(ViewTestCase):
@@ -168,7 +152,7 @@ class EditValidationTest(ViewTestCase):
     def test_edit_spam(self):
         """Editing with spam trap."""
         response = self.edit(content='1')
-        self.assertContains(response, 'po/\u200Bcs.po, string 2')
+        self.assertContains(response, 'po/cs.po, string 2')
 
     def test_merge(self):
         """Merging with invalid parameter."""
@@ -214,7 +198,6 @@ class EditValidationTest(ViewTestCase):
 
 class EditResourceTest(EditTest):
     has_plurals = False
-    monolingual = True
 
     def create_component(self):
         return self.create_android()
@@ -243,7 +226,7 @@ class EditResourceSourceTest(ViewTestCase):
             'Nazdar svete!\n'
         )
         # We should get to second message
-        self.assert_redirects_offset(response, translate_url, 1)
+        self.assert_redirects_offset(response, translate_url, 2)
         unit = self.get_unit('Nazdar svete!\n')
         self.assertEqual(unit.target, 'Nazdar svete!\n')
         self.assertEqual(len(unit.checks()), 0)
@@ -284,7 +267,7 @@ class EditResourceSourceTest(ViewTestCase):
         unit = translation.unit_set.get(context='hello')
         self.assertEqual(unit.state, STATE_TRANSLATED)
 
-    def get_translation(self):
+    def get_translation(self, language=None):
         return self.component.translation_set.get(
             language_code=self._language_code
         )
@@ -304,7 +287,6 @@ class EditMercurialTest(EditTest):
 
 
 class EditPoMonoTest(EditTest):
-    monolingual = True
 
     def create_component(self):
         return self.create_po_mono()
@@ -342,7 +324,6 @@ class EditPoMonoTest(EditTest):
 
 class EditIphoneTest(EditTest):
     has_plurals = False
-    monolingual = True
 
     def create_component(self):
         return self.create_iphone()
@@ -350,7 +331,6 @@ class EditIphoneTest(EditTest):
 
 class EditJSONTest(EditTest):
     has_plurals = False
-    monolingual = True
 
     def create_component(self):
         return self.create_json()
@@ -358,7 +338,6 @@ class EditJSONTest(EditTest):
 
 class EditJoomlaTest(EditTest):
     has_plurals = False
-    monolingual = True
 
     def create_component(self):
         return self.create_joomla()
@@ -366,7 +345,6 @@ class EditJoomlaTest(EditTest):
 
 class EditRubyYAMLTest(EditTest):
     has_plurals = False
-    monolingual = True
 
     def create_component(self):
         return self.create_ruby_yaml()
@@ -374,7 +352,6 @@ class EditRubyYAMLTest(EditTest):
 
 class EditDTDTest(EditTest):
     has_plurals = False
-    monolingual = True
 
     def create_component(self):
         return self.create_dtd()
@@ -382,7 +359,6 @@ class EditDTDTest(EditTest):
 
 class EditJSONMonoTest(EditTest):
     has_plurals = False
-    monolingual = True
 
     def create_component(self):
         return self.create_json_mono()
@@ -390,10 +366,20 @@ class EditJSONMonoTest(EditTest):
 
 class EditJavaTest(EditTest):
     has_plurals = False
-    monolingual = True
 
     def create_component(self):
         return self.create_java()
+
+
+class EditAppStoreTest(EditTest):
+    has_plurals = False
+    source = 'Weblate - continuous localization'
+    target = 'Weblate - průběžná lokalizace'
+    second_target = 'Weblate - průběžný překlad'
+    already_translated = 2
+
+    def create_component(self):
+        return self.create_appstore()
 
 
 class EditXliffComplexTest(EditTest):
@@ -401,6 +387,17 @@ class EditXliffComplexTest(EditTest):
 
     def create_component(self):
         return self.create_xliff('complex')
+
+    def test_invalid_xml(self):
+        self.edit_unit('Hello, world!\n', 'Nazdar & svete!\n')
+        self.assert_backend(1)
+
+
+class EditXliffResnameTest(EditTest):
+    has_plurals = False
+
+    def create_component(self):
+        return self.create_xliff('only-resname')
 
 
 class EditXliffTest(EditTest):
@@ -412,7 +409,6 @@ class EditXliffTest(EditTest):
 
 class EditXliffMonoTest(EditTest):
     has_plurals = False
-    monolingual = True
 
     def create_component(self):
         return self.create_xliff_mono()
@@ -430,7 +426,6 @@ class EditTSTest(EditTest):
 
 class EditTSMonoTest(EditTest):
     has_plurals = False
-    monolingual = True
 
     def create_component(self):
         return self.create_ts_mono()
@@ -482,7 +477,7 @@ class ZenViewTest(ViewTestCase):
     def test_load_zen_offset(self):
         response = self.client.get(
             reverse('load_zen', kwargs=self.kw_translation),
-            {'offset': '1'}
+            {'offset': '2'}
         )
         self.assertNotContains(
             response,
@@ -563,7 +558,7 @@ class EditComplexTest(ViewTestCase):
         self.assert_backend(1)
         # We should stay on same message
         self.assert_redirects_offset(
-            response, self.translate_url, unit.position
+            response, self.translate_url, unit.position + 1
         )
 
         # Test error handling
@@ -591,7 +586,7 @@ class EditComplexTest(ViewTestCase):
             target_2
         )
         unit = self.get_unit()
-        changes = Change.objects.content().filter(unit=unit)
+        changes = Change.objects.content().filter(unit=unit).order()
         self.assertEqual(changes[1].target, target)
         self.assertEqual(changes[0].target, target_2)
         self.assert_backend(1)
@@ -610,33 +605,13 @@ class EditComplexTest(ViewTestCase):
         unit2 = self.get_unit(
             source='Thank you for using Weblate.'
         )
-        change = Change.objects.filter(unit=unit2)[0]
+        change = Change.objects.filter(unit=unit2).order()[0]
         response = self.client.get(
             self.translate_url,
             {'checksum': unit.checksum, 'revert': change.id}
         )
         self.assertContains(response, 'Invalid revert request!')
         self.assert_backend(2)
-
-    def test_edit_message(self):
-        # Save with failing check
-        response = self.edit_unit(
-            'Hello, world!\n',
-            'Nazdar svete!',
-            commit_message='Fixing issue #666',
-        )
-        # We should get to second message
-        self.assert_redirects_offset(response, self.translate_url, 1)
-
-        # Did the commit message got stored?
-        translation = self.get_translation()
-        self.assertEqual(
-            'Fixing issue #666',
-            translation.commit_message
-        )
-
-        # Try commiting
-        translation.commit_pending(self.get_request('/'))
 
     def test_edit_fixup(self):
         # Save with failing check
@@ -645,7 +620,7 @@ class EditComplexTest(ViewTestCase):
             'Nazdar svete!'
         )
         # We should get to second message
-        self.assert_redirects_offset(response, self.translate_url, 1)
+        self.assert_redirects_offset(response, self.translate_url, 2)
         unit = self.get_unit()
         self.assertEqual(unit.target, 'Nazdar svete!\n')
         self.assertFalse(unit.has_failing_check)
@@ -661,7 +636,7 @@ class EditComplexTest(ViewTestCase):
             'Hello, world!\n',
         )
         # We should stay on current message
-        self.assert_redirects_offset(response, self.translate_url, 0)
+        self.assert_redirects_offset(response, self.translate_url, 1)
         unit = self.get_unit()
         self.assertEqual(unit.target, 'Hello, world!\n')
         self.assertTrue(unit.has_failing_check)
@@ -670,7 +645,7 @@ class EditComplexTest(ViewTestCase):
         self.assertEqual(unit.translation.stats.allchecks, 1)
 
         # Ignore check
-        check_id = unit.checks()[0].id
+        check_id = unit.active_checks()[0].id
         response = self.client.get(
             reverse('js-ignore-check', kwargs={'check_id': check_id})
         )
@@ -688,7 +663,7 @@ class EditComplexTest(ViewTestCase):
             'Nazdar svete!\n'
         )
         # We should stay on current message
-        self.assert_redirects_offset(response, self.translate_url, 1)
+        self.assert_redirects_offset(response, self.translate_url, 2)
         unit = self.get_unit()
         self.assertEqual(unit.target, 'Nazdar svete!\n')
         self.assertFalse(unit.has_failing_check)
@@ -702,22 +677,22 @@ class EditComplexTest(ViewTestCase):
             'Nazdar svete!\n'
         )
         # We should get to second message
-        self.assert_redirects_offset(response, self.translate_url, 1)
-        self.assertTrue(self.translation.repo_needs_commit())
-        self.assertTrue(self.component.repo_needs_commit())
-        self.assertTrue(self.component.project.repo_needs_commit())
+        self.assert_redirects_offset(response, self.translate_url, 2)
+        self.assertTrue(self.translation.needs_commit())
+        self.assertTrue(self.component.needs_commit())
+        self.assertTrue(self.component.project.needs_commit())
 
-        self.translation.commit_pending(self.get_request('/'))
+        self.translation.commit_pending('test', self.get_request())
 
-        self.assertFalse(self.translation.repo_needs_commit())
-        self.assertFalse(self.component.repo_needs_commit())
-        self.assertFalse(self.component.project.repo_needs_commit())
+        self.assertFalse(self.translation.needs_commit())
+        self.assertFalse(self.component.needs_commit())
+        self.assertFalse(self.component.project.needs_commit())
 
         self.assertTrue(self.translation.repo_needs_push())
         self.assertTrue(self.component.repo_needs_push())
         self.assertTrue(self.component.project.repo_needs_push())
 
-        self.translation.do_push(self.get_request('/'))
+        self.translation.do_push(self.get_request())
 
         self.assertFalse(self.translation.repo_needs_push())
         self.assertFalse(self.component.repo_needs_push())

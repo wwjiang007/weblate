@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,38 +21,46 @@ from __future__ import unicode_literals
 
 import re
 
+import six
 from appconf import AppConf
-
 from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
+from django.contrib.auth.models import Group as DjangoGroup
 from django.db import models
-from django.db.models.signals import (
-    post_save, post_migrate, pre_delete, m2m_changed
-)
+from django.db.models.signals import m2m_changed, post_save, pre_delete
 from django.dispatch import receiver
 from django.http import Http404
 from django.utils import timezone
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.functional import cached_property
-from django.utils.translation import ugettext, ugettext_lazy as _, pgettext
+from django.utils.translation import pgettext, ugettext
+from django.utils.translation import ugettext_lazy as _
 
 from weblate.auth.data import (
-    ACL_GROUPS, SELECTION_MANUAL, SELECTION_ALL, SELECTION_COMPONENT_LIST,
-    SELECTION_ALL_PUBLIC, SELECTION_ALL_PROTECTED,
+    ACL_GROUPS,
+    GLOBAL_PERM_NAMES,
+    SELECTION_ALL,
+    SELECTION_ALL_PROTECTED,
+    SELECTION_ALL_PUBLIC,
+    SELECTION_COMPONENT_LIST,
+    SELECTION_MANUAL,
 )
-from weblate.auth.permissions import SPECIALS, check_permission
+from weblate.auth.permissions import SPECIALS, check_global_permission, check_permission
 from weblate.auth.utils import (
-    migrate_permissions, migrate_roles, create_anonymous, migrate_groups,
+    create_anonymous,
+    migrate_groups,
+    migrate_permissions,
+    migrate_roles,
 )
 from weblate.lang.models import Language
 from weblate.trans.fields import RegexField
 from weblate.trans.models import ComponentList, Project
 from weblate.utils.decorators import disable_for_loaddata
 from weblate.utils.validators import (
-    validate_fullname, validate_username, validate_email,
+    validate_email,
+    validate_fullname,
+    validate_username,
 )
-
-DEMO_ACCOUNTS = ('demo', 'review')
 
 
 @python_2_unicode_compatible
@@ -61,7 +69,6 @@ class Permission(models.Model):
     name = models.CharField(max_length=200)
 
     class Meta(object):
-        ordering = ['codename']
         verbose_name = _('Permission')
         verbose_name_plural = _('Permissions')
 
@@ -203,7 +210,7 @@ class UserManager(BaseUserManager):
 
     def _create_user(self, username, email, password, **extra_fields):
         """
-        Creates and saves a User with the given username, email and password.
+        Creates and saves a User with the given username, e-mail and password.
         """
         if not username:
             raise ValueError('The given username must be set')
@@ -232,7 +239,9 @@ class UserManager(BaseUserManager):
         return self.filter(groups__in=groups).distinct()
 
     def having_perm(self, perm, project):
-        """All users having permission on a project."""
+        """All users having explicit permission on a project.
+
+        Note: This intentionally does not list superusers."""
         groups = Group.objects.filter(
             roles__permissions__codename=perm,
             projects=project
@@ -243,10 +252,49 @@ class UserManager(BaseUserManager):
         """All admins in a project."""
         return self.having_perm('project.edit', project)
 
+    def order(self):
+        return self.order_by('username')
+
 
 def get_anonymous():
-    """Return an anonymous user"""
+    """Return an anonymous user."""
     return User.objects.get(username=settings.ANONYMOUS_USER_NAME)
+
+
+def wrap_group(func):
+    """Wrapper to replace Django Group instances by Weblate Group instances."""
+    def group_wrapper(self, *objs, **kwargs):
+        objs = list(objs)
+        for idx, obj in enumerate(objs):
+            if isinstance(obj, DjangoGroup):
+                objs[idx] = Group.objects.get_or_create(name=obj.name)[0]
+        return func(self, *objs, **kwargs)
+
+    return group_wrapper
+
+
+class GroupManyToManyField(models.ManyToManyField):
+    """Customized field to accept Django Groups objects as well."""
+    def contribute_to_class(self, cls, name, **kwargs):
+        super(GroupManyToManyField, self).contribute_to_class(
+            cls, name, **kwargs
+        )
+
+        # Get related descriptor
+        descriptor = getattr(cls, self.name)
+
+        # We care only on forward relation
+        if not descriptor.reverse:
+            # Running in migrations
+            if isinstance(descriptor.rel.model, six.string_types):
+                return
+
+            # Get related manager class
+            related_manager_cls = descriptor.related_manager_cls
+
+            # Monkey patch it to accept Django Group instances as well
+            related_manager_cls.add = wrap_group(related_manager_cls.add)
+            related_manager_cls.remove = wrap_group(related_manager_cls.remove)
 
 
 @python_2_unicode_compatible
@@ -270,9 +318,10 @@ class User(AbstractBaseUser):
         blank=False,
         validators=[validate_fullname],
     )
-    email = models.EmailField(
-        _('Email'),
+    email = models.EmailField(  # noqa: DJ01
+        _('E-mail'),
         blank=False,
+        null=True,
         max_length=190,
         unique=True,
         validators=[validate_email],
@@ -290,7 +339,7 @@ class User(AbstractBaseUser):
         help_text=_('Mark user as inactive instead of removing.'),
     )
     date_joined = models.DateTimeField(_('Date joined'), default=timezone.now)
-    groups = models.ManyToManyField(
+    groups = GroupManyToManyField(
         Group,
         verbose_name=_('Groups'),
         blank=True,
@@ -305,10 +354,15 @@ class User(AbstractBaseUser):
     EMAIL_FIELD = 'email'
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email', 'full_name']
+    DUMMY_FIELDS = ('first_name', 'last_name', 'is_staff')
 
     def __init__(self, *args, **kwargs):
         self.extra_data = {}
         self.perm_cache = {}
+        self.current_subscription = None
+        for name in self.DUMMY_FIELDS:
+            if name in kwargs:
+                self.extra_data[name] = kwargs.pop(name)
         super(User, self).__init__(*args, **kwargs)
 
     def clear_cache(self):
@@ -322,10 +376,6 @@ class User(AbstractBaseUser):
     def is_authenticated(self):
         return not self.is_anonymous
 
-    @cached_property
-    def is_demo(self):
-        return settings.DEMO_SERVER and self.username in DEMO_ACCOUNTS
-
     def get_full_name(self):
         return self.full_name
 
@@ -336,8 +386,10 @@ class User(AbstractBaseUser):
         return self.full_name
 
     def __setattr__(self, name, value):
-        """Mimic first/last name for third party auth"""
-        if name in ('first_name', 'last_name'):
+        """Mimic first/last name for third party auth
+        and ignore is_staff flag.
+        """
+        if name in self.DUMMY_FIELDS:
             self.extra_data[name] = value
         else:
             super(User, self).__setattr__(name, value)
@@ -354,6 +406,8 @@ class User(AbstractBaseUser):
             self.full_name = self.extra_data['first_name']
         elif 'last_name' in self.extra_data:
             self.full_name = self.extra_data['last_name']
+        if not self.email:
+            self.email = None
         super(User, self).save(*args, **kwargs)
 
     def has_module_perms(self, module):
@@ -365,13 +419,34 @@ class User(AbstractBaseUser):
         """Compatibility API for admin interface."""
         return self.is_superuser
 
+    @property
+    def first_name(self):
+        """Compatibility API for third party modules."""
+        return ''
+
+    @property
+    def last_name(self):
+        """Compatibility API for third party modules."""
+        return self.full_name
+
+    def has_perms(self, perm_list, obj=None):
+        return all(self.has_perm(perm, obj) for perm in perm_list)
+
     # pylint: disable=keyword-arg-before-vararg
     def has_perm(self, perm, obj=None, *args):
-        """Permission check"""
+        """Permission check."""
+        # Weblate global scope permissions
+        if perm in GLOBAL_PERM_NAMES:
+            return check_global_permission(self, perm, obj)
+
         # Compatibility API for admin interface
         if obj is None:
-            # Superuser has all permissions
-            return self.is_superuser
+            if not self.is_superuser:
+                return False
+
+            # Check permissions restrictions
+            allowed = settings.AUTH_RESTRICT_ADMINS.get(self.username)
+            return allowed is None or perm in allowed
 
         # Validate perms, this is expensive to perform, so this only in test by
         # default
@@ -403,8 +478,8 @@ class User(AbstractBaseUser):
     def allowed_projects(self):
         """List of allowed projects."""
         if self.is_superuser:
-            return Project.objects.all()
-        return Project.objects.filter(group__user=self).distinct()
+            return Project.objects.order()
+        return Project.objects.filter(group__user=self).distinct().order()
 
     @cached_property
     def owned_projects(self):
@@ -412,25 +487,29 @@ class User(AbstractBaseUser):
 
     def projects_with_perm(self, perm):
         if self.is_superuser:
-            return Project.objects.all()
+            return Project.objects.all().order()
         groups = Group.objects.filter(
             user=self, roles__permissions__codename=perm
         )
-        return Project.objects.filter(group__in=groups).distinct()
+        return Project.objects.filter(group__in=groups).distinct().order()
 
-    def get_author_name(self, email=True):
-        """Return formatted author name with email."""
-        # The < > are replace to avoid tricking Git to use
-        # name as email
-
+    def get_visible_name(self):
         # Get full name from database
         full_name = self.full_name.replace('<', '').replace('>', '')
 
         # Use username if full name is empty
         if full_name == '':
             full_name = self.username.replace('<', '').replace('>', '')
+        return full_name
 
-        # Add email if we are asked for it
+    def get_author_name(self, email=True):
+        """Return formatted author name with e-mail."""
+        # The < > are replace to avoid tricking Git to use
+        # name as e-mail
+
+        full_name = self.get_visible_name()
+
+        # Add e-mail if we are asked for it
         if not email:
             return full_name
         return '{0} <{1}>'.format(full_name, self.email)
@@ -439,11 +518,11 @@ class User(AbstractBaseUser):
 @python_2_unicode_compatible
 class AutoGroup(models.Model):
     match = RegexField(
-        verbose_name=_('Email regular expression'),
+        verbose_name=_('E-mail regular expression'),
         max_length=200,
         default='^.*$',
         help_text=_(
-            'Regular expression used to match user email.'
+            'Regular expression used to match user e-mail.'
         ),
     )
     group = models.ForeignKey(
@@ -455,7 +534,6 @@ class AutoGroup(models.Model):
     class Meta(object):
         verbose_name = _('Automatic group assignment')
         verbose_name_plural = _('Automatic group assignments')
-        ordering = ('group__name', )
 
     def __str__(self):
         return 'Automatic rule for {0}'.format(self.group)
@@ -466,7 +544,7 @@ def create_groups(update):
 
     # Create permissions and roles
     migrate_permissions(Permission)
-    migrate_roles(Role, Permission)
+    new_roles = migrate_roles(Role, Permission)
     migrate_groups(Group, Role, update)
 
     # Create anonymous user
@@ -480,24 +558,24 @@ def create_groups(update):
     if not AutoGroup.objects.filter(group=group).exists():
         AutoGroup.objects.create(group=group, match='^.*$')
 
+    # Create new per project groups
+    if new_roles:
+        for project in Project.objects.iterator():
+            project.save()
 
-@receiver(post_migrate)
+
 def sync_create_groups(sender, **kwargs):
-    """Create groups."""
-    if sender.label != 'weblate_auth':
-        return
-
-    # Create default groups
+    """Create default groups."""
     create_groups(False)
 
 
 def auto_assign_group(user):
-    """Automatic group assignment based on user email."""
+    """Automatic group assignment based on user e-mail."""
     if user.username == settings.ANONYMOUS_USER_NAME:
         return
     # Add user to automatic groups
-    for auto in AutoGroup.objects.all():
-        if re.match(auto.match, user.email):
+    for auto in AutoGroup.objects.iterator():
+        if re.match(auto.match, user.email or ''):
             user.groups.add(auto.group)
 
 
@@ -565,7 +643,7 @@ def setup_project_groups(sender, instance, **kwargs):
 
     # Choose groups to configure
     if instance.access_control == Project.ACCESS_PUBLIC:
-        groups = set(('Administration', 'Review'))
+        groups = {'Administration', 'Review'}
     else:
         groups = set(ACL_GROUPS.keys())
 
@@ -591,17 +669,20 @@ def setup_project_groups(sender, instance, **kwargs):
                 group.save()
         except Group.DoesNotExist:
             # Create new group
-            group = Group.objects.create(
+            group, created = Group.objects.get_or_create(
                 internal=True,
                 name=name,
-                project_selection=SELECTION_MANUAL,
-                language_selection=SELECTION_ALL,
+                defaults={
+                    'project_selection': SELECTION_MANUAL,
+                    'language_selection': SELECTION_ALL,
+                }
             )
-            group.projects.add(instance)
-            group.roles.set(
-                Role.objects.filter(name=ACL_GROUPS[group_name]),
-                clear=True
-            )
+            if created:
+                group.projects.add(instance)
+                group.roles.set(
+                    Role.objects.filter(name=ACL_GROUPS[group_name]),
+                    clear=True
+                )
         handled.add(group.pk)
 
     # Remove stale groups
@@ -624,6 +705,10 @@ def cleanup_group_acl(sender, instance, **kwargs):
 class WeblateAuthConf(AppConf):
     """Authentication settings."""
     AUTH_VALIDATE_PERMS = False
+    AUTH_RESTRICT_ADMINS = {}
+
+    # Anonymous user name
+    ANONYMOUS_USER_NAME = 'anonymous'
 
     class Meta(object):
         prefix = ''

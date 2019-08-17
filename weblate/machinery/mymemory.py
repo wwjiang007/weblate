@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -36,9 +36,9 @@ class MyMemoryTranslation(MachineTranslation):
     def is_supported(self, source, language):
         """Check whether given language combination is supported."""
         return (
-            self.lang_supported(source) and
-            self.lang_supported(language) and
-            source != language
+            self.lang_supported(source)
+            and self.lang_supported(language)
+            and source != language
         )
 
     @staticmethod
@@ -57,22 +57,22 @@ class MyMemoryTranslation(MachineTranslation):
         else:
             quality = 0
 
-        if match['last-updated-by'] != '':
-            source = '{0} ({1})'.format(
-                self.name,
-                match['last-updated-by']
-            )
-        else:
-            source = self.name
+        result = {
+            'text': match['translation'],
+            'quality': int(quality * match['match']),
+            'service': self.name,
+            'source': match['segment'],
+        }
 
-        return (
-            match['translation'],
-            int(quality * match['match']),
-            source,
-            match['segment'],
-        )
+        if match['last-updated-by']:
+            result['origin'] = match['last-updated-by']
 
-    def download_translations(self, source, language, text, unit, user):
+        if match['reference']:
+            result['origin_detail'] = match['reference']
+
+        return result
+
+    def download_translations(self, source, language, text, unit, request):
         """Download list of possible translations from MyMemory."""
         args = {
             'q': text.split('. ')[0][:500],

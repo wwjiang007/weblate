@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -40,23 +40,16 @@ class DiscoveryAddon(BaseAddon):
     settings_form = DiscoveryForm
     multiple = True
     icon = 'search'
-
-    @classmethod
-    def can_install(cls, component, user):
-        if not user.is_superuser or component.is_repo_link:
-            return False
-        return super(DiscoveryAddon, cls).can_install(component, user)
+    has_summary = True
+    repo_scope = True
 
     def post_update(self, component, previous_head):
         self.perform()
 
-    def configure(self, settings):
-        super(DiscoveryAddon, self).configure(settings)
-        self.perform()
-
     def perform(self):
         self.discovery.perform(
-            remove=self.instance.configuration['remove']
+            remove=self.instance.configuration['remove'],
+            background=True
         )
 
     def get_settings_form(self, **kwargs):
@@ -73,10 +66,8 @@ class DiscoveryAddon(BaseAddon):
             self.instance.configuration['new_base_template'] = ''
         return ComponentDiscovery(
             self.instance.component,
-            self.instance.configuration['match'],
-            self.instance.configuration['name_template'],
-            self.instance.configuration['language_regex'],
-            self.instance.configuration['base_file_template'],
-            self.instance.configuration['new_base_template'],
-            self.instance.configuration['file_format'],
+            **ComponentDiscovery.extract_kwargs(self.instance.configuration)
         )
+
+    def get_summary(self):
+        return self.instance.configuration['match']

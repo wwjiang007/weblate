@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,12 +22,13 @@
 # Django settings for running testsuite
 #
 
-import warnings
 import os
+import warnings
 
 from weblate.settings_example import *  # noqa
 
 if 'CI_DATABASE' in os.environ:
+    DATABASES['default']['HOST'] = os.environ['CI_DB_HOST']
     if os.environ['CI_DATABASE'] == 'mysql':
         DATABASES['default']['ENGINE'] = 'django.db.backends.mysql'
         DATABASES['default']['NAME'] = 'weblate'
@@ -44,26 +45,23 @@ if 'CI_DATABASE' in os.environ:
             'isolation_level': 'read committed',
         }
     elif os.environ['CI_DATABASE'] == 'postgresql':
-        DATABASES['default']['ENGINE'] = \
-            'django.db.backends.postgresql_psycopg2'
+        DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
         DATABASES['default']['NAME'] = 'weblate'
         DATABASES['default']['USER'] = 'postgres'
         DATABASES['default']['PASSWORD'] = ''
     else:
         DATABASES['default']['TEST'] = {'NAME': 'weblate_test.db'}
-elif 'SCRUTINIZER' in os.environ:
-    DATABASES['default']['ENGINE'] = \
-        'django.db.backends.postgresql_psycopg2'
-    DATABASES['default']['NAME'] = 'scrutinizer'
-    DATABASES['default']['USER'] = 'scrutinizer'
-    DATABASES['default']['PASSWORD'] = 'scrutinizer'
-
 
 # Configure admins
 ADMINS = (('Weblate test', 'noreply@weblate.org'), )
 
 # Different root for test repos
 DATA_DIR = os.path.join(BASE_DIR, 'data-test')
+MEDIA_ROOT = os.path.join(DATA_DIR, 'media')
+STATIC_ROOT = os.path.join(DATA_DIR, 'static')
+CELERY_BEAT_SCHEDULE_FILENAME = os.path.join(
+    DATA_DIR, 'celery', 'beat-schedule'
+)
 
 # Silent logging setup
 LOGGING = {

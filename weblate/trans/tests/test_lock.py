@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,8 +22,8 @@
 
 from django.urls import reverse
 
-from weblate.trans.tests.test_views import ViewTestCase
 from weblate.trans.models.component import Component
+from weblate.trans.tests.test_views import ViewTestCase
 
 
 class LockTest(ViewTestCase):

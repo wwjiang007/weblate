@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,41 +19,41 @@
 #
 from __future__ import unicode_literals
 
-import sys
-
 from django.core.exceptions import PermissionDenied
-from django.utils.translation import ugettext as _, ungettext
-from django.utils.encoding import force_text
 from django.shortcuts import redirect
+from django.utils.encoding import force_text
+from django.utils.translation import ugettext as _
+from django.utils.translation import ungettext
 from django.views.decorators.http import require_POST
 
+from weblate.trans.forms import DownloadForm, get_upload_form
 from weblate.utils import messages
 from weblate.utils.errors import report_error
-from weblate.trans.forms import get_upload_form, SearchForm
-from weblate.trans.views.helper import (
-    get_translation, download_translation_file, show_form_errors,
+from weblate.utils.views import (
+    download_translation_file,
+    get_translation,
+    show_form_errors,
 )
-
-
-def download_translation_format(request, project, component, lang, fmt):
-    obj = get_translation(request, project, component, lang)
-
-    form = SearchForm(request.GET)
-    if form.is_valid():
-        units = obj.unit_set.search(
-            form.cleaned_data,
-            translation=obj,
-        )
-    else:
-        units = obj.unit_set.all()
-
-    return download_translation_file(obj, fmt, units)
 
 
 def download_translation(request, project, component, lang):
     obj = get_translation(request, project, component, lang)
 
-    return download_translation_file(obj)
+    kwargs = {}
+
+    if 'format' in request.GET or 'type' in request.GET:
+        form = DownloadForm(request.GET)
+        if not form.is_valid():
+            show_form_errors(request, form)
+            return redirect(obj)
+
+        kwargs['units'] = obj.unit_set.search(
+            form.cleaned_data,
+            translation=obj,
+        )
+        kwargs['fmt'] = form.cleaned_data['format']
+
+    return download_translation_file(obj, **kwargs)
 
 
 @require_POST
@@ -82,14 +82,11 @@ def upload_translation(request, project, component, lang):
         return redirect(obj)
 
     # Create author name
-    author = None
-    if (request.user.has_perm('upload.authorship', obj) and
-            form.cleaned_data['author_name'] != '' and
-            form.cleaned_data['author_email'] != ''):
-        author = '{0} <{1}>'.format(
-            form.cleaned_data['author_name'],
-            form.cleaned_data['author_email']
-        )
+    author_name = None
+    author_email = None
+    if request.user.has_perm('upload.authorship', obj):
+        author_name = form.cleaned_data['author_name']
+        author_email = form.cleaned_data['author_email']
 
     # Check for overwriting
     overwrite = False
@@ -102,8 +99,8 @@ def upload_translation(request, project, component, lang):
             request,
             request.FILES['file'],
             overwrite,
-            author,
-            merge_header=form.cleaned_data['merge_header'],
+            author_name,
+            author_email,
             method=form.cleaned_data['method'],
             fuzzy=form.cleaned_data['fuzzy'],
         )
@@ -122,9 +119,7 @@ def upload_translation(request, project, component, lang):
         else:
             messages.success(request, message)
     except Exception as error:
-        messages.error(
-            request, _('File content merge failed: %s') % force_text(error)
-        )
-        report_error(error, sys.exc_info(), request)
+        messages.error(request, _('File upload has failed: %s') % force_text(error))
+        report_error(error, request, prefix='Upload error')
 
     return redirect(obj)

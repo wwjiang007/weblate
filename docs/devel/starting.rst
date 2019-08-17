@@ -13,7 +13,7 @@ world are really different and you should not make any assumption based on
 your experience. For most of languages it will look weird if you try to
 concatenate a sentence out of translated segments. You also should properly
 handle plural forms because many languages have complex rules for that and the
-internationalization framework you end up using should support this. 
+internationalization framework you end up using should support this.
 
 Last but not least, sometimes it might be necessary to add some context to the
 translated string. Imagine a translator would get string ``Sun`` to translate.
@@ -25,7 +25,54 @@ Choosing internationalization framework
 
 Choose whatever is standard on your platform, try to avoid reinventing the
 wheel by creating your own framework to handle localizations. Weblate supports
-most of the widely used frameworks, see :ref:`formats` for more information.
+most of the widely used frameworks, see :ref:`formats` for more information
+(especially :ref:`fmt_capabs`).
+
+Our personal recommendation for some plaforms is in the following table. This
+is based on our experience, but that can not cover all use cases, so always
+consider your environment when doing the choice.
+
++--------------------------+--------------------------+
+| Platform                 | Recommended format       |
++==========================+==========================+
+| Android                  | :ref:`aresource`         |
++--------------------------+--------------------------+
+| iOS                      | :ref:`apple`             |
++--------------------------+--------------------------+
+| Qt                       | :ref:`qtling`            |
++--------------------------+--------------------------+
+| Python                   | :ref:`gettext`           |
++--------------------------+--------------------------+
+| PHP                      | :ref:`gettext` [#php]_   |
++--------------------------+--------------------------+
+| C/C++                    | :ref:`gettext`           |
++--------------------------+--------------------------+
+| C#                       | :ref:`dotnet`            |
++--------------------------+--------------------------+
+| Perl                     | :ref:`gettext`           |
++--------------------------+--------------------------+
+| Ruby                     | :ref:`ryaml`             |
++--------------------------+--------------------------+
+| Web extensions           | :ref:`webex`             |
++--------------------------+--------------------------+
+| Java                     | :ref:`xliff` [#java]_    |
++--------------------------+--------------------------+
+| JavaScript               | :ref:`js-i18next` [#js]_ |
++--------------------------+--------------------------+
+
+.. [#php]
+
+   The native Gettext support in PHP is buggy and often missing on Windows
+   builds, it is recommended to use third party library `motranslator
+   <https://github.com/phpmyadmin/motranslator>`_ instead.
+
+.. [#java]
+
+   You can also use :ref:`javaprop` if plurals are not needed.
+
+.. [#js]
+
+   You can also use plain :ref:`json` if plurals are not needed.
 
 Following chapters describe two use cases - GNU Gettext and Sphinx, but many of
 the steps are quite generic and apply to the other frameworks as well.
@@ -40,12 +87,12 @@ string and there are quite a lot of tools built around it. Of course it has
 great support in Weblate (see :ref:`gettext` file format description).
 
 .. note::
-   
+
     If you are about to use it in proprietary software, please consult
     licensing first, it might not be suitable for you.
 
 GNU Gettext can be used from variety of languages (C, Python, PHP, Ruby,
-Javascript and much more) and usually the UI frameworks already come with some
+JavaScript and much more) and usually the UI frameworks already come with some
 support for it. The standard usage is though the `gettext()` function call,
 which is often aliased to `_()` to make the code simpler and easier to read.
 
@@ -75,13 +122,13 @@ The simple program in C using Gettext might look like following:
         setlocale(LC_ALL, "");
         bindtextdomain("hello", "/usr/share/locale");
         textdomain("hello");
-        printf( 
-            ngettext( 
-                "Orangutan has %d banana.\n", 
-                "Orangutan has %d bananas.\n", 
-                count 
-            ), 
-            count 
+        printf(
+            ngettext(
+                "Orangutan has %d banana.\n",
+                "Orangutan has %d bananas.\n",
+                count
+            ),
+            count
         );
         printf("%s\n", gettext("Thank you for using Weblate."));
         exit(0);
@@ -129,14 +176,14 @@ a structured text file:
     "Content-Type: text/plain; charset=CHARSET\n"
     "Content-Transfer-Encoding: 8bit\n"
     "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
-    
+
     #: main.c:14
     #, c-format
     msgid "Orangutan has %d banana.\n"
     msgid_plural "Orangutan has %d bananas.\n"
     msgstr[0] ""
     msgstr[1] ""
-    
+
     #: main.c:20
     msgid "Thank you for using Weblate."
     msgstr ""
@@ -159,7 +206,7 @@ importantly it got the proper plural forms definition for chosen language and yo
 can see number of plurals have changed according to that:
 
 .. code-block:: po
-    
+
     # Czech translations for PACKAGE package.
     # Copyright (C) 2015 THE PACKAGE'S COPYRIGHT HOLDER
     # This file is distributed under the same license as the PACKAGE package.
@@ -178,7 +225,7 @@ can see number of plurals have changed according to that:
     "Content-Type: text/plain; charset=ASCII\n"
     "Content-Transfer-Encoding: 8bit\n"
     "Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
-    
+
     #: main.c:14
     #, c-format
     msgid "Orangutan has %d banana.\n"
@@ -186,7 +233,7 @@ can see number of plurals have changed according to that:
     msgstr[0] ""
     msgstr[1] ""
     msgstr[2] ""
-    
+
     #: main.c:20
     msgid "Thank you for using Weblate."
     msgstr ""
@@ -227,11 +274,11 @@ Source code repository          URL of the VCS repository with your project
 
 File mask                       ``po/*.po``
 
-Base file for new translations  ``po/hello.pot``
+Template for new translations   ``po/hello.pot``
 
 File format                     Choose :guilabel:`Gettext PO file`
 
-New language                    Choose :guilabel:`Automatically add language file`
+New language                    Choose :guilabel:`Create new language file`
 =============================== ==================================================
 
 And that's it, you're now ready to start translating your software!
@@ -253,14 +300,14 @@ build and publish your documentation for free.
 I will not focus on writing documentation itself, if you need guidance with
 that, just follow instructions on the `Sphinx`_ website. Once you have
 documentation ready, translating it is quite easy as Sphinx comes with support
-for this and it is quite nicely covered in their
-`Internationalization Quick Guide`_.  It's matter of few configuration
-directives and invoking of the ``sphinx-intl`` tool.
+for this and it is quite nicely covered in their :ref:`sphinx:intl`.  It's
+matter of few configuration directives and invoking of the ``sphinx-intl``
+tool.
 
 If you are using Read the Docs service, you can start building translated
-documentation on the Read the Docs. Their `Localization of Documentation`_
-covers pretty much everything you need - creating another project, set its
-language and link it from master project as a translation.
+documentation on the Read the Docs. Their :doc:`rtd:localization` covers pretty
+much everything you need - creating another project, set its language and link
+it from master project as a translation.
 
 Now all you need is translating the documentation content. As Sphinx splits
 the translation files per source file, you might end up with dozen of files,
@@ -277,7 +324,7 @@ Depending on exact setup, importing of the translation might look like:
         'docs/locale/*/LC_MESSAGES/**.po'
 
 If you have more complex document structure, importing different folders is not
-direcly supported, you currently have to list them separately:
+directly supported, you currently have to list them separately:
 
 .. code-block:: console
 
@@ -331,10 +378,8 @@ Weblate whenever there is new commit, see :ref:`update-vcs` for more details.
 
 
 .. _Odorik: https://github.com/nijel/odorik/
-.. _GNU Gettext: http://www.gnu.org/software/gettext/
+.. _GNU Gettext: https://www.gnu.org/software/gettext/
 .. _Sphinx: http://www.sphinx-doc.org/
 .. _Read the Docs: https://readthedocs.org/
-.. _Internationalization Quick Guide: http://www.sphinx-doc.org/en/stable/intl.html#quick-guide
-.. _Localization of Documentation: https://docs.readthedocs.io/en/latest/localization.html
 .. _intltool: https://freedesktop.org/wiki/Software/intltool/
 .. _pybabel: http://babel.pocoo.org/

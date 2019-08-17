@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,24 +23,17 @@
 import json
 
 import httpretty
+import social_django.utils
+from django.core import mail
+from django.test import Client, TestCase
+from django.test.utils import override_settings
+from django.urls import reverse
 from six.moves.urllib.parse import parse_qs, urlparse
 
-from django.urls import reverse
-from django.core import mail
-from django.test import TestCase, Client
-from django.test.utils import override_settings
-
-import social_django.utils
-
-from weblate.auth.models import User
 from weblate.accounts.models import VerifiedEmail
-from weblate.accounts.ratelimit import reset_rate_limit
-
+from weblate.auth.models import User
 from weblate.trans.tests.test_views import RegistrationTestMixin
-
-# Workaround for httpretty breakage with pyopenssl
-# pylint: disable=unused-import
-import weblate.trans.tests.mypretty  # noqa
+from weblate.utils.ratelimit import reset_rate_limit
 
 REGISTRATION_DATA = {
     'username': 'username',
@@ -144,7 +137,7 @@ class RegistrationTest(BaseRegistrationTest):
         response = self.do_register()
         self.assertContains(
             response,
-            'Please check your math and try again'
+            'That was not correct, please try again.'
         )
 
     @override_settings(REGISTRATION_CAPTCHA=True)
@@ -169,7 +162,7 @@ class RegistrationTest(BaseRegistrationTest):
         response = self.do_register()
         self.assertContains(
             response,
-            'Sorry, but registrations on this site are disabled.'
+            'Sorry, new registrations are turned off on this site.'
         )
 
     @override_settings(REGISTRATION_OPEN=True, REGISTRATION_CAPTCHA=False)
@@ -233,7 +226,7 @@ class RegistrationTest(BaseRegistrationTest):
         # Confirm account
         response = self.client.get(url, follow=True)
         self.assertRedirects(response, reverse('login'))
-        self.assertContains(response, 'Failed to verify your registration')
+        self.assertContains(response, 'Could not verify your registration!')
 
     @override_settings(REGISTRATION_CAPTCHA=False, AUTH_LOCK_ATTEMPTS=5)
     def test_reset_ratelimit(self):
@@ -241,7 +234,7 @@ class RegistrationTest(BaseRegistrationTest):
         User.objects.create_user('testuser', 'test@example.com', 'x')
         self.assertEqual(len(mail.outbox), 0)
 
-        for dummy in range(10):
+        for _unused in range(10):
             response = self.client.post(
                 reverse('password_reset'),
                 {'email': 'test@example.com'},
@@ -250,12 +243,12 @@ class RegistrationTest(BaseRegistrationTest):
             self.assertContains(response, 'Password reset almost complete')
 
         # Even though we've asked 10 times for reset, user should get only
-        # emails until rate limit is applied
+        # e-mails until rate limit is applied
         self.assertEqual(len(mail.outbox), 4)
 
     @override_settings(REGISTRATION_CAPTCHA=False)
     def test_reset_nonexisting(self):
-        """Test for password reset of nonexisting email."""
+        """Test for password reset of nonexisting e-mail."""
         response = self.client.get(
             reverse('password_reset'),
         )
@@ -272,7 +265,7 @@ class RegistrationTest(BaseRegistrationTest):
 
     @override_settings(REGISTRATION_CAPTCHA=False)
     def test_reset_invalid(self):
-        """Test for password reset of invalid email."""
+        """Test for password reset of invalid e-mail."""
         response = self.client.get(
             reverse('password_reset'),
         )
@@ -285,7 +278,7 @@ class RegistrationTest(BaseRegistrationTest):
         )
         self.assertContains(
             response,
-            'Enter a valid email address.'
+            'Enter a valid e-mail address.'
         )
         self.assertEqual(len(mail.outbox), 0)
 
@@ -305,7 +298,7 @@ class RegistrationTest(BaseRegistrationTest):
         )
         self.assertContains(
             response,
-            'Please check your math and try again'
+            'That was not correct, please try again.'
         )
         self.assertEqual(len(mail.outbox), 0)
 
@@ -440,7 +433,7 @@ class RegistrationTest(BaseRegistrationTest):
         response = self.do_register(data)
         self.assertContains(
             response,
-            'Enter a valid email address.'
+            'Enter a valid e-mail address.'
         )
 
     @override_settings(REGISTRATION_EMAIL_MATCH='^.*@weblate.org$')
@@ -450,7 +443,7 @@ class RegistrationTest(BaseRegistrationTest):
         response = self.do_register(data)
         self.assertContains(
             response,
-            'This email address is not allowed.'
+            'This e-mail address is not allowed.'
         )
         data['email'] = 'noreply@weblate.org'
         response = self.client.post(
@@ -460,7 +453,7 @@ class RegistrationTest(BaseRegistrationTest):
         )
         self.assertNotContains(
             response,
-            'This email address is not allowed.'
+            'This e-mail address is not allowed.'
         )
 
     def test_spam(self):
@@ -478,12 +471,12 @@ class RegistrationTest(BaseRegistrationTest):
         # Create user
         self.perform_registration()
 
-        # Check adding email page
+        # Check adding e-mail page
         response = self.client.post(
             reverse('social:begin', args=('email',)),
             follow=True,
         )
-        self.assertContains(response, 'Register email')
+        self.assertContains(response, 'Register e-mail')
 
         # Try invalid address first
         response = self.client.post(
@@ -492,7 +485,7 @@ class RegistrationTest(BaseRegistrationTest):
         )
         self.assertContains(response, 'has-error')
 
-        # Add email account
+        # Add e-mail account
         response = self.client.post(
             reverse('email_login'),
             {'email': 'second@example.net'},
@@ -511,6 +504,8 @@ class RegistrationTest(BaseRegistrationTest):
         self.assertRedirects(response, reverse('confirm'))
 
         # Enter wrong password
+        user = User.objects.get(username='username')
+        reset_rate_limit('confirm', user=user)
         response = self.client.post(
             reverse('confirm'),
             {'password': 'invalid'}
@@ -524,7 +519,7 @@ class RegistrationTest(BaseRegistrationTest):
             follow=True
         )
         self.assertRedirects(
-            response, '{0}#auth'.format(reverse('profile'))
+            response, '{0}#account'.format(reverse('profile'))
         )
 
         # Check database models
@@ -569,7 +564,7 @@ class RegistrationTest(BaseRegistrationTest):
         )
         self.assertContains(
             response,
-            'Your email no longer belongs to verified account'
+            'Your e-mail no longer belongs to verified account'
         )
         notification = mail.outbox.pop()
         self.assert_notify_mailbox(notification)
@@ -629,7 +624,7 @@ class RegistrationTest(BaseRegistrationTest):
             follow=True
         )
         # We should fallback to default URL
-        self.assertRedirects(response, '/accounts/profile/#auth')
+        self.assertRedirects(response, '/accounts/profile/#account')
 
     @httpretty.activate
     @override_settings(AUTHENTICATION_BACKENDS=GH_BACKENDS)
@@ -687,15 +682,14 @@ class RegistrationTest(BaseRegistrationTest):
             response = self.client.get(
                 reverse('social:complete', args=('github',)),
                 {
-                    'state': query['state'][0],
-                    'redirect_state': return_query['redirect_state'][0],
+                    'state': query['state'][0] or return_query['state'][0],
                     'code': 'XXX'
                 },
                 follow=True
             )
             if fail:
                 self.assertContains(
-                    response, 'are already associated with another account'
+                    response, 'is already in use for another account'
                 )
                 return
             if confirm:
@@ -736,7 +730,7 @@ class RegistrationTest(BaseRegistrationTest):
         self.client.login(username='weblate', password='x')
         # Switch to second user
         User.objects.create_user('second', 'noreply-second@example.org', 'x')
-        # Try to add GitHub auth with other email
+        # Try to add GitHub auth with other e-mail
         self.client.login(username='second', password='x')
         self.test_github(fail=True)
         # User should get an notification
@@ -767,7 +761,7 @@ class CookieRegistrationTest(BaseRegistrationTest):
         response = self.client.get(url, follow=True)
         self.assertContains(
             response,
-            'Probably the verification token has expired.'
+            'The verification token has probably expired.'
         )
 
     @override_settings(REGISTRATION_CAPTCHA=False)

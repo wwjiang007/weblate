@@ -3,12 +3,16 @@
 {% load i18n %}{% load translations %}
 
 {% block content %}
+{% if not was_added %}
 <p>
-{% trans "Hi,"%}
+{% blocktrans with user=user.username %}New language has been added to {{ component }} at {{ site_title }} by {{ user }}.{% endblocktrans %}
 </p>
 
+<h2>{% trans "Added language" %}</h2>
+
+{% else %}
 <p>
-{% blocktrans %}There has been a request for new language on {{ translation }} at {{ site_title }}.{% endblocktrans %}
+{% blocktrans with user=user.get_visible_name %}There has been a request for new language on {{ component }} at {{ site_title }} by {{ user }}.{% endblocktrans %}
 </p>
 
 <p>
@@ -21,30 +25,15 @@
 </a>
 </p>
 
-<table>
-<tr>
+<h2>{% trans "Requested language" %}</h2>
+{% endif %}
 
-<th>
-{% trans "Requested language:" %}
+<p>
+{{ language }} ({{ language.code }})
+</p>
 
-</th>
-
-<td>
-{{ language.name }} ({{ language.code }})
-</td>
-</tr>
-<tr>
-
-<th>
-{% trans "Requested by:" %}
-
-</th>
-
-<td>
-<a href="mailto:{{ user.email }}">{{ user.full_name }}</a>
-</td>
-</tr>
-
-</table>
+<div class="line buttons">
+    <a class="button" href="{{ current_site_url }}{{ component.get_absolute_url }}">{% trans "View translation component" %}</a>
+</div>
 
 {% endblock %}

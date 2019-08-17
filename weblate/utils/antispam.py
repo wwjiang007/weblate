@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,8 +20,9 @@
 
 from django.conf import settings
 
-from weblate.utils.site import get_site_url
+from weblate.utils.errors import report_error
 from weblate.utils.request import get_ip_address
+from weblate.utils.site import get_site_url
 
 
 def is_spam(text, request):
@@ -32,10 +33,33 @@ def is_spam(text, request):
             settings.AKISMET_API_KEY,
             get_site_url()
         )
-        return akismet.comment_check(
-            get_ip_address(request),
-            request.META.get('HTTP_USER_AGENT', ''),
+        try:
+            return akismet.comment_check(
+                get_ip_address(request),
+                request.META.get('HTTP_USER_AGENT', ''),
+                comment_content=text,
+                comment_type='comment'
+            )
+        except OSError as error:
+            report_error(error)
+            return True
+    return False
+
+
+def report_spam(text, user_ip, user_agent):
+    if not settings.AKISMET_API_KEY:
+        return
+    from akismet import Akismet, ProtocolError
+    akismet = Akismet(
+        settings.AKISMET_API_KEY,
+        get_site_url()
+    )
+    try:
+        akismet.submit_spam(
+            user_ip,
+            user_agent,
             comment_content=text,
             comment_type='comment'
         )
-    return False
+    except (ProtocolError, OSError) as error:
+        report_error(error)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -27,14 +27,15 @@ def main(argv=None):
     os.environ['DJANGO_IS_MANAGEMENT_COMMAND'] = '1'
 
     from django.core.management import execute_from_command_line
-    from weblate.utils.errors import report_error
 
     if argv is None:
         argv = sys.argv
     try:
         execute_from_command_line(argv)
     except Exception as error:
-        report_error(error, sys.exc_info())
+        from weblate.utils.errors import report_error
+        report_error(error)
+        raise
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,38 +20,12 @@
 
 """Test for widgets."""
 
-from django.test import TestCase
-from django.test.utils import override_settings
-
-from django.core.exceptions import ImproperlyConfigured
+import six
 from django.urls import reverse
 
 from weblate.trans.models import Translation
 from weblate.trans.tests.test_views import FixtureTestCase
 from weblate.trans.views.widgets import WIDGETS
-from weblate.trans.fonts import get_font
-import weblate.trans.fonts
-
-
-class FontsTest(TestCase):
-    def setUp(self):
-        # Always start with clear cache
-        weblate.trans.fonts.FONT_CACHE = {}
-
-    def tearDown(self):
-        # Always reset cache
-        weblate.trans.fonts.FONT_CACHE = {}
-
-    def test_get(self):
-        self.assertIsNotNone(get_font(12))
-        self.assertIsNotNone(get_font(12, True))
-        self.assertIsNotNone(get_font(12, False, False))
-        self.assertIsNotNone(get_font(12))
-
-    @override_settings(TTF_PATH='/nonexistent/')
-    def test_get_missing(self):
-        with self.assertRaises(ImproperlyConfigured):
-            get_font(12, True, False)
 
 
 class WidgetsTest(FixtureTestCase):
@@ -81,6 +55,10 @@ class WidgetsTest(FixtureTestCase):
         )
         self.assertContains(response, 'Test')
 
+    def test_site_og(self):
+        response = self.client.get(reverse('og-image'))
+        self.assert_png(response)
+
 
 class WidgetsMeta(type):
     def __new__(mcs, name, bases, attrs):  # noqa
@@ -97,8 +75,8 @@ class WidgetsMeta(type):
         return type.__new__(mcs, name, bases, attrs)
 
 
+@six.add_metaclass(WidgetsMeta)
 class WidgetsRenderTest(FixtureTestCase):
-    __metaclass__ = WidgetsMeta
 
     def assert_widget(self, widget, response):
         if hasattr(WIDGETS[widget], 'redirect'):
@@ -131,7 +109,7 @@ class WidgetsPercentRenderTest(WidgetsRenderTest):
     def perform_test(self, widget, color):
         for translated in (0, 3, 4):
             # Fake translated stats
-            for translation in Translation.objects.all():
+            for translation in Translation.objects.iterator():
                 translation.stats.store('translated', translated)
                 translation.stats.save()
             response = self.client.get(
@@ -194,7 +172,7 @@ class WidgetsRedirectRenderTest(WidgetsRenderTest):
                     'project': self.project.slug,
                     'widget': widget,
                     'color': color,
-                    'extension': 'bin'
+                    'extension': 'svg'
                 }
             ),
             follow=True
@@ -213,7 +191,7 @@ class WidgetsLanguageRedirectRenderTest(WidgetsRenderTest):
                     'widget': widget,
                     'color': color,
                     'lang': 'cs',
-                    'extension': 'bin'
+                    'extension': 'svg'
                 }
             ),
             follow=True

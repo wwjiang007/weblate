@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,13 +18,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from django.core.exceptions import PermissionDenied
 from rest_framework import serializers
 
-from weblate.trans.models import (
-    Project, Component, Translation, Unit, Change, Source,
-)
 from weblate.lang.models import Language
 from weblate.screenshots.models import Screenshot
+from weblate.trans.models import Change, Component, Project, Source, Translation, Unit
 from weblate.utils.site import get_site_url
 from weblate.utils.validators import validate_bitmap
 
@@ -117,13 +116,17 @@ class ProjectSerializer(serializers.ModelSerializer):
         view_name='api:project-statistics',
         lookup_field='slug',
     )
+    languages_url = serializers.HyperlinkedIdentityField(
+        view_name='api:project-languages',
+        lookup_field='slug',
+    )
 
     class Meta(object):
         model = Project
         fields = (
             'name', 'slug', 'web', 'source_language', 'web_url', 'url',
             'components_list_url', 'repository_url', 'statistics_url',
-            'changes_list_url',
+            'changes_list_url', 'languages_url',
         )
         extra_kwargs = {
             'url': {
@@ -246,6 +249,9 @@ class TranslationSerializer(RemovableSerializer):
     have_comment = serializers.IntegerField(
         source='stats.comments', read_only=True,
     )
+    last_change = serializers.DateTimeField(
+        source='stats.last_changed', read_only=True,
+    )
     last_author = serializers.CharField(
         source='get_last_author', read_only=True,
     )
@@ -341,11 +347,38 @@ class LockRequestSerializer(ReadOnlySerializer):
 class UploadRequestSerializer(ReadOnlySerializer):
     overwrite = serializers.BooleanField()
     file = serializers.FileField()
+    author_email = serializers.EmailField(required=False)
+    author_name = serializers.CharField(max_length=200, required=False)
+    method = serializers.ChoiceField(
+        choices=('translate', 'approve', 'suggest', 'fuzzy', 'replace'),
+        required=False,
+        default='translate',
+    )
+    fuzzy = serializers.ChoiceField(
+        choices=('', 'process', 'approve'),
+        required=False,
+        default=''
+    )
+
+    def check_perms(self, user, obj):
+        data = self.validated_data
+        if data['overwrite'] and not user.has_perm('upload.overwrite', obj):
+            raise PermissionDenied()
+
+        if (not user.has_perm('unit.edit', obj)
+                and data['method'] in ('translate', 'fuzzy')):
+            raise PermissionDenied()
+        if not user.has_perm('suggestion.add', obj) and data['method'] == 'suggest':
+            raise PermissionDenied()
+        if not user.has_perm('unit.review', obj) and data['method'] == 'approve':
+            raise PermissionDenied()
+        if not user.has_perm('component.edit', obj) and data['method'] == 'replace':
+            raise PermissionDenied()
 
 
 class RepoRequestSerializer(ReadOnlySerializer):
     operation = serializers.ChoiceField(
-        choices=('commit', 'pull', 'push', 'reset')
+        choices=('commit', 'pull', 'push', 'reset', 'cleanup')
     )
 
 
@@ -409,7 +442,7 @@ class SourceSerializer(RemovableSerializer):
     class Meta(object):
         model = Source
         fields = (
-            'id_hash', 'component', 'timestamp', 'priority', 'check_flags',
+            'id_hash', 'component', 'timestamp', 'check_flags',
             'url', 'units', 'screenshots',
         )
         extra_kwargs = {

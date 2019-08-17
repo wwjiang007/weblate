@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,19 +20,18 @@
 
 from __future__ import unicode_literals
 
-import traceback
-
+import six
 from appconf import AppConf
-
 from django.utils.functional import cached_property
 
-from weblate.trans.util import add_configuration_error
+from weblate.trans.util import delete_configuration_error
 from weblate.utils.classloader import ClassLoader
 
 
 class FileFormatLoader(ClassLoader):
     def __init__(self):
         super(FileFormatLoader, self).__init__('WEBLATE_FORMATS', False)
+        self.errors = {}
 
     @cached_property
     def autoload(self):
@@ -46,14 +45,14 @@ class FileFormatLoader(ClassLoader):
         result = super(FileFormatLoader, self).load_data()
 
         for fileformat in list(result.values()):
+            error_name = 'File format: {0}'.format(fileformat.format_id)
+            delete_configuration_error(error_name)
             try:
                 fileformat.get_class()
-            except (AttributeError, ImportError):
-                add_configuration_error(
-                    'File format: {0}'.format(fileformat.format_id),
-                    traceback.format_exc()
-                )
+            except (AttributeError, ImportError) as error:
                 result.pop(fileformat.format_id)
+                if fileformat.format_id != 'rc' or not six.PY3:
+                    self.errors[fileformat.format_id] = str(error)
 
         return result
 
@@ -63,7 +62,6 @@ FILE_FORMATS = FileFormatLoader()
 
 class FormatsConf(AppConf):
     FORMATS = (
-        'weblate.formats.auto.AutoFormat',
         'weblate.formats.ttkit.PoFormat',
         'weblate.formats.ttkit.PoMonoFormat',
         'weblate.formats.ttkit.TSFormat',
@@ -87,8 +85,14 @@ class FormatsConf(AppConf):
         'weblate.formats.ttkit.CSVSimpleFormatISO',
         'weblate.formats.ttkit.YAMLFormat',
         'weblate.formats.ttkit.RubyYAMLFormat',
+        'weblate.formats.ttkit.SubRipFormat',
+        'weblate.formats.ttkit.MicroDVDFormat',
+        'weblate.formats.ttkit.AdvSubStationAlphaFormat',
+        'weblate.formats.ttkit.SubStationAlphaFormat',
         'weblate.formats.ttkit.DTDFormat',
         'weblate.formats.ttkit.WindowsRCFormat',
+        'weblate.formats.external.XlsxFormat',
+        'weblate.formats.txt.AppStoreFormat',
     )
 
     class Meta(object):

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,23 +20,24 @@
 
 from __future__ import unicode_literals
 
-import tempfile
-import shutil
 import os.path
+import shutil
+import tempfile
 from unittest import SkipTest, TestCase
 
 from django.utils import timezone
 
-from weblate.trans.tests.utils import RepoTestMixin
+from weblate.trans.tests.utils import RepoTestMixin, TempDirMixin, get_test_file
+from weblate.utils.files import remove_readonly
 from weblate.vcs.base import RepositoryException
 from weblate.vcs.git import (
-    GitRepository, GitWithGerritRepository, GithubRepository,
-    SubversionRepository
+    GithubRepository,
+    GitRepository,
+    GitWithGerritRepository,
+    LocalRepository,
+    SubversionRepository,
 )
 from weblate.vcs.mercurial import HgRepository
-from weblate.trans.tests.utils import (
-    get_test_file, remove_readonly, TempDirMixin,
-)
 
 
 class GithubFakeRepository(GithubRepository):
@@ -89,8 +90,8 @@ class RepositoryTest(TestCase):
 class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
     _class = GitRepository
     _vcs = 'git'
-    _can_push = True
     _sets_push = True
+    _remote_branches = ['master', 'translations']
 
     def setUp(self):
         super(VCSGitTest, self).setUp()
@@ -101,6 +102,10 @@ class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
 
         self.create_temp()
         self.repo = self.clone_repo(self.tempdir)
+        self.fixup_repo(self.repo)
+
+    def fixup_repo(self, repo):
+        return
 
     def clone_repo(self, path):
         return self._class.clone(
@@ -117,6 +122,8 @@ class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
         tempdir = tempfile.mkdtemp()
         try:
             repo = self.clone_repo(tempdir)
+            self.fixup_repo(repo)
+
             with repo.lock:
                 repo.set_committer('Second Bar', 'second@example.net')
             if conflict:
@@ -145,6 +152,8 @@ class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
         # Verify that VCS directory exists
         if self._vcs == 'mercurial':
             dirname = '.hg'
+        elif self._vcs == 'local':
+            dirname = '.git'
         else:
             dirname = '.{}'.format(self._vcs)
         self.assertTrue(os.path.exists(os.path.join(self.tempdir, dirname)))
@@ -178,6 +187,10 @@ class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
             self.repo.reset()
             self.assertEqual(original, self.repo.last_revision)
 
+    def test_cleanup(self):
+        with self.repo.lock:
+            self.repo.cleanup()
+
     def test_merge_commit(self):
         self.test_commit()
         self.test_merge()
@@ -207,18 +220,23 @@ class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
     def test_merge_conflict(self):
         self.add_remote_commit(conflict=True)
         self.test_commit()
-        if self._can_push:
-            self.assertRaises(RepositoryException, self.test_merge)
-        else:
+        with self.assertRaises(RepositoryException):
             self.test_merge()
 
     def test_rebase_conflict(self):
         self.add_remote_commit(conflict=True)
         self.test_commit()
-        if self._can_push:
-            self.assertRaises(RepositoryException, self.test_rebase)
-        else:
+        with self.assertRaises(RepositoryException):
             self.test_rebase()
+
+    def test_upstream_changes(self):
+        self.add_remote_commit()
+        with self.repo.lock:
+            self.repo.update_remote()
+        self.assertEqual(
+            ['test2'],
+            self.repo.list_upstream_changed_files()
+        )
 
     def test_merge(self):
         self.test_update_remote()
@@ -290,9 +308,10 @@ class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
             self.repo.get_config('user.email'), 'foo@example.net'
         )
 
-    def test_commit(self):
+    def test_commit(self, committer='Foo Bar'):
+        committer_email = '{} <foo@example.com>'.format(committer)
         with self.repo.lock:
-            self.repo.set_committer('Foo Bar', 'foo@example.net')
+            self.repo.set_committer(committer, 'foo@example.net')
         # Create test file
         with open(os.path.join(self.tempdir, 'testfile'), 'wb') as handle:
             handle.write(b'TEST FILE\n')
@@ -302,7 +321,7 @@ class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
         with self.repo.lock:
             self.repo.commit(
                 'Test commit',
-                'Foo Bar <foo@bar.com>',
+                committer_email,
                 timezone.now(),
                 ['testfile']
             )
@@ -314,7 +333,7 @@ class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
         info = self.repo.get_revision_info(self.repo.last_revision)
         self.assertEqual(
             info['author'],
-            'Foo Bar <foo@bar.com>',
+            committer_email,
         )
 
         # Check file hash
@@ -324,13 +343,11 @@ class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
         )
 
         # Check invalid commit
-        with self.repo.lock:
-            self.assertRaises(
-                RepositoryException,
-                self.repo.commit,
-                'test commit',
-                'Foo <bar@example.com>',
-            )
+        with self.repo.lock, self.assertRaises(RepositoryException):
+            self.repo.commit('test commit', committer_email)
+
+    def test_commit_unicode(self):
+        self.test_commit('Zkouška Sirén')
 
     def test_remove(self):
         with self.repo.lock:
@@ -368,7 +385,7 @@ class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
             self.repo.configure_remote('pullurl', 'pushurl', 'branch')
             self.assertEqual(
                 self.repo.get_config('remote.origin.fetch'),
-                '+refs/heads/branch:refs/remotes/origin/branch',
+                '+refs/heads/*:refs/remotes/origin/*',
             )
 
     def test_configure_remote_no_push(self):
@@ -390,11 +407,8 @@ class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
         with self.repo.lock:
             self.repo.configure_branch(self._class.default_branch)
 
-            self.assertRaises(
-                RepositoryException,
-                self.repo.configure_branch,
-                'branch'
-            )
+            with self.assertRaises(RepositoryException):
+                self.repo.configure_branch('branch')
 
     def test_get_file(self):
         self.assertIn(
@@ -402,11 +416,32 @@ class VCSGitTest(TestCase, RepoTestMixin, TempDirMixin):
             self.repo.get_file('po/cs.po', self.repo.last_revision)
         )
 
+    def test_remote_branches(self):
+        self.assertEqual(
+            self._remote_branches,
+            self.repo.list_remote_branches()
+        )
+
 
 class VCSGerritTest(VCSGitTest):
     _class = GitWithGerritRepository
     _vcs = 'git'
-    _can_push = False
+
+    def fixup_repo(self, repo):
+        # Create commit-msg hook, so that git-review doesn't try
+        # to create one
+        hook = os.path.join(repo.path, '.git', 'hooks', 'commit-msg')
+        with open(hook, 'w') as handle:
+            handle.write('#!/bin/sh\nexit 0\n')
+        os.chmod(hook, 0o755)
+
+    def add_remote_commit(self, conflict=False):
+        # Use Git to create changed upstream repo
+        self._class = GitRepository
+        try:
+            super(VCSGerritTest, self).add_remote_commit(conflict)
+        finally:
+            self._class = GitWithGerritRepository
 
 
 class VCSGithubTest(VCSGitTest):
@@ -418,6 +453,7 @@ class VCSGithubTest(VCSGitTest):
 class VCSSubversionTest(VCSGitTest):
     _class = SubversionRepository
     _vcs = 'subversion'
+    _remote_branches = []
 
     def test_clone(self):
         self.assertTrue(os.path.exists(
@@ -470,6 +506,7 @@ class VCSHgTest(VCSGitTest):
     """
     _class = HgRepository
     _vcs = 'mercurial'
+    _remote_branches = []
 
     def test_configure_remote(self):
         with self.repo.lock:
@@ -513,3 +550,53 @@ class VCSHgTest(VCSGitTest):
     def test_status(self):
         status = self.repo.status()
         self.assertEqual(status, '')
+
+
+class VCSLocalTest(VCSGitTest):
+    """
+    Local repository testing.
+    """
+    _class = LocalRepository
+    _vcs = 'local'
+    _remote_branches = []
+
+    @classmethod
+    def setUpClass(cls):
+        super(VCSLocalTest, cls).setUpClass()
+        # Global setup to configure git committer
+        GitRepository.global_setup()
+
+    def test_status(self):
+        status = self.repo.status()
+        # Older git print up-to-date, newer up to date
+        self.assertIn(
+            "On branch master", status
+        )
+
+    def test_upstream_changes(self):
+        raise SkipTest('Not supported')
+
+    def test_get_file(self):
+        raise SkipTest('Not supported')
+
+    def test_remove(self):
+        raise SkipTest('Not supported')
+
+    def test_needs_push(self):
+        self.test_commit()
+        self.assertFalse(self.repo.needs_push())
+
+    def test_reset(self):
+        raise SkipTest('Not supported')
+
+    def test_merge_conflict(self):
+        raise SkipTest('Not supported')
+
+    def test_rebase_conflict(self):
+        raise SkipTest('Not supported')
+
+    def test_configure_remote(self):
+        raise SkipTest('Not supported')
+
+    def test_configure_remote_no_push(self):
+        raise SkipTest('Not supported')

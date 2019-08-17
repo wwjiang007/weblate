@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,21 +20,23 @@
 
 from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
-from weblate.trans.models import Project, Component, Translation, Change
+
+from weblate.trans.models import Change, Component, Project, Translation
 
 
 class PagesSitemap(Sitemap):
     def items(self):
         return (
             ('/', 1.0, 'daily'),
-            ('/about/', 0.8, 'daily'),
+            ('/about/', 0.4, 'weekly'),
+            ('/keys/', 0.4, 'weekly'),
         )
 
     def location(self, obj):
         return obj[0]
 
     def lastmod(self, item):
-        return Change.objects.values_list('timestamp', flat=True)[0]
+        return Change.objects.values_list('timestamp', flat=True).order()[0]
 
     def priority(self, item):
         return item[1]
@@ -51,7 +53,7 @@ class WeblateSitemap(Sitemap):
         raise NotImplementedError()
 
     def lastmod(self, item):
-        return item.last_change
+        return item.stats.last_changed
 
 
 class ProjectSitemap(WeblateSitemap):
@@ -60,7 +62,7 @@ class ProjectSitemap(WeblateSitemap):
     def items(self):
         return Project.objects.filter(
             access_control__lt=Project.ACCESS_PRIVATE
-        )
+        ).order_by('id')
 
 
 class ComponentSitemap(WeblateSitemap):
@@ -69,7 +71,7 @@ class ComponentSitemap(WeblateSitemap):
     def items(self):
         return Component.objects.prefetch().filter(
             project__access_control__lt=Project.ACCESS_PRIVATE
-        )
+        ).order_by('id')
 
 
 class TranslationSitemap(WeblateSitemap):
@@ -78,7 +80,7 @@ class TranslationSitemap(WeblateSitemap):
     def items(self):
         return Translation.objects.prefetch().filter(
             component__project__access_control__lt=Project.ACCESS_PRIVATE
-        )
+        ).order_by('id')
 
 
 class EngageSitemap(ProjectSitemap):
@@ -98,9 +100,9 @@ class EngageLangSitemap(Sitemap):
         ret = []
         projects = Project.objects.filter(
             access_control__lt=Project.ACCESS_PRIVATE
-        )
+        ).order_by('id')
         for project in projects:
-            for lang in project.get_languages():
+            for lang in project.languages:
                 ret.append((project, lang))
         return ret
 

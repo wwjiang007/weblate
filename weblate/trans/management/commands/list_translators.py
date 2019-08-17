@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -39,8 +39,8 @@ class Command(WeblateComponentCommand):
     def handle(self, *args, **options):
         data = []
         for component in self.get_components(*args, **options):
-            for translation in component.translation_set.all():
-                authors = Change.objects.authors_list(translation)
+            for translation in component.translation_set.iterator():
+                authors = Change.objects.filter(translation=translation).authors_list()
                 if not authors:
                     continue
                 if options['code']:

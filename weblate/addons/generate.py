@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,8 +19,6 @@
 #
 
 from __future__ import unicode_literals
-
-import os
 
 from django.utils.translation import ugettext_lazy as _
 
@@ -41,6 +39,7 @@ class GenerateFileAddon(BaseAddon):
     settings_form = GenerateForm
     multiple = True
     icon = 'bar-chart'
+    has_summary = True
 
     @classmethod
     def can_install(cls, component, user):
@@ -49,20 +48,19 @@ class GenerateFileAddon(BaseAddon):
         return super(GenerateFileAddon, cls).can_install(component, user)
 
     def pre_commit(self, translation, author):
-        filename = os.path.join(
-            self.instance.component.full_path,
-            render_template(
-                self.instance.configuration['filename'],
-                translation=translation
-            )
+        filename = self.render_repo_filename(
+            self.instance.configuration['filename'],
+            translation
         )
+        if not filename:
+            return
         content = render_template(
             self.instance.configuration['template'],
             translation=translation
         )
-        dirname = os.path.dirname(filename)
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
         with open(filename, 'w') as handle:
             handle.write(content)
         translation.addon_commit_files.append(filename)
+
+    def get_summary(self):
+        return self.instance.configuration['filename']

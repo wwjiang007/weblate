@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,6 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+from django.contrib import admin
+
 from weblate.wladmin.models import WeblateModelAdmin
 
 
@@ -24,6 +26,6 @@ class ScreenshotAdmin(WeblateModelAdmin):
     list_display = ['name', 'component']
     search_fields = ['name', 'image']
     list_filter = [
-        'component',
+        ('component', admin.RelatedOnlyFieldListFilter)
     ]
     raw_id_fields = ('sources',)

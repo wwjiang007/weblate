@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -27,6 +27,7 @@ from __future__ import unicode_literals
 from django.test import TestCase
 
 from weblate.accounts.pipeline import slugify_username
+from weblate.accounts.tasks import cleanup_auditlog, cleanup_social_auth
 
 
 class PipelineTest(TestCase):
@@ -55,3 +56,11 @@ class PipelineTest(TestCase):
             slugify_username('..test'),
             'test'
         )
+
+
+class TasksTest(TestCase):
+    def test_cleanup_social_auth(self):
+        cleanup_social_auth()
+
+    def test_cleanup_auditlog(self):
+        cleanup_auditlog()

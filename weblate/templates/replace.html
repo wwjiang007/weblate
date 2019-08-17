@@ -18,6 +18,11 @@
 {% trans "Please review and confirm the search and replace results." as msg %}
 {% show_message "info" msg %}
 
+{% if limited %}
+{% trans "Showing and replacing only the first 250 matches. Perform the replacement again to replace more entries." as msg %}
+{% show_message "warning" msg %}
+{% endif %}
+
 <form method="POST">
 {% csrf_token %}
 {{ form.search.as_hidden }}
@@ -31,7 +36,7 @@
 <input type="checkbox" name="units" checked="1" value="{{ unit.pk }}" id="confirm_{{ unit.pk }}" />
 </td>
 <td>
-<a href="{{ unit.get_absolute_url }}" class="btn btn-default btn-sm pull-right flip"><i class="fa fa-pencil"></i> {% trans "Edit" %}</a>
+<a href="{{ unit.get_absolute_url }}" class="btn btn-primary btn-sm pull-right flip"><i class="fa fa-pencil"></i> {% trans "Edit" %}</a>
 <label for="confirm_{{ unit.pk }}">{{ unit }}</label>
 </td>
 </tr>
@@ -43,7 +48,7 @@
 </tr>
 {% endfor %}
 </table>
-<input type="submit" class="btn btn-success" value="{% trans "Process" %}" />
+<input type="submit" class="btn btn-primary" value="{% trans "Replace" %}" />
 </form>
 
 {% endblock %}

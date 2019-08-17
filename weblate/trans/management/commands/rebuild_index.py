@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,14 +18,11 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from weblate.trans.management.commands import WeblateComponentCommand
-from weblate.trans.search import (
-    get_source_index, get_target_index,
-    update_source_unit_index, update_target_unit_index,
-    clean_indexes,
-)
 from weblate.lang.models import Language
-from weblate.memory.storage import TranslationMemory
+from weblate.trans.management.commands import WeblateComponentCommand
+from weblate.trans.models import Unit
+from weblate.trans.search import Fulltext
+from weblate.trans.tasks import optimize_fulltext
 
 
 class Command(WeblateComponentCommand):
@@ -48,29 +45,12 @@ class Command(WeblateComponentCommand):
             help='optimize index without rebuilding it'
         )
 
-    def optimize_index(self):
-        """Optimize index structures"""
-        memory = TranslationMemory()
-        memory.index.optimize()
-        index = get_source_index()
-        index.optimize()
-        languages = Language.objects.have_translation()
-        for lang in languages:
-            index = get_target_index(lang.code)
-            index.optimize()
-
-    def handle(self, *args, **options):
-        # Optimize index
-        if options['optimize']:
-            self.optimize_index()
-            return
-        # Optionally rebuild indices from scratch
-        if options['clean']:
-            clean_indexes()
-
+    def process_filtered(self, fulltext, **options):
         # Open writer
-        source_writer = get_source_index().writer()
+        source_writer = fulltext.get_source_index().writer()
+        source_searcher = source_writer.searcher()
         target_writers = {}
+        target_searchers = {}
 
         try:
             # Process all units
@@ -78,15 +58,64 @@ class Command(WeblateComponentCommand):
                 lang = unit.translation.language.code
                 # Lazy open writer
                 if lang not in target_writers:
-                    target_writers[lang] = get_target_index(lang).writer()
+                    target_writers[lang] = fulltext.get_target_index(
+                        lang
+                    ).writer()
+                    target_searchers[lang] = target_writers[lang].searcher()
                 # Update target index
                 if unit.translation:
-                    update_target_unit_index(target_writers[lang], unit)
+                    fulltext.update_target_unit_index(
+                        target_writers[lang], target_searchers[lang], unit
+                    )
                 # Update source index
-                update_source_unit_index(source_writer, unit)
+                fulltext.update_source_unit_index(
+                    source_writer, source_searcher, unit
+                )
 
         finally:
             # Close all writers
+            source_searcher.close()
             source_writer.commit()
             for code in target_writers:
+                target_searchers[code].close()
                 target_writers[code].commit()
+
+    def process_all(self, fulltext):
+        with fulltext.get_source_index().writer() as source_writer:
+            with source_writer.searcher() as source_searcher:
+                languages = Language.objects.have_translation()
+                lang_count = len(languages)
+                for index, language in enumerate(languages):
+                    self.stdout.write('Processing {} ({}/{})'.format(
+                        language.code, index + 1, lang_count
+                    ))
+                    index = fulltext.get_target_index(language.code)
+                    with index.writer() as writer:
+                        with writer.searcher() as searcher:
+                            units = Unit.objects.filter(
+                                translation__language=language
+                            )
+                            for unit in units.iterator():
+                                if unit.translation:
+                                    fulltext.update_target_unit_index(
+                                        writer, searcher, unit
+                                    )
+                                # Update source index
+                                fulltext.update_source_unit_index(
+                                    source_writer, source_searcher, unit
+                                )
+
+    def handle(self, *args, **options):
+        # Optimize index
+        if options['optimize']:
+            optimize_fulltext()
+            return
+        fulltext = Fulltext()
+        # Optionally rebuild indices from scratch
+        if options['clean'] or options['all']:
+            fulltext.cleanup()
+
+        if options['all']:
+            self.process_all(fulltext)
+        else:
+            self.process_filtered(fulltext, **options)

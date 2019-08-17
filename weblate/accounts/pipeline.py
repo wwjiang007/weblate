@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -30,39 +30,33 @@ from django.urls import reverse
 from django.utils.encoding import force_text
 from django.utils.http import is_safe_url
 from django.utils.translation import ugettext as _
-
 from six.moves.urllib.request import Request, urlopen
-
+from social_core.exceptions import AuthAlreadyAssociated, AuthMissingParameter
 from social_core.pipeline.partial import partial
-from social_core.exceptions import AuthMissingParameter, AuthAlreadyAssociated
 
-from social_django.models import Code
-
-from weblate.auth.models import User
-from weblate.accounts.notifications import (
-    send_notification_email, notify_account_activity
-)
-from weblate.accounts.templatetags.authnames import get_auth_name
-from weblate.accounts.models import VerifiedEmail
-from weblate.utils import messages
-from weblate.utils.validators import clean_fullname, USERNAME_MATCHER
 from weblate import USER_AGENT
+from weblate.accounts.models import AuditLog, VerifiedEmail
+from weblate.accounts.notifications import send_notification_email
+from weblate.accounts.templatetags.authnames import get_auth_name
+from weblate.accounts.utils import invalidate_reset_codes
+from weblate.auth.models import User
+from weblate.utils import messages
+from weblate.utils.validators import USERNAME_MATCHER, clean_fullname
 
 STRIP_MATCHER = re.compile(r'[^\w\s.@+-]')
 CLEANUP_MATCHER = re.compile(r'[-\s]+')
 
 
 def get_github_email(access_token):
-    """Get real email from GitHub"""
+    """Get real e-mail from GitHub"""
 
     request = Request('https://api.github.com/user/emails')
-    request.timeout = 1.0
     request.add_header('User-Agent', USER_AGENT)
     request.add_header(
         'Authorization',
         'token {0}'.format(access_token)
     )
-    handle = urlopen(request)
+    handle = urlopen(request, timeout=10.0)
     data = json.loads(handle.read().decode('utf-8'))
     email = None
     for entry in data:
@@ -79,12 +73,13 @@ def get_github_email(access_token):
 def reauthenticate(strategy, backend, user, social, uid, weblate_action,
                    **kwargs):
     """Force authentication when adding new association."""
-    if strategy.request.session.pop('reauthenticate_done', False):
+    session = strategy.request.session
+    if session.pop('reauthenticate_done', False):
         return None
     if weblate_action != 'activation':
         return None
     if user and not social and user.has_usable_password():
-        strategy.request.session['reauthenticate'] = {
+        session['reauthenticate'] = {
             'backend': backend.name,
             'backend_verbose': get_auth_name(backend.name),
             'uid': uid,
@@ -97,50 +92,41 @@ def reauthenticate(strategy, backend, user, social, uid, weblate_action,
 @partial
 def require_email(backend, details, weblate_action, user=None, is_new=False,
                   **kwargs):
-    """Force entering email for backends which don't provide it."""
+    """Force entering e-mail for backends which don't provide it."""
 
     if backend.name == 'github':
         email = get_github_email(kwargs['response']['access_token'])
         if email is not None:
             details['email'] = email
+        if details.get('email', '').endswith('@users.noreply.github.com'):
+            del details['email']
 
-    # Remove any pending email validation codes
+    # Remove any pending e-mail validation codes
     if details.get('email') and backend.name == 'email':
-        Code.objects.filter(email=details['email']).delete()
+        invalidate_reset_codes(emails=(details['email'],))
         # Remove all account reset codes
         if user and weblate_action == 'reset':
-            Code.objects.filter(
-                email__in=VerifiedEmail.objects.filter(
-                    social__user=user,
-                ).values_list(
-                    'email', flat=True
-                )
-            ).delete()
+            invalidate_reset_codes(user=user)
 
     if user and user.email:
-        # Force validation of new email address
+        # Force validation of new e-mail address
         if backend.name == 'email':
             return {'is_new': True}
 
         return None
 
-    elif is_new and not details.get('email'):
-        return redirect('register')
+    if is_new and not details.get('email'):
+        raise AuthMissingParameter(backend, 'email')
     return None
 
 
 def send_validation(strategy, backend, code, partial_token):
-    """Send verification email."""
+    """Send verification e-mail."""
     # We need to have existing session
-    if not strategy.request.session.session_key:
-        strategy.request.session.create()
-    strategy.request.session['registration-email-sent'] = True
-
-    template = 'activation'
-    if strategy.request.session.get('password_reset'):
-        template = 'reset'
-    elif strategy.request.session.get('account_remove'):
-        template = 'remove'
+    session = strategy.request.session
+    if not session.session_key:
+        session.create()
+    session['registration-email-sent'] = True
 
     url = '{0}?verification_code={1}&partial_token={2}'.format(
         reverse('social:complete', args=(backend.name,)),
@@ -148,14 +134,23 @@ def send_validation(strategy, backend, code, partial_token):
         partial_token,
     )
 
+    context = {'url': url}
+
+    template = 'activation'
+    if session.get('password_reset'):
+        template = 'reset'
+    elif session.get('account_remove'):
+        template = 'remove'
+    elif session.get('user_invite'):
+        template = 'invite'
+        context.update(session['invitation_context'])
+
     send_notification_email(
         None,
         code.email,
         template,
         info=url,
-        context={
-            'url': url
-        }
+        context=context,
     )
 
 
@@ -163,10 +158,8 @@ def send_validation(strategy, backend, code, partial_token):
 def password_reset(strategy, backend, user, social, details, weblate_action,
                    current_partial, **kwargs):
     """Set unusable password on reset."""
-    if (strategy.request is not None and
-            user is not None and
-            weblate_action == 'reset'):
-        notify_account_activity(
+    if strategy.request is not None and user is not None and weblate_action == 'reset':
+        AuditLog.objects.create(
             user,
             strategy.request,
             'reset',
@@ -177,11 +170,12 @@ def password_reset(strategy, backend, user, social, details, weblate_action,
         user.set_unusable_password()
         user.save(update_fields=['password'])
         # Remove partial pipeline, we do not need it
-        strategy.clean_partial_pipeline(current_partial.token)
+        strategy.really_clean_partial_pipeline(current_partial.token)
+        session = strategy.request.session
         # Store user ID
-        strategy.request.session['perform_reset'] = user.pk
+        session['perform_reset'] = user.pk
         # Set short session expiry
-        strategy.request.session.set_expiry(90)
+        session.set_expiry(90)
         # Redirect to form to change password
         return redirect('password_reset')
     return None
@@ -191,14 +185,13 @@ def password_reset(strategy, backend, user, social, details, weblate_action,
 def remove_account(strategy, backend, user, social, details, weblate_action,
                    current_partial, **kwargs):
     """Set unusable password on reset."""
-    if (strategy.request is not None and
-            user is not None and
-            weblate_action == 'remove'):
+    if strategy.request is not None and user is not None and weblate_action == 'remove':
         # Remove partial pipeline, we do not need it
-        strategy.clean_partial_pipeline(current_partial.token)
+        strategy.really_clean_partial_pipeline(current_partial.token)
         # Set short session expiry
-        strategy.request.session.set_expiry(90)
-        strategy.request.session['remove_confirm'] = True
+        session = strategy.request.session
+        session.set_expiry(90)
+        session['remove_confirm'] = True
         # Redirect to form to change password
         return redirect('remove')
     return None
@@ -207,14 +200,10 @@ def remove_account(strategy, backend, user, social, details, weblate_action,
 def verify_open(strategy, backend, user, weblate_action, **kwargs):
     """Check whether it is possible to create new user."""
     # Check whether registration is open
-    if (not user and
-            not settings.REGISTRATION_OPEN and
-            weblate_action not in ('reset', 'remove')):
+    if (not user
+            and not settings.REGISTRATION_OPEN
+            and weblate_action not in ('reset', 'remove')):
         raise AuthMissingParameter(backend, 'disabled')
-
-    # Avoid adding associations to demo user
-    if user and user.is_demo:
-        raise AuthMissingParameter(backend, 'demo')
 
     # Ensure it's still same user
     request = strategy.request
@@ -242,10 +231,13 @@ def store_params(strategy, user, **kwargs):
         registering_user = None
 
     # Pipeline action
-    if strategy.request.session['password_reset']:
+    session = strategy.request.session
+    if session.get('password_reset'):
         action = 'reset'
-    elif strategy.request.session['account_remove']:
+    elif session.get('account_remove'):
         action = 'remove'
+    elif session.get('user_invite'):
+        action = 'invite'
     else:
         action = 'activation'
 
@@ -263,10 +255,10 @@ def verify_username(strategy, backend, details, user=None, **kwargs):
     taken the username meanwhile.
     """
     if user or 'username' not in details:
-        return None
+        return
     if User.objects.filter(username__iexact=details['username']).exists():
         raise AuthAlreadyAssociated(backend, 'Username exists')
-    return None
+    return
 
 
 def revoke_mail_code(strategy, details, **kwargs):
@@ -275,7 +267,7 @@ def revoke_mail_code(strategy, details, **kwargs):
     PSA keeps them around, but we really don't need them again.
     """
     data = strategy.request_data()
-    if details['email'] and 'verification_code' in data:
+    if 'email' in details and details['email'] and 'verification_code' in data:
         try:
             code = strategy.storage.code.objects.get(
                 code=data['verification_code'],
@@ -309,7 +301,7 @@ def ensure_valid(strategy, backend, user, registering_user, weblate_action,
             raise AuthMissingParameter(backend, 'user')
         return
 
-    # Add email/register should stay on same user
+    # Add e-mail/register should stay on same user
     if user and user.is_authenticated:
         current_user = user.pk
     else:
@@ -342,16 +334,16 @@ def ensure_valid(strategy, backend, user, registering_user, weblate_action,
             same = same.exclude(social__user=user)
 
         if same.exists():
-            notify_account_activity(
+            AuditLog.objects.create(
                 same[0].social.user,
                 strategy.request,
                 'connect'
             )
-            raise AuthAlreadyAssociated(backend, 'Email exists')
+            raise AuthAlreadyAssociated(backend, 'E-mail exists')
 
 
 def store_email(strategy, backend, user, social, details, **kwargs):
-    """Store verified email."""
+    """Store verified e-mail."""
     verified, created = VerifiedEmail.objects.get_or_create(
         social=social,
         defaults={
@@ -371,7 +363,7 @@ def notify_connect(strategy, backend, user, social, new_association=False,
             action = 'auth-connect'
         else:
             action = 'login'
-        notify_account_activity(
+        AuditLog.objects.create(
             user,
             strategy.request,
             action,
@@ -385,8 +377,7 @@ def user_full_name(strategy, details, user=None, **kwargs):
     if user and not user.full_name:
         full_name = details.get('fullname', '').strip()
 
-        if (not full_name and
-                ('first_name' in details or 'last_name' in details)):
+        if not full_name and ('first_name' in details or 'last_name' in details):
             first_name = details.get('first_name', '')
             last_name = details.get('last_name', '')
 
@@ -445,11 +436,7 @@ def cycle_session(strategy, *args, **kwargs):
 def adjust_primary_mail(strategy, entries, user, *args, **kwargs):
     """Fix primary mail on disconnect."""
     # Remove pending verification codes
-    mails = VerifiedEmail.objects.filter(
-        social__user=user,
-        social__in=entries
-    ).values_list('email', flat=True)
-    Code.objects.filter(email__in=mails).delete()
+    invalidate_reset_codes(user=user, entries=entries)
 
     # Check remaining verified mails
     verified = VerifiedEmail.objects.filter(
@@ -465,7 +452,7 @@ def adjust_primary_mail(strategy, entries, user, *args, **kwargs):
     messages.warning(
         strategy.request,
         _(
-            'Your email no longer belongs to verified account, '
+            'Your e-mail no longer belongs to verified account, '
             'it has been changed to {0}.'
         ).format(
             user.email
@@ -474,9 +461,9 @@ def adjust_primary_mail(strategy, entries, user, *args, **kwargs):
 
 
 def notify_disconnect(strategy, backend, entries, user, **kwargs):
-    """Store verified email."""
+    """Store verified e-mail."""
     for social in entries:
-        notify_account_activity(
+        AuditLog.objects.create(
             user,
             strategy.request,
             'auth-disconnect',

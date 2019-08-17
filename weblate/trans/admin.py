@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,13 +22,62 @@ from django.contrib import admin
 from django.utils.translation import ugettext_lazy as _
 
 from weblate.auth.models import User
-from weblate.trans.models import AutoComponentList, Unit
+from weblate.trans.models import AutoComponentList, Translation, Unit
 from weblate.trans.util import sort_choices
-
 from weblate.wladmin.models import WeblateModelAdmin
 
 
-class ProjectAdmin(WeblateModelAdmin):
+def perform_update_checks(units, translations):
+    for unit in units:
+        unit.run_checks()
+        unit.source_info.run_checks()
+
+    for translation in translations:
+        translation.invalidate_cache()
+
+
+class RepoAdminMixin(object):
+    def force_commit(self, request, queryset):
+        """Commit pending changes for selected components."""
+        for obj in queryset:
+            obj.commit_pending('admin', request)
+        self.message_user(
+            request,
+            "Flushed changes in {0:d} git repos.".format(queryset.count())
+        )
+    force_commit.short_description = _('Commit pending changes')
+
+    def update_from_git(self, request, queryset):
+        """Update selected components from git."""
+        for obj in queryset:
+            obj.do_update(request)
+        self.message_user(
+            request, "Updated {0:d} git repos.".format(queryset.count())
+        )
+    update_from_git.short_description = _('Update VCS repository')
+
+    def get_qs_units(self, queryset):
+        raise NotImplementedError()
+
+    def get_qs_translations(self, queryset):
+        raise NotImplementedError()
+
+    def update_checks(self, request, queryset):
+        """Recalculate checks for selected components."""
+        units = self.get_qs_units(queryset)
+        for unit in units:
+            unit.run_checks()
+
+        for translation in self.get_qs_translations(queryset):
+            translation.invalidate_cache()
+
+        self.message_user(
+            request, "Updated checks for {0:d} units.".format(len(units))
+        )
+    update_checks.short_description = _('Update quality checks')
+
+
+class ProjectAdmin(WeblateModelAdmin, RepoAdminMixin):
     list_display = (
         'name', 'slug', 'web', 'list_admins', 'access_control', 'enable_hooks',
         'num_vcs', 'get_total', 'get_source_words', 'get_language_count',
@@ -51,48 +100,24 @@ class ProjectAdmin(WeblateModelAdmin):
         return obj.stats.source_words
     get_source_words.short_description = _('Source words')
 
+    def get_language_count(self, obj):
+        """Return number of languages used in this project."""
+        return obj.stats.languages
+    get_language_count.short_description = _('Languages')
+
     def num_vcs(self, obj):
-        return obj.component_set.exclude(repo__startswith='weblate:/').count()
+        return obj.component_set.with_repo().count()
     num_vcs.short_description = _('VCS repositories')
 
-    def update_from_git(self, request, queryset):
-        """Update selected components from git."""
-        for project in queryset:
-            project.do_update(request)
-        self.message_user(
-            request, "Updated {0:d} git repos.".format(queryset.count())
-        )
-    update_from_git.short_description = _('Update VCS repository')
-
-    def update_checks(self, request, queryset):
-        """Recalculate checks for selected components."""
-        cnt = 0
-        units = Unit.objects.filter(
+    def get_qs_units(self, queryset):
+        return Unit.objects.filter(
             translation__component__project__in=queryset
         )
-        translations = {}
-        for unit in units.iterator():
-            unit.run_checks()
-            if unit.translation.id not in translations:
-                translations[unit.translation.id] = unit.translation
-            cnt += 1
 
-        for translation in translations.values():
-            translation.invalidate_cache()
-        self.message_user(
-            request, "Updated checks for {0:d} units.".format(cnt)
+    def get_qs_translations(self, queryset):
+        return Translation.objects.filter(
+            component__project__in=queryset
         )
-    update_checks.short_description = _('Update quality checks')
-
-    def force_commit(self, request, queryset):
-        """Commit pending changes for selected components."""
-        for project in queryset:
-            project.commit_pending(request)
-        self.message_user(
-            request,
-            "Flushed changes in {0:d} git repos.".format(queryset.count())
-        )
-    force_commit.short_description = _('Commit pending changes')
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         """Wrapper to sort languages by localized names"""
@@ -104,70 +129,46 @@ class ProjectAdmin(WeblateModelAdmin):
         return result
 
 
-class ComponentAdmin(WeblateModelAdmin):
+class ComponentAdmin(WeblateModelAdmin, RepoAdminMixin):
     list_display = [
         'name', 'slug', 'project', 'repo', 'branch', 'vcs', 'file_format'
     ]
     prepopulated_fields = {'slug': ('name',)}
-    search_fields = ['name', 'slug', 'repo', 'branch']
+    search_fields = [
+        'name', 'slug', 'repo', 'branch', 'project__name', 'project__slug'
+    ]
     list_filter = ['project', 'vcs', 'file_format']
     actions = ['update_from_git', 'update_checks', 'force_commit']
+    ordering = ['project__name', 'name']
 
-    def update_from_git(self, request, queryset):
-        """Update selected components from git."""
-        for project in queryset:
-            project.do_update(request)
-        self.message_user(
-            request, "Updated {0:d} git repos.".format(queryset.count())
-        )
-    update_from_git.short_description = _('Update VCS repository')
-
-    def update_checks(self, request, queryset):
-        """Recalculate checks for selected components."""
-        cnt = 0
-        units = Unit.objects.filter(
+    def get_qs_units(self, queryset):
+        return Unit.objects.filter(
             translation__component__in=queryset
         )
-        for unit in units.iterator():
-            unit.run_checks()
-            unit.translation.invalidate_cache()
-            cnt += 1
-        self.message_user(
-            request,
-            "Updated checks for {0:d} units.".format(cnt)
-        )
-    update_checks.short_description = _('Update quality checks')
 
-    def force_commit(self, request, queryset):
-        """Commit pending changes for selected components."""
-        for project in queryset:
-            project.commit_pending(request)
-        self.message_user(
-            request,
-            "Flushed changes in {0:d} git repos.".format(queryset.count())
+    def get_qs_translations(self, queryset):
+        return Translation.objects.filter(
+            component__in=queryset
         )
-    force_commit.short_description = _('Commit pending changes')
 
 
 class TranslationAdmin(WeblateModelAdmin):
     list_display = [
-        'component', 'language', 'translated', 'total',
-        'fuzzy', 'revision', 'filename'
+        'component', 'language', 'revision', 'filename'
     ]
     search_fields = [
-        'component__slug', 'language__code', 'revision', 'filename'
+        'component__name', 'language__code', 'revision', 'filename'
     ]
     list_filter = ['component__project', 'component', 'language']
 
 
 class UnitAdmin(WeblateModelAdmin):
-    list_display = ['source', 'target', 'position', 'fuzzy', 'translated']
+    list_display = ['source', 'target', 'position', 'state']
     search_fields = ['source', 'target', 'id_hash']
     list_filter = [
         'translation__component',
         'translation__language',
-        'fuzzy',
-        'translated'
+        'state',
     ]
 
 
@@ -220,13 +221,15 @@ class ComponentListAdmin(WeblateModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
     filter_horizontal = ('components', )
     inlines = [AutoComponentListAdmin]
+    ordering = ['name']
 
 
 class SourceAdmin(WeblateModelAdmin):
-    list_display = ['id_hash', 'priority', 'timestamp']
+    list_display = ['id_hash', 'timestamp', 'check_flags']
     date_hierarchy = 'timestamp'
 
 
 class ContributorAgreementAdmin(WeblateModelAdmin):
     list_display = ['user', 'component', 'timestamp']
     date_hierarchy = 'timestamp'
+    ordering = ('user__username', 'component__project__name', 'component__name')

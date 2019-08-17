@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -27,9 +27,9 @@ from weblate.checks.base import TargetCheck
 PYTHON_PRINTF_MATCH = re.compile(
     r'''
     %(                          # initial %
-          (?:\((?P<key>\w+)\))?    # Python style variables, like %(var)s
+          (?:\((?P<key>[^)]+)\))?    # Python style variables, like %(var)s
     (?P<fullvar>
-        [+#-]*                  # flags
+        [ +#-]*                 # flags
         (?:\d+)?                # width
         (?:\.\d+)?              # precision
         (hh|h|l|ll)?         # length formatting
@@ -44,7 +44,7 @@ PHP_PRINTF_MATCH = re.compile(
     %(                          # initial %
           (?:(?P<ord>\d+)\$)?   # variable order, like %1$s
     (?P<fullvar>
-        [+#-]*                  # flags
+        [ +#-]*                 # flags
         (?:\d+)?                # width
         (?:\.\d+)?              # precision
         (hh|h|l|ll)?         # length formatting
@@ -59,7 +59,7 @@ C_PRINTF_MATCH = re.compile(
     %(                          # initial %
           (?:(?P<ord>\d+)\$)?   # variable order, like %1$s
     (?P<fullvar>
-        [+#'-]*                 # flags
+        [ +#'-]*                # flags
         (?:\d+)?                # width
         (?:\.\d+)?              # precision
         (hh|h|l|ll)?         # length formatting
@@ -101,6 +101,58 @@ PYTHON_BRACE_MATCH = re.compile(
     re.VERBOSE
 )
 
+C_SHARP_MATCH = re.compile(
+    r'''
+        {                               # initial {
+        (?P<arg>\d+)                    # variable order
+        (?P<width>
+            [,-?\s]+                    # flags
+            (?:\d+)?                    # width
+            (?:\.\d+)?                  # precision
+        )?
+        (?P<format>
+            :                           # ':' identifier
+            ((
+                [a-zA-Z0#.,\s]*         # type
+                (?:\d+)?                # numerical
+            ))?
+        )?
+    }                                   # Ending }
+    ''',
+    re.VERBOSE
+)
+
+JAVA_MATCH = re.compile(
+    r'''
+        %((?![\s])                     # initial % (no space after)
+          (?:(?P<ord>\d+)\$)?          # variable order, like %1$s
+    (?P<fullvar>
+        [-.#+0,(]*                     # flags
+        (?:\d+)?                       # width
+        (?:\.\d+)?                     # precision
+        (?P<type>
+            ((?<![tT])[tT][A-Za-z]|[A-Za-z])) # type (%s, %d, %te, etc.)
+       )
+    )
+    ''',
+    re.VERBOSE
+)
+
+JAVA_MESSAGE_MATCH = re.compile(
+    r'''
+    {                                   # initial {
+        (?P<arg>\d+)                    # variable order
+        \s*
+        (
+        ,\s*(?P<format>[a-z]+)          # format type
+        (,\s*(?P<style>\S+))?            # format style
+        )?
+        \s*
+    }                                   # Ending }
+    ''',
+    re.VERBOSE
+)
+
 
 class BaseFormatCheck(TargetCheck):
     """Base class for fomat string checks."""
@@ -122,7 +174,7 @@ class BaseFormatCheck(TargetCheck):
         singular_check = self.check_format(
             sources[0],
             targets[0],
-            len(sources) > 1
+            len(sources) > 1 and len(unit.translation.plural.examples[0]) == 1
         )
         if singular_check:
             return True
@@ -132,11 +184,11 @@ class BaseFormatCheck(TargetCheck):
             return False
 
         # Check plurals against plural from source
-        for target in targets[1:]:
+        for i, target in enumerate(targets[1:]):
             plural_check = self.check_format(
                 sources[1],
                 target,
-                False
+                len(unit.translation.plural.examples[i + 1]) == 1
             )
             if plural_check:
                 return True
@@ -150,6 +202,9 @@ class BaseFormatCheck(TargetCheck):
             return text.replace('\'', '')
         return text
 
+    def normalize(self, matches):
+        return [m for m in matches if m != '%']
+
     def check_format(self, source, target, ignore_missing):
         """Generic checker for format strings."""
         if not target or not source:
@@ -157,31 +212,22 @@ class BaseFormatCheck(TargetCheck):
 
         uses_position = True
 
-        # We ignore %% in the matches as this is really not relevant. However
-        # it needs to be matched to prevent handling %%s as %s.
-
         # Calculate value
-        src_matches = [
-            self.cleanup_string(x[0])
-            for x in self.regexp.findall(source)
-            if x[0] != '%'
-        ]
+        src_matches = [self.cleanup_string(x[0]) for x in self.regexp.findall(source)]
         if src_matches:
-            uses_position = max(
-                [self.is_position_based(x) for x in src_matches]
-            )
+            uses_position = any((self.is_position_based(x) for x in src_matches))
 
-        tgt_matches = [
-            self.cleanup_string(x[0])
-            for x in self.regexp.findall(target)
-            if x[0] != '%'
-        ]
+        tgt_matches = [self.cleanup_string(x[0]) for x in self.regexp.findall(target)]
 
         if not uses_position:
             src_matches = set(src_matches)
             tgt_matches = set(tgt_matches)
 
         if src_matches != tgt_matches:
+            # Ignore mismatch in percent position
+            if (len(src_matches) == len(tgt_matches)
+                    and self.normalize(src_matches) == self.normalize(tgt_matches)):
+                return False
             # We can ignore missing format strings
             # for first of plurals
             if ignore_missing and tgt_matches < src_matches:
@@ -251,11 +297,11 @@ class PerlFormatCheck(BaseFormatCheck):
         return '$' not in string and string != '%'
 
 
-class JavascriptFormatCheck(CFormatCheck):
-    """Check for Javascript format string"""
+class JavaScriptFormatCheck(CFormatCheck):
+    """Check for JavaScript format string"""
     check_id = 'javascript_format'
-    name = _('Javascript format')
-    description = _('Javascript format string does not match source')
+    name = _('JavaScript format')
+    description = _('JavaScript format string does not match source')
 
 
 class PythonBraceFormatCheck(BaseFormatCheck):
@@ -267,3 +313,59 @@ class PythonBraceFormatCheck(BaseFormatCheck):
 
     def is_position_based(self, string):
         return string == ''
+
+
+class CSharpFormatCheck(BaseFormatCheck):
+    """Check for C# format string"""
+    check_id = 'c_sharp_format'
+    name = _('C# format')
+    description = _('C# format string does not match source')
+    regexp = C_SHARP_MATCH
+
+    def is_position_based(self, string):
+        return string == ''
+
+
+class JavaFormatCheck(BaseFormatCheck):
+    """Check for Java format string"""
+    check_id = 'java_format'
+    name = _('Java format')
+    description = _('Java format string does not match source')
+    regexp = JAVA_MATCH
+
+    def is_position_based(self, string):
+        return '$' not in string and string != '%'
+
+
+class JavaMessageFormatCheck(BaseFormatCheck):
+    """Check for Java MessageFormat string"""
+    check_id = 'java_messageformat'
+    name = _('Java MessageFormat')
+    description = _('Java MessageFormat string does not match source')
+    regexp = JAVA_MESSAGE_MATCH
+
+    def is_position_based(self, string):
+        return False
+
+    def should_skip(self, unit):
+        if 'auto-java-messageformat' in unit.all_flags and '{0' in unit.source:
+            return False
+
+        return super(JavaMessageFormatCheck, self).should_skip(unit)
+
+    def cleanup_string(self, text):
+        """No cleanups here"""
+        return text
+
+    def check_format(self, source, target, ignore_missing):
+        """Generic checker for format strings."""
+        if not target or not source:
+            return False
+
+        # Even number of quotes
+        if target.count("'") % 2 != 0:
+            return True
+
+        return super(JavaMessageFormatCheck, self).check_format(
+            source, target, ignore_missing
+        )

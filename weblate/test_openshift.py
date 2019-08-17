@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,8 +19,8 @@
 #
 """OpenShift integration testing"""
 
-from unittest import TestCase
 import os
+from unittest import TestCase
 
 from django.conf import Settings
 
@@ -37,7 +37,8 @@ class OpenShiftTest(TestCase):
         for var in cleanup_vars:
             if var in os.environ:
                 del os.environ[var]
-        self.assertRaises(ValueError, get_openshift_secret_key)
+        with self.assertRaises(ValueError):
+            get_openshift_secret_key()
 
     def test_key_stored(self):
         os.environ['OPENSHIFT_SECRET_TOKEN'] = 'TEST TOKEN'

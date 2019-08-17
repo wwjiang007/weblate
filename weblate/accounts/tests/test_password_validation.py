@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -35,15 +35,9 @@ class ValidationTest(TestCase):
         self.assertIsNone(self.validate('123'))
 
     def test_chars_whitespace(self):
-        self.assertRaises(
-            ValidationError,
-            self.validate,
-            ' \r\n\t'
-        )
+        with self.assertRaises(ValidationError):
+            self.validate(' \r\n\t')
 
     def test_chars_same(self):
-        self.assertRaises(
-            ValidationError,
-            self.validate,
-            'x' * 10
-        )
+        with self.assertRaises(ValidationError):
+            self.validate('x' * 10)

@@ -4,6 +4,7 @@
 }
 .navbar {
     margin-bottom: 0;
+    font-weight: bold;
 }
 .navbar-brand > img {
     display: inline-block;
@@ -15,14 +16,42 @@ h1 {
 .content {
     margin: 14px;
 }
+.actions {
+    text-align: right;
+}
 .progress-cell {
     width: 200px;
 }
 .progress {
     margin-bottom: 0;
 }
+.progress-table > tbody > tr > th,
+.progress-table > tbody > tr > td {
+    border: none;
+    padding-bottom: 3px;
+}
+.progress-row {
+    padding: 0 8px 8px 8px !important;
+    margin: 0;
+}
+.progress-row .progress {
+    height: 5px;
+    border-radius: 0;
+    border: none;
+}
 .nav-pills {
     margin-bottom: 20px;
+}
+.vertical-text {
+    writing-mode: tb;
+}
+.columns-dropdown {
+    padding: 0 10px 0 0;
+    border: 0;
+    line-height: 1;
+}
+.columns-dropdown:last-child {
+    padding-right: 0;
 }
 footer ul {
     padding:0;
@@ -44,10 +73,21 @@ footer li{
 footer a {
     color:#333;
 }
+ul.legend {
+    width: 15em;
+}
+ul.legend li {
+    list-style: none;
+    padding: 2px;
+    text-align: left;
+}
 .legend .progress {
     width: 20px;
     display: inline-block;
-    vertical-align: bottom;
+    vertical-align: middle;
+}
+.legend .progress-bar {
+    width: 20px;
 }
 .tooltip-inner {
     max-width: 450px !important;
@@ -74,11 +114,10 @@ footer a {
 .translatetext {
     background-color: #eee;
 }
-
-#preferences ul, #subscriptions ul {
-    list-style: none;
-    padding: 0;
+.current_translation {
+    background-color: #f5f5f5;
 }
+
 .pagination {
     margin: 5px 0;
 }
@@ -101,6 +140,9 @@ footer a {
 .translator .checkbox {
     margin-bottom: 0;
     margin-top: 0;
+}
+.translator {
+    vertical-align: bottom !important;
 }
 .paginatoraddon .form-group {
     margin-bottom: 0;
@@ -198,14 +240,93 @@ td .list-group {
     margin-left: 0;
 }
 .engage {
-    font-size: large;
+    text-align: center;
     padding: 1em;
+}
+.engage h1 {
+    font-size: 56px;
+    font-weight: normal;
+    padding-bottom: 0.5em;
+    letter-spacing: -0.46px;
+}
+.engage h2 {
+    font-size: 20px;
+    font-weight: normal;
+    padding-bottom: 0.5em;
+    line-height: 1.5em;
+    letter-spacing: 0.65px;
+}
+.engage p {
+    line-height: 1.5em;
+    font-size: 16px;
+}
+.engage .buttons {
+    padding: 3em;
+}
+.engage .buttons a {
+    margin: 1em;
+}
+.bignumbers {
+    padding: 1em 0em;
+}
+.bignumbers .col-md-4:first-child {
+    border-left: none;
+}
+.bignumbers strong {
+    display: block;
+    font-weight: normal;
+    font-size: 56px;
+    letter-spacing: -1px;
+}
+.bignumbers p {
+    font-size: 20px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+@media only screen and (min-width : 480px) {
+    .engage {
+        padding: 2em 3em;
+    }
+}
+@media only screen and (min-width : 992px) {
+    .engage {
+        padding: 6em 15em;
+    }
+    .bignumbers .col-md-4 {
+        border-left: 1px solid gray;
+    }
+}
+@media only screen and (min-width : 1200px) {
+    .engage {
+        padding: 6em 25em;
+    }
+    .bignumbers {
+        padding: 3em 1em;
+    }
+}
+@media only screen and (min-width : 1600px) {
+    .engage {
+        padding: 6em 35em;
+    }
+}
+@media only screen and (min-width : 2400px) {
+    .engage {
+        padding: 6em 55em;
+    }
+}
+@media only screen and (min-width : 3200px) {
+    .engage {
+        padding: 6em 75em;
+    }
 }
 .btn-desc p {
     display: inline-block;
 }
 .btn-desc {
     margin: 5px 0;
+}
+.btn-spaced {
+    margin: 5px;
 }
 .fa-google {
     color: #4285f4;
@@ -219,8 +340,11 @@ td .list-group {
 .fa-bitbucket {
     color: #205081;
 }
-.fa-facebook {
+.fa-facebook-official {
     color: #3b5998;
+}
+.fa-at {
+    color: #000;
 }
 .fl-opensuse {
     color: #73ba25;
@@ -235,22 +359,48 @@ td .list-group {
     font-weight: normal;
 }
 .ct-chart .ct-series.ct-series-a .ct-bar {
-    stroke: #337AB7;
+    stroke: #1fa385;
     stroke-width: 15px;
 }
 .fa-wl-social {
     padding: 7px;
 }
-.kbd-badge {
-	background: #eee !important;
-	color: #444 !important;
-	box-shadow: inset 0 0 1px rgb(255, 255, 255), inset 0 0 .4em rgb(200, 200, 200), 0 .1em 0 rgb(130, 130, 130), 0 .11em 0 rgba(0, 0, 0, .4), 0 .1em .11em rgba(0, 0, 0, .9);
-	-moz-border-radius: .3em;
-	-webkit-border-radius: .3em;
-	border-radius: .3em;
+.fa-wl-extra {
+    margin: 1px;
+}
+kbd {
+    background: #eee !important;
+    color: #444 !important;
+    box-shadow: inset 0 0 1px rgb(255, 255, 255), inset 0 0 .4em rgb(200, 200, 200), 0 .1em 0 rgb(130, 130, 130), 0 .11em 0 rgba(0, 0, 0, .4), 0 .1em .11em rgba(0, 0, 0, .9);
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    border-radius: 3px;
+    display: inline-block;
+    font: monospace;
+    line-height: 7px;
+    margin: 2px;
+    user-select: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+}
+.zen {
+    table-layout: fixed;
+}
+.zen tr td:first-child {
+    width: 130px;
+}
+.zen .translatetext label {
+    width: 130px;
+    position: absolute;
+    left: 0;
+    text-align: right;
 }
 .zen-unit:nth-child(even) {
     background-color: #f9f9f9;
+}
+.zen-context {
+    padding: 0 1em;
 }
 .pagination .dropdown-menu {
     margin-top: -10px;
@@ -258,6 +408,9 @@ td .list-group {
     font-size: smaller;
 }
 .pagination .dropdown-toggle {
+    text-align: center;
+}
+.billing-buttons {
     text-align: center;
 }
 .unit-navi {
@@ -309,9 +462,67 @@ legend {
 .stripe-odd {
   background-color: #f9f9f9;
 }
+.list-group-item {
+    padding: 5px 10px;
+}
 .history .list-group-item {
   background-color: inherit;
 }
 .bottom-button {
     vertical-align: bottom !important;
+}
+.glossary-embed {
+    cursor: pointer;
+}
+.table-add-glossary input {
+    width: 100%;
+}
+.auth-image {
+    width: 1em;
+}
+.auth-image.fa-lg {
+    vertical-align: middle;
+    font-size: 1.7em;
+    margin: 3.5px;
+}
+.auth-image.fa-4x {
+    vertical-align: -15%;
+    font-size: 4em;
+}
+.long-filename {
+    word-wrap : break-word;
+}
+.overflow-wrap {
+    overflow-wrap: anywhere;
+}
+
+input[type="date"].form-control, input[type="time"].form-control,
+input[type="datetime-local"].form-control, input[type="month"].form-control {
+    line-height: initial;
+}
+.highlight-number {
+    position: absolute;
+}
+.update-log {
+    height: 20em;
+}
+.badge-warning {
+    background-color: #8a6d3b;
+}
+.badge-danger {
+    background-color: #a94442;
+}
+.invalid-format {
+    text-decoration: line-through;
+}
+.widgets-selector img {
+    max-width: 200px !important;
+    max-height: 200px;
+}
+.widgets-selector li a {
+    display: table-cell;
+    vertical-align: bottom;
+    height: 240px;
+    text-align: center;
+    padding-top: auto;
 }

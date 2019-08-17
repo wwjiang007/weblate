@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -24,21 +24,63 @@ from django.conf import settings
 
 from weblate.machinery.base import MachineTranslation, MissingConfiguration
 
-
 LANGUAGE_MAP = {
     'ca': 'cat',
     'cy': 'cym',
-    'en': 'eng',
     'eo': 'epo',
     'gl': 'glg',
     'bs': 'hbs_BS',
-    'is': 'isl',
     'es': 'spa',
+    'en': 'eng',
     'en_US': 'eng',
     'en_UK': 'eng',
     'nl': 'nld',
-    'ro': 'ron',
     'de': 'deu',
+    'fr': 'fra',
+    'sl': 'slv',
+    'sr': 'hbs',
+    'nb_NO': 'nob',
+    'nn': 'nno',
+    'se': 'sme',
+    'oc': 'oci',
+    'pt': 'por',
+    'co': 'cos',
+    'fi': 'fin',
+    'ia': 'ina',
+    'ro': 'ron',
+    'cs': 'ces',
+    'sk': 'slk',
+    'ru': 'rus',
+    'av': 'ava',
+    'is': 'isl',
+    'pl': 'pol',
+    'kk': 'kaz',
+    'tt': 'tat',
+    'be': 'bel',
+    'uk': 'ukr',
+    'gn': 'grn',
+    'mt': 'mlt',
+    'it': 'ita',
+    'zh_Hant': 'zho',
+    'br': 'bre',
+    'qu': 'qve',
+    'an': 'arg',
+    'mr': 'mar',
+    'af': 'afr',
+    'fa': 'pes',
+    'el': 'ell',
+    'lv': 'lvs',
+    'as': 'asm',
+    'hi': 'hin',
+    'te': 'tel',
+    'hy': 'hye',
+    'th': 'tha',
+    'mk': 'mkd',
+    'la': 'lat',
+    'ga': 'gle',
+    'sw': 'swa',
+    'hu': 'hun',
+    'ml': 'mal',
 }
 
 
@@ -52,7 +94,8 @@ class ApertiumAPYTranslation(MachineTranslation):
         super(ApertiumAPYTranslation, self).__init__()
         self.url = self.get_server_url()
 
-    def get_server_url(self):
+    @staticmethod
+    def get_server_url():
         """Return URL of a server."""
         if settings.MT_APERTIUM_APY is None:
             raise MissingConfiguration(
@@ -65,10 +108,7 @@ class ApertiumAPYTranslation(MachineTranslation):
     def all_langs(self):
         """Return all language codes known to service"""
         langs = self.supported_languages
-        return set(
-            [l[0] for l in langs] +
-            [l[1] for l in langs]
-        )
+        return set([l[0] for l in langs] + [l[1] for l in langs])
 
     def convert_language(self, language):
         """Convert language to service specific code."""
@@ -90,7 +130,7 @@ class ApertiumAPYTranslation(MachineTranslation):
         """Check whether given language combination is supported."""
         return (source, language) in self.supported_languages
 
-    def download_translations(self, source, language, text, unit, user):
+    def download_translations(self, source, language, text, unit, request):
         """Download list of possible translations from Apertium."""
         args = {
             'langpair': '{0}|{1}'.format(source, language),
@@ -101,9 +141,9 @@ class ApertiumAPYTranslation(MachineTranslation):
             **args
         )
 
-        return [(
-            response['responseData']['translatedText'],
-            self.max_score,
-            self.name,
-            text
-        )]
+        return [{
+            'text': response['responseData']['translatedText'],
+            'quality': self.max_score,
+            'service': self.name,
+            'source': text
+        }]

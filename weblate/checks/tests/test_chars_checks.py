@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,16 +23,24 @@ Tests for quality checks.
 """
 
 from __future__ import unicode_literals
+
 from unittest import TestCase
+
 from weblate.checks.chars import (
-    BeginNewlineCheck, EndNewlineCheck,
-    BeginSpaceCheck, EndSpaceCheck,
-    EndStopCheck, EndColonCheck,
-    EndQuestionCheck, EndExclamationCheck,
-    EndEllipsisCheck, EndSemicolonCheck,
+    BeginNewlineCheck,
+    BeginSpaceCheck,
+    EndColonCheck,
+    EndEllipsisCheck,
+    EndExclamationCheck,
+    EndNewlineCheck,
+    EndQuestionCheck,
+    EndSemicolonCheck,
+    EndSpaceCheck,
+    EndStopCheck,
+    KashidaCheck,
+    MaxLengthCheck,
     NewlineCountingCheck,
     ZeroWidthSpaceCheck,
-    MaxLengthCheck,
 )
 from weblate.checks.tests.test_checks import CheckTestCase, MockUnit
 
@@ -259,7 +267,7 @@ class MaxLengthCheckTest(TestCase):
             self.check.check_target(
                 [self.test_good_matching[0]],
                 [self.test_good_matching[1]],
-                MockUnit(flags=(self.test_good_matching[2]))
+                MockUnit(flags=self.test_good_matching[2])
             )
         )
 
@@ -268,7 +276,7 @@ class MaxLengthCheckTest(TestCase):
             self.check.check_target(
                 [self.test_good_matching_unicode[0]],
                 [self.test_good_matching_unicode[1]],
-                MockUnit(flags=(self.test_good_matching_unicode[2]))
+                MockUnit(flags=self.test_good_matching_unicode[2])
             )
         )
 
@@ -277,7 +285,7 @@ class MaxLengthCheckTest(TestCase):
             self.check.check_target(
                 [self.test_good_matching[0]],
                 [self.test_good_matching[1]],
-                MockUnit(flags=('max-length:10'))
+                MockUnit(flags='max-length:10')
             )
         )
 
@@ -286,16 +294,7 @@ class MaxLengthCheckTest(TestCase):
             self.check.check_target(
                 [self.test_good_matching_unicode[0]],
                 [self.test_good_matching_unicode[1]],
-                MockUnit(flags=('max-length:10'))
-            )
-        )
-
-    def test_multiple_flags_check(self):
-        self.assertFalse(
-            self.check.check_target(
-                [self.test_good_matching_unicode[0]],
-                [self.test_good_matching_unicode[1]],
-                MockUnit(flags=('max-length:3,max-length:12'))
+                MockUnit(flags='max-length:10')
             )
         )
 
@@ -312,3 +311,14 @@ class EndSemicolonCheckTest(CheckTestCase):
 
     def test_greek(self):
         self.do_test(False, ('Text?', 'Texte;', ''), 'el')
+
+
+class KashidaCheckTest(CheckTestCase):
+    check = KashidaCheck()
+
+    def setUp(self):
+        super(KashidaCheckTest, self).setUp()
+        self.test_good_matching = ('string', 'string', '')
+        self.test_failure_1 = ('string', 'string\u0640', '')
+        self.test_failure_2 = ('string', 'string\uFE79', '')
+        self.test_failure_3 = ('string', 'string\uFE7F', '')

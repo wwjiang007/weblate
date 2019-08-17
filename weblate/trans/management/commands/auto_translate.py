@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2018 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,12 +21,13 @@
 from __future__ import unicode_literals
 
 from django.core.management.base import CommandError
-from weblate.auth.models import User
+from django.http.request import HttpRequest
 
-from weblate.accounts.models import Profile
-from weblate.trans.models import Component
+from weblate.auth.models import User
+from weblate.machinery import MACHINE_TRANSLATION_SERVICES
 from weblate.trans.autotranslate import AutoTranslate
 from weblate.trans.management.commands import WeblateTranslationCommand
+from weblate.trans.models import Component
 
 
 class Command(WeblateTranslationCommand):
@@ -75,6 +76,22 @@ class Command(WeblateTranslationCommand):
                 'Process only inconsistent translations'
             )
         )
+        parser.add_argument(
+            '--mt',
+            action='append',
+            default=[],
+            help=(
+                'Add machine translation source'
+            )
+        )
+        parser.add_argument(
+            '--threshold',
+            default=80,
+            type=int,
+            help=(
+                'Set machine translation threshold'
+            )
+        )
 
     def handle(self, *args, **options):
         # Get translation object
@@ -83,7 +100,6 @@ class Command(WeblateTranslationCommand):
         # Get user
         try:
             user = User.objects.get(username=options['user'])
-            Profile.objects.get_or_create(user=user)
         except User.DoesNotExist:
             raise CommandError('User does not exist!')
 
@@ -102,12 +118,27 @@ class Command(WeblateTranslationCommand):
         else:
             source = ''
 
+        if options['mt']:
+            for translator in options['mt']:
+                if translator not in MACHINE_TRANSLATION_SERVICES.keys():
+                    raise CommandError(
+                        'Machine translation {} is not available'.format(
+                            translator
+                        )
+                    )
+
         if options['inconsistent']:
             filter_type = 'check:inconsistent'
         elif options['overwrite']:
             filter_type = 'all'
         else:
             filter_type = 'todo'
-        auto = AutoTranslate(user, translation, filter_type)
-        auto.process_others(source, check_acl=False)
+        # Create fake request object
+        request = HttpRequest()
+        request.user = user
+        auto = AutoTranslate(user, translation, filter_type, request)
+        if options['mt']:
+            auto.process_mt(options['mt'], options['threshold'])
+        else:
+            auto.process_others(source, check_acl=False)
         self.stdout.write('Updated {0} units'.format(auto.updated))
