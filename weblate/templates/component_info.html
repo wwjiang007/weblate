@@ -1,15 +1,12 @@
 {% load i18n %}
 {% load permissions %}
+{% load translations %}
 
-{% perm 'vcs.view' object as user_can_see_git_repository %}
-
-{% with object.project as object %}
-{% include "project_info.html" %}
-{% endwith %}
+{% include "project_info.html" with object=object.project %}
 
 <tr>
 <th>{% trans "Translation process" %}</th>
-<td colspan="2">
+<td class="full-cell">
 <ul>
 {% if object.suggestion_voting and object.suggestion_autoaccept %}
 <li>{% trans "Translations can only be done through suggestions." %}</li>
@@ -44,11 +41,11 @@
 {% if object.license %}
 <tr>
 <th>{% trans "Translation license" %}</th>
-<td colspan="2">
+<td class="full-cell">
 {% if object.license_url %}
-<a href="{{ object.license_url }}">{{ object.license }}</a>
+<a href="{{ object.license_url }}">{{ object.get_license_display }}</a>
 {% else %}
-{{ object.license }}
+{{ object.get_license_display }}
 {% endif %}
 </td>
 </tr>
@@ -57,44 +54,23 @@
 {% if object.agreement %}
 <tr>
 <th>{% trans "Contributor agreement" %}</th>
-<td><a class="btn btn-primary" href="{% url 'contributor-agreement' project=object.project.slug component=object.slug %}">{% trans "View" %}</a></td>
-</tr>
-{% endif %}
-
-{% if user_can_see_git_repository %}
-<tr>
-<th>{% trans "Repository" %}</th>
-<td colspan="2">
-<code class="git-repo ui-corner-all">{{ object.get_repo_url }}</code>
+<td>
+  <a class="btn btn-primary pull-right flip" href="{% url 'contributor-agreement' project=object.project.slug component=object.slug %}">{% trans "View" %}</a>
+  {{ object.agreement|markdown }}
 </td>
 </tr>
-
-<tr>
-<th>{% trans "Repository branch" %}</th>
-<td colspan="2">
-{{ object.get_repo_branch }}
-{% with object.get_last_remote_commit as commit %}
-{% include "git-commit-info.html" %}
-{% endwith %}
-</td>
-</tr>
-
-{% with object.get_export_url as export_url %}
-{% if export_url %}
-<tr>
-<th>{% trans "Repository containing Weblate translations" %}</th>
-<td colspan="2"><code class="git-repo ui-corner-all">{{ export_url }}</code></td>
-</tr>
-{% endif %}
-{% endwith %}
 {% endif %}
 
+{% include "snippets/git-info.html" %}
+
 <tr>
-<th>{% trans "Filemask" %}</th><td><code>{{ object.filemask }}</code></td>
+<th>{% trans "Filemask" %}</th>
+<td><code>{{ object.filemask }}</code></td>
 </tr>
 
 {% if object.template %}
 <tr>
-<th>{% trans "Monolingual base language file" %}</th><td><code>{{ object.template }}</code></td>
+<th>{% trans "Monolingual base language file" %}</th>
+<td><code>{{ object.template }}</code></td>
 </tr>
 {% endif %}

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,44 +17,50 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
-
-from weblate.lang.models import Language
-from weblate.machinery.base import MachineTranslation
-from weblate.memory.storage import TranslationMemory, get_category_name
+from weblate.machinery.base import MachineTranslation, get_machinery_language
+from weblate.memory.models import Memory
+from weblate.utils.search import Comparer
 
 
 class WeblateMemory(MachineTranslation):
     """Translation service using strings already translated in Weblate."""
-    name = 'Weblate Translation Memory'
+
+    name = "Weblate Translation Memory"
     rank_boost = 2
     cache_translations = False
+    same_languages = True
+    do_cleanup = False
 
     def convert_language(self, language):
-        return Language.objects.get(code=language)
+        """No conversion of language object."""
+        return get_machinery_language(language)
 
     def is_supported(self, source, language):
         """Any language is supported."""
         return True
 
-    def format_unit_match(self, text, target, similarity, category, origin):
-        """Format match to translation service result."""
-        return {
-            'text': target,
-            'quality': similarity,
-            'service': self.name,
-            'origin': get_category_name(category, origin),
-            'source': text,
-        }
+    def is_rate_limited(self):
+        """This service has no rate limiting."""
+        return False
 
-    def download_translations(self, source, language, text, unit, request):
+    def download_translations(self, source, language, text, unit, user, search):
         """Download list of possible translations from a service."""
-        memory = TranslationMemory.get_thread_instance()
-        memory.refresh()
-        results = memory.lookup(
-            source.code, language.code, text,
-            request.user,
+        comparer = Comparer()
+        for result in Memory.objects.lookup(
+            source,
+            language,
+            text,
+            user,
             unit.translation.component.project,
             unit.translation.component.project.use_shared_tm,
-        )
-        return [self.format_unit_match(*result) for result in results]
+        ).iterator():
+            quality = comparer.similarity(text, result.source)
+            if quality < 10 or (quality < 75 and not search):
+                continue
+            yield {
+                "text": result.target,
+                "quality": quality,
+                "service": self.name,
+                "origin": result.get_origin_display(),
+                "source": result.source,
+            }

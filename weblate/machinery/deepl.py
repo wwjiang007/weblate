@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,49 +17,63 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from django.conf import settings
 
 from weblate.machinery.base import MachineTranslation, MissingConfiguration
 
-DEEPL_API = 'https://api.deepl.com/v1/translate'
+DEEPL_TRANSLATE = "https://api.deepl.com/{}/translate"
+DEEPL_LANGUAGES = "https://api.deepl.com/{}/languages"
 
 
 class DeepLTranslation(MachineTranslation):
     """DeepL (Linguee) machine translation support."""
-    name = 'DeepL'
+
+    name = "DeepL"
     # This seems to be currently best MT service, so score it a bit
     # better than other ones.
     max_score = 91
+    language_map = {
+        "zh_hans": "zh",
+    }
 
     def __init__(self):
         """Check configuration."""
-        super(DeepLTranslation, self).__init__()
+        super().__init__()
         if settings.MT_DEEPL_KEY is None:
-            raise MissingConfiguration('DeepL requires API key')
+            raise MissingConfiguration("DeepL requires API key")
+
+    def map_language_code(self, code):
+        """Convert language to service specific code."""
+        return super().map_language_code(code).replace("_", "-").upper()
 
     def download_languages(self):
         """List of supported languages is currently hardcoded."""
-        return ('en', 'de', 'fr', 'es', 'it', 'nl', 'pl', 'pt', 'ru')
-
-    def download_translations(self, source, language, text, unit, request):
-        """Download list of possible translations from a service."""
-        response = self.json_req(
-            DEEPL_API,
-            http_post=True,
-            auth_key=settings.MT_DEEPL_KEY,
-            text=text,
-            source_lang=source,
-            target_lang=language,
+        response = self.request(
+            "post",
+            DEEPL_LANGUAGES.format(settings.MT_DEEPL_API_VERSION),
+            data={"auth_key": settings.MT_DEEPL_KEY},
         )
+        return [x["language"] for x in response.json()]
 
-        return [
-            {
-                'text': translation['text'],
-                'quality': self.max_score,
-                'service': self.name,
-                'source': text
+    def download_translations(self, source, language, text, unit, user, search):
+        """Download list of possible translations from a service."""
+        response = self.request(
+            "post",
+            DEEPL_TRANSLATE.format(settings.MT_DEEPL_API_VERSION),
+            data={
+                "auth_key": settings.MT_DEEPL_KEY,
+                "text": text,
+                "source_lang": source,
+                "target_lang": language,
+            },
+        )
+        payload = response.json()
+
+        for translation in payload["translations"]:
+            yield {
+                "text": translation["text"],
+                "quality": self.max_score,
+                "service": self.name,
+                "source": text,
             }
-            for translation in response['translations']
-        ]

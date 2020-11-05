@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,21 +17,25 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.wladmin.models import WeblateModelAdmin
 
 
 class PlanAdmin(WeblateModelAdmin):
     list_display = (
-        'name', 'price', 'limit_strings', 'limit_languages',
-        'limit_repositories', 'limit_projects',
-        'display_limit_strings', 'display_limit_languages',
-        'display_limit_repositories', 'display_limit_projects',
+        "name",
+        "price",
+        "limit_strings",
+        "limit_languages",
+        "limit_projects",
+        "display_limit_strings",
+        "display_limit_languages",
+        "display_limit_projects",
     )
-    ordering = ['price']
+    ordering = ["price"]
+    prepopulated_fields = {"slug": ("name",)}
 
 
 def format_user(obj):
@@ -41,40 +44,61 @@ def format_user(obj):
 
 class BillingAdmin(WeblateModelAdmin):
     list_display = (
-        'list_projects',
-        'list_owners',
-        'plan', 'state', 'removal', 'expiry',
-        'count_changes_1m', 'count_changes_1q', 'count_changes_1y',
-        'unit_count',
-        'display_projects', 'display_repositories', 'display_strings',
-        'display_words', 'display_languages',
-        'in_limits', 'in_display_limits', 'paid', 'last_invoice',
+        "list_projects",
+        "list_owners",
+        "plan",
+        "state",
+        "removal",
+        "expiry",
+        "monthly_changes",
+        "total_changes",
+        "unit_count",
+        "display_projects",
+        "display_strings",
+        "display_words",
+        "display_languages",
+        "in_limits",
+        "in_display_limits",
+        "paid",
+        "last_invoice",
     )
-    list_filter = ('plan', 'state', 'paid', 'in_limits')
-    search_fields = ('projects__name',)
-    filter_horizontal = ('projects', 'owners')
+    list_filter = ("plan", "state", "paid", "in_limits")
+    search_fields = ("projects__name", "owners__email")
+    filter_horizontal = ("projects", "owners")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("projects", "owners")
 
     def list_projects(self, obj):
-        return ','.join(obj.projects.values_list('name', flat=True))
-    list_projects.short_description = _('Projects')
+        if not obj.all_projects:
+            return "none projects associated"
+        return ",".join([project.name for project in obj.all_projects])
+
+    list_projects.short_description = _("Projects")
 
     def list_owners(self, obj):
-        return ','.join(obj.owners.values_list('full_name', flat=True))
-    list_owners.short_description = _('Owners')
+        return ",".join([owner.full_name for owner in obj.owners.all()])
+
+    list_owners.short_description = _("Owners")
 
     def get_form(self, request, obj=None, **kwargs):
-        form = super(BillingAdmin, self).get_form(request, obj, **kwargs)
-        form.base_fields['owners'].label_from_instance = format_user
+        form = super().get_form(request, obj, **kwargs)
+        form.base_fields["owners"].label_from_instance = format_user
         return form
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        obj = form.instance
+        # Add owners as admin if there is none
+        for project in obj.projects.all():
+            group = project.get_group("@Administration")
+            if not group.user_set.exists():
+                group.user_set.add(*obj.owners.all())
 
 
 class InvoiceAdmin(WeblateModelAdmin):
-    list_display = (
-        'billing', 'start', 'end', 'amount', 'currency', 'ref'
-    )
-    list_filter = ('currency', 'billing')
-    search_fields = (
-        'billing__projects__name', 'ref', 'note',
-    )
-    date_hierarchy = 'end'
-    ordering = ['billing', '-start']
+    list_display = ("billing", "start", "end", "amount", "currency", "ref")
+    list_filter = ("currency", "billing")
+    search_fields = ("billing__projects__name", "ref", "note")
+    date_hierarchy = "end"
+    ordering = ["billing", "-start"]

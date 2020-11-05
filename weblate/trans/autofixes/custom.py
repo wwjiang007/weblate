@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,27 +16,24 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-"""
-Auto fixes implemeted for specific environments and not enabled by default.
-"""
+"""Auto fixes implemeted for specific environments and not enabled by default."""
 
-from __future__ import unicode_literals
 
 import re
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.trans.autofixes.base import AutoFix
 
 QUOTE_PARAM = re.compile(r"'(\{[^}]+\})'")
 SINGLE_APO = re.compile(r"'{1,3}")
 DOUBLE_APO = re.compile(r"'{4,}")
-REPLACEMENT = '__weblate:quote__'
-REPLACE_STRING = r'{0}\1{0}'.format(REPLACEMENT)
+REPLACEMENT = "__weblate:quote__"
+REPLACE_STRING = r"{0}\1{0}".format(REPLACEMENT)
 
 
 class DoubleApostrophes(AutoFix):
-    """Ensures apostrophes are escaped in Java Properties MessageFormat string
+    """Ensures apostrophes are escaped in Java Properties MessageFormat string.
 
     - all apostrophes except ones around {} vars are doubled
 
@@ -45,16 +41,17 @@ class DoubleApostrophes(AutoFix):
     why it's not enabled by default.
     """
 
-    fix_id = 'java-messageformat'
-    name = _('Apostrophes in Java MessageFormat')
+    fix_id = "java-messageformat"
+    name = _("Apostrophes in Java MessageFormat")
 
     def fix_single_target(self, target, source, unit):
         flags = unit.all_flags
-        if (('auto-java-messageformat' not in flags or '{0' not in source)
-                and ('java-messageformat' not in flags)):
+        if ("auto-java-messageformat" not in flags or "{0" not in source) and (
+            "java-messageformat" not in flags
+        ):
             return target, False
         # Split on apostrophe
-        new = SINGLE_APO.sub("''", DOUBLE_APO.sub(
-            "''''", QUOTE_PARAM.sub(REPLACE_STRING, target)
-        )).replace(REPLACEMENT, "'")
+        new = SINGLE_APO.sub(
+            "''", DOUBLE_APO.sub("''''", QUOTE_PARAM.sub(REPLACE_STRING, target))
+        ).replace(REPLACEMENT, "'")
         return new, new != target

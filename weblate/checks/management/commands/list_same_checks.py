@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,7 +17,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from django.core.management.base import BaseCommand
 from django.db.models import Count
@@ -27,34 +25,18 @@ from weblate.checks.models import Check
 
 
 class Command(BaseCommand):
-    help = 'lists top not translated failing checks'
+    help = "lists top not translated failing checks"
 
     def handle(self, *args, **options):
-        results = Check.objects.filter(
-            check='same'
-        ).values(
-            'content_hash'
-        ).annotate(
-            Count('content_hash')
-        ).filter(
-            content_hash__count__gt=1
-        ).order_by(
-            '-content_hash__count'
+        results = (
+            Check.objects.filter(check="same")
+            .values("unit__source")
+            .annotate(Count("unit__source"))
+            .filter(unit__source__count__gt=1)
+            .order_by("-unit__source__count")
         )
 
         for item in results:
-            check = Check.objects.filter(
-                check='same',
-                content_hash=item['content_hash']
-            )[0]
-
-            units = check.related_units
-            if not units.exists():
-                continue
-
             self.stdout.write(
-                '{0:5d} {1}'.format(
-                    item['content_hash__count'],
-                    units[0].source,
-                )
+                "{0:5d} {1}".format(item["unit__source__count"], item["unit__source"])
             )

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,47 +17,42 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from weblate.machinery.base import MachineTranslation
 
 
 class GlosbeTranslation(MachineTranslation):
     """Glosbe machine translation support."""
-    name = 'Glosbe'
-    max_score = 90
 
-    def convert_language(self, language):
+    name = "Glosbe"
+    max_score = 90
+    do_cleanup = False
+
+    def map_code_code(self, code):
         """Convert language to service specific code."""
-        return language.replace('_', '-').split('-')[0].lower()
+        return code.replace("_", "-").split("-")[0].lower()
 
     def is_supported(self, source, language):
         """Any language is supported."""
         return True
 
-    def download_translations(self, source, language, text, unit, request):
+    def download_translations(self, source, language, text, unit, user, search):
         """Download list of possible translations from a service."""
-        params = {
-            'from': source,
-            'dest': language,
-            'format': 'json',
-            'phrase': text,
-        }
-        response = self.json_req(
-            'https://glosbe.com/gapi/translate',
-            **params
+        params = {"from": source, "dest": language, "format": "json", "phrase": text}
+        response = self.request(
+            "get", "https://glosbe.com/gapi/translate", params=params
         )
+        payload = response.json()
 
-        if 'tuc' not in response:
-            return []
+        if "tuc" not in payload:
+            return
 
-        return [
-            {
-                'text': match['phrase']['text'],
-                'quality': self.max_score,
-                'service': self.name,
-                'source': text
+        for match in payload["tuc"]:
+            if "phrase" not in match or match["phrase"] is None:
+                continue
+            yield {
+                "text": match["phrase"]["text"],
+                "quality": self.max_score,
+                "service": self.name,
+                "source": text,
             }
-            for match in response['tuc']
-            if 'phrase' in match and match['phrase'] is not None
-        ]

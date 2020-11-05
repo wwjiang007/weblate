@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright ©2018 Sun Zhigang <hzsunzhigang@corp.netease.com>
 #
@@ -18,7 +17,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from django.conf import settings
 
@@ -28,76 +26,71 @@ from weblate.machinery.base import (
     MissingConfiguration,
 )
 
-YOUDAO_API_ROOT = 'https://openapi.youdao.com/api'
+YOUDAO_API_ROOT = "https://openapi.youdao.com/api"
 
 
 class YoudaoTranslation(MachineTranslation):
     """Youdao Zhiyun API machine translation support."""
-    name = 'Youdao Zhiyun'
+
+    name = "Youdao Zhiyun"
     max_score = 90
 
     # Map codes used by Youdao to codes used by Weblate
-    language_map = {
-        'zh_Hans': 'zh-CHS',
-        'zh': 'zh-CHS',
-        'en': 'EN',
-    }
+    language_map = {"zh_Hans": "zh-CHS", "zh": "zh-CHS", "en": "EN"}
 
     def __init__(self):
         """Check configuration."""
-        super(YoudaoTranslation, self).__init__()
+        super().__init__()
         if settings.MT_YOUDAO_ID is None:
-            raise MissingConfiguration(
-                'Youdao Translate requires app key'
-            )
+            raise MissingConfiguration("Youdao Translate requires app key")
         if settings.MT_YOUDAO_SECRET is None:
-            raise MissingConfiguration(
-                'Youdao Translate requires app secret'
-            )
+            raise MissingConfiguration("Youdao Translate requires app secret")
 
     def download_languages(self):
         """List of supported languages."""
         return [
-            'zh-CHS',
-            'ja',
-            'EN',  # Officially youdao uses uppercase for en
-            'ko',
-            'fr',
-            'ru',
-            'pt',
-            'es',
-            'vi',
-            'de',
-            'ar',
-            'id'
+            "zh-CHS",
+            "ja",
+            "EN",  # Officially youdao uses uppercase for en
+            "ko",
+            "fr",
+            "ru",
+            "pt",
+            "es",
+            "vi",
+            "de",
+            "ar",
+            "id",
         ]
 
-    def download_translations(self, source, language, text, unit, request):
+    def download_translations(self, source, language, text, unit, user, search):
         """Download list of possible translations from a service."""
         salt, sign = self.signed_salt(
             settings.MT_YOUDAO_ID, settings.MT_YOUDAO_SECRET, text
         )
 
-        response = self.json_req(
+        response = self.request(
+            "get",
             YOUDAO_API_ROOT,
-            q=text,
-            _from=source,
-            to=language,
-            appKey=settings.MT_YOUDAO_ID,
-            salt=salt,
-            sign=sign,
+            params={
+                "q": text,
+                "_from": source,
+                "to": language,
+                "appKey": settings.MT_YOUDAO_ID,
+                "salt": salt,
+                "sign": sign,
+            },
         )
+        payload = response.json()
 
-        if int(response['errorCode']) != 0:
-            raise MachineTranslationError(
-                'Error code: {}'.format(response['errorCode'])
-            )
+        if int(payload["errorCode"]) != 0:
+            raise MachineTranslationError("Error code: {}".format(payload["errorCode"]))
 
-        translation = response['translation'][0]
+        translation = payload["translation"][0]
 
-        return [{
-            'text': translation,
-            'quality': self.max_score,
-            'service': self.name,
-            'source': text,
-        }]
+        yield {
+            "text": translation,
+            "quality": self.max_score,
+            "service": self.name,
+            "source": text,
+        }

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,7 +17,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 import boto3
 from django.conf import settings
@@ -27,15 +25,15 @@ from weblate.machinery.base import MachineTranslation
 
 
 class AWSTranslation(MachineTranslation):
-    """AWS machine translation"""
+    """AWS machine translation."""
 
-    name = 'AWS'
+    name = "AWS"
     max_score = 88
 
     def __init__(self):
-        super(AWSTranslation, self).__init__()
+        super().__init__()
         self.client = boto3.client(
-            'translate',
+            "translate",
             region_name=settings.MT_AWS_REGION,
             aws_access_key_id=settings.MT_AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.MT_AWS_SECRET_ACCESS_KEY,
@@ -43,17 +41,28 @@ class AWSTranslation(MachineTranslation):
 
     def download_languages(self):
         return (
-            'en', 'ar', 'zh', 'fr', 'de', 'pt', 'es',
-            'ja', 'ru', 'it', 'zh-TW', 'tr', 'cs',
+            "en",
+            "ar",
+            "zh",
+            "fr",
+            "de",
+            "pt",
+            "es",
+            "ja",
+            "ru",
+            "it",
+            "zh-TW",
+            "tr",
+            "cs",
         )
 
-    def download_translations(self, source, language, text, unit, request):
+    def download_translations(self, source, language, text, unit, user, search):
         response = self.client.translate_text(
             Text=text, SourceLanguageCode=source, TargetLanguageCode=language
         )
-        return [{
-            'text': response['TranslatedText'],
-            'quality': self.max_score,
-            'service': self.name,
-            'source': text
-        }]
+        yield {
+            "text": response["TranslatedText"],
+            "quality": self.max_score,
+            "service": self.name,
+            "source": text,
+        }

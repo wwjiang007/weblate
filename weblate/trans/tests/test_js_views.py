@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,7 +19,6 @@
 
 """Test for AJAX/JS views."""
 
-from __future__ import unicode_literals
 
 import json
 
@@ -33,94 +31,63 @@ from weblate.utils.classloader import load_class
 
 class JSViewsTest(FixtureTestCase):
     """Testing of AJAX/JS views."""
+
     @staticmethod
     def ensure_dummy_mt():
-        """Ensure we have dummy mt installed"""
-        if 'dummy' in weblate.machinery.MACHINE_TRANSLATION_SERVICES:
+        """Ensure we have dummy mt installed."""
+        if "dummy" in weblate.machinery.MACHINE_TRANSLATION_SERVICES:
             return
-        name = 'weblate.machinery.dummy.DummyTranslation'
-        service = load_class(name, 'TEST')()
+        name = "weblate.machinery.dummy.DummyTranslation"
+        service = load_class(name, "TEST")()
         weblate.machinery.MACHINE_TRANSLATION_SERVICES[service.mtid] = service
-
-    def test_get_detail(self):
-        unit = self.get_unit()
-        response = self.client.get(
-            reverse('js-detail', kwargs={
-                'checksum': unit.checksum,
-                'component': unit.translation.component.slug,
-                'project': unit.translation.component.project.slug,
-            }),
-        )
-        self.assertContains(response, 'Czech')
 
     def test_translate(self):
         self.ensure_dummy_mt()
         unit = self.get_unit()
         response = self.client.post(
-            reverse(
-                'js-translate',
-                kwargs={'unit_id': unit.id, 'service': 'dummy'}
-            )
+            reverse("js-translate", kwargs={"unit_id": unit.id, "service": "dummy"})
         )
-        self.assertContains(response, 'Ahoj')
-        data = json.loads(response.content.decode('utf-8'))
+        self.assertContains(response, "Ahoj")
+        data = json.loads(response.content.decode())
         self.assertEqual(
-            data['translations'],
+            data["translations"],
             [
                 {
-                    'quality': 100,
-                    'service': 'Dummy',
-                    'text': 'Nazdar světe!',
-                    'source': 'Hello, world!\n',
+                    "quality": 100,
+                    "service": "Dummy",
+                    "text": "Nazdar světe!",
+                    "source": "Hello, world!\n",
                 },
                 {
-                    'quality': 100,
-                    'service': 'Dummy',
-                    'text': 'Ahoj světe!',
-                    'source': 'Hello, world!\n',
+                    "quality": 100,
+                    "service": "Dummy",
+                    "text": "Ahoj světe!",
+                    "source": "Hello, world!\n",
                 },
-            ]
+            ],
         )
 
         # Invalid service
         response = self.client.post(
-            reverse(
-                'js-translate',
-                kwargs={'unit_id': unit.id, 'service': 'invalid'}
-            )
+            reverse("js-translate", kwargs={"unit_id": unit.id, "service": "invalid"})
         )
         self.assertEqual(response.status_code, 404)
 
     def test_memory(self):
         unit = self.get_unit()
-        url = reverse('js-memory', kwargs={'unit_id': unit.id})
+        url = reverse("js-memory", kwargs={"unit_id": unit.id})
         # Missing param
         response = self.client.post(url)
         self.assertEqual(response.status_code, 400)
         # Valid query
-        response = self.client.post(url, {'q': 'a'})
+        response = self.client.post(url, {"q": "a"})
         self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content.decode('utf-8'))
+        data = json.loads(response.content.decode())
         self.assertEqual(data["service"], "Weblate Translation Memory")
-
-    def test_get_unit_changes(self):
-        unit = self.get_unit()
-        response = self.client.get(
-            reverse('js-unit-changes', kwargs={'unit_id': unit.id}),
-        )
-        self.assertContains(response, 'href="/changes/?')
 
     def test_get_unit_translations(self):
         unit = self.get_unit()
         response = self.client.get(
-            reverse('js-unit-translations', kwargs={'unit_id': unit.id}),
+            reverse("js-unit-translations", kwargs={"unit_id": unit.id})
         )
         self.assertContains(response, 'href="/translate/')
-
-    def test_mt_services(self):
-        self.ensure_dummy_mt()
-        response = self.client.get(reverse('js-mt-services'))
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content.decode('utf-8'))
-        # Check we have dummy service listed
-        self.assertIn('dummy', data)

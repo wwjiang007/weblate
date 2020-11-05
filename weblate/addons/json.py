@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,31 +17,32 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.addons.base import StoreBaseAddon
 from weblate.addons.forms import JSONCustomizeForm
 
 
 class JSONCustomizeAddon(StoreBaseAddon):
-    name = 'weblate.json.customize'
-    verbose = _('Customize JSON output')
+    name = "weblate.json.customize"
+    verbose = _("Customize JSON output")
     description = _(
-        'Allows to customize JSON output behavior, for example '
-        'indentation or sorting.'
+        "Allows adjusting JSON output behavior, for example " "indentation or sorting."
     )
     settings_form = JSONCustomizeForm
     compat = {
-        'file_format': frozenset((
-            'json', 'json-nested', 'webextension', 'i18next',
-        )),
+        "file_format": {
+            "json",
+            "json-nested",
+            "webextension",
+            "i18next",
+            "arb",
+            "go-i18n-json",
+        }
     }
 
     def store_post_load(self, translation, store):
         config = self.instance.configuration
-        store.store.dump_args['indent'] = int(config.get('indent', 4))
-        store.store.dump_args['sort_keys'] = bool(
-            int(config.get('sort_keys', 0))
-        )
+        store.store.dump_args["indent"] = int(config.get("indent", 4))
+        store.store.dump_args["sort_keys"] = bool(int(config.get("sort_keys", 0)))

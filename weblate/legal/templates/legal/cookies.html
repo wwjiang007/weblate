@@ -10,9 +10,7 @@
 
 {% include 'legal/menu.html' %}
 
-<div class="container-fluid">
-
-<div class="panel panel-primary">
+<div class="panel panel-default">
 <div class="panel-heading"><h4 class="panel-title">{% trans "Cookies Policy" %}</h4></div>
 <div class="panel-body">
 
@@ -32,15 +30,14 @@
 <ul>
 <li>{% trans "Authentication cookies which are required for recognizing authenticated users." %}</li>
 <li>{% trans "Preferences cookie to store user preferences in certain situations." %}</li>
-{% if piwik_site_id and piwik_url %}
-<li>{% trans "This site uses Matomo to analyze website traffic. It honours &quot;Do Not Track&quot; settings in your browser." %}</li>
+{% if matomo_site_id and matomo_url %}
+<li>{% blocktrans %}This site uses Matomo to analyze website traffic. It honours "Do Not Track" settings in your browser.{% endblocktrans %}</li>
 {% endif %}
 {% if google_analytics_id %}
 <li>{% trans "This site uses Google Analytics to analyze website traffic." %}</li>
 {% endif %}
 </ul>
 
-</div>
 </div>
 </div>
 </div>

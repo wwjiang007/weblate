@@ -1,7 +1,5 @@
-
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,14 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-"""translate-toolkit based file format wrappers."""
-
-from __future__ import unicode_literals
+"""Automatic detection of file format."""
 
 import os.path
 from fnmatch import fnmatch
 
-from django.utils.translation import ugettext_lazy as _
 from translate.storage import factory
 
 from weblate.formats.helpers import BytesIOMode
@@ -34,7 +29,7 @@ from weblate.formats.ttkit import TTKitFormat
 
 
 def detect_filename(filename):
-    """Filename based format autodetection"""
+    """Filename based format autodetection."""
     name = os.path.basename(filename)
     for pattern, storeclass in FILE_FORMATS.autoload:
         if fnmatch(name, pattern):
@@ -43,18 +38,25 @@ def detect_filename(filename):
 
 
 def try_load(filename, content, original_format, template_store):
-    """Try to load file by guessing type"""
+    """Try to load file by guessing type."""
+    # Start with original format and translate-toolkit based autodetection
     formats = [original_format, AutodetectFormat]
     detected_format = detect_filename(filename)
-    if detected_format is not None:
-        formats.insert(0, detected_format)
-    failure = Exception('Bug!')
+    if detected_format is not None and detected_format != original_format:
+        # Insert detected filename into most probable location. In case the extension
+        # matches original, insert it after that as it is more likely that the upload
+        # is in the original format (for example if component is monolingual PO file,
+        # the uploaded PO file is more likely to be monolingual as well).
+        formats.insert(
+            1 if detected_format.extension == original_format.extension else 0,
+            detected_format,
+        )
+    failure = Exception("Bug!")
     for file_format in formats:
         if file_format.monolingual in (True, None) and template_store:
             try:
                 result = file_format.parse(
-                    BytesIOMode(filename, content),
-                    template_store
+                    BytesIOMode(filename, content), template_store
                 )
                 result.check_valid()
                 # Skip if there is not translated unit
@@ -76,24 +78,29 @@ def try_load(filename, content, original_format, template_store):
 
 
 class AutodetectFormat(TTKitFormat):
-    name = _('Automatic detection')
-    format_id = None
+    """
+    Automatic detection based on translate-toolkit logic.
+
+    This is last fallback when uploaded file was not correctly parsed before.
+    """
 
     @classmethod
-    def parse(cls, storefile, template_store=None, language_code=None):
+    def parse(
+        cls, storefile, template_store=None, language_code=None, is_template=False
+    ):
         """Parse store and returns TTKitFormat instance.
 
         First attempt own autodetection, then fallback to ttkit.
         """
-        if hasattr(storefile, 'read'):
-            filename = getattr(storefile, 'name', None)
+        if hasattr(storefile, "read"):
+            filename = getattr(storefile, "name", None)
         else:
             filename = storefile
         if filename is not None:
             storeclass = detect_filename(filename)
             if storeclass is not None:
-                return storeclass(storefile, template_store, language_code)
-        return cls(storefile, template_store, language_code)
+                return storeclass(storefile, template_store, language_code, is_template)
+        return cls(storefile, template_store, language_code, is_template)
 
     @classmethod
     def parse_store(cls, storefile):

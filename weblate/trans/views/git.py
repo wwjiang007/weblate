@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,7 +19,7 @@
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 from filelock import Timeout
 
@@ -37,14 +36,14 @@ def execute_locked(request, obj, message, call, *args, **kwargs):
         # With False the call is supposed to show errors on its own
         if result is None or result:
             messages.success(request, message)
-    except Timeout as error:
+    except Timeout:
         messages.error(
             request,
-            _('Failed to lock the repository, another operation is in progress.')
+            _("Failed to lock the repository, another operation is in progress."),
         )
-        report_error(error, request)
+        report_error()
 
-    return redirect_param(obj, '#repository')
+    return redirect_param(obj, "#repository")
 
 
 def perform_commit(request, obj):
@@ -52,10 +51,10 @@ def perform_commit(request, obj):
     return execute_locked(
         request,
         obj,
-        _('All pending translations were committed.'),
+        _("All pending translations were committed."),
         obj.commit_pending,
-        'commit',
-        request,
+        "commit",
+        request.user,
     )
 
 
@@ -64,32 +63,24 @@ def perform_update(request, obj):
     return execute_locked(
         request,
         obj,
-        _('All repositories were updated.'),
+        _("All repositories were updated."),
         obj.do_update,
         request,
-        method=request.GET.get('method'),
+        method=request.GET.get("method"),
     )
 
 
 def perform_push(request, obj):
     """Helper function to do the repository push."""
     return execute_locked(
-        request,
-        obj,
-        _('All repositories were pushed.'),
-        obj.do_push,
-        request,
+        request, obj, _("All repositories were pushed."), obj.do_push, request
     )
 
 
 def perform_reset(request, obj):
     """Helper function to do the repository reset."""
     return execute_locked(
-        request,
-        obj,
-        _('All repositories have been reset.'),
-        obj.do_reset,
-        request,
+        request, obj, _("All repositories have been reset."), obj.do_reset, request
     )
 
 
@@ -98,7 +89,7 @@ def perform_cleanup(request, obj):
     return execute_locked(
         request,
         obj,
-        _('All repositories have been cleaned up.'),
+        _("All repositories have been cleaned up."),
         obj.do_cleanup,
         request,
     )
@@ -109,7 +100,7 @@ def perform_cleanup(request, obj):
 def commit_project(request, project):
     obj = get_project(request, project)
 
-    if not request.user.has_perm('vcs.commit', obj):
+    if not request.user.has_perm("vcs.commit", obj):
         raise PermissionDenied()
 
     return perform_commit(request, obj)
@@ -120,7 +111,7 @@ def commit_project(request, project):
 def commit_component(request, project, component):
     obj = get_component(request, project, component)
 
-    if not request.user.has_perm('vcs.commit', obj):
+    if not request.user.has_perm("vcs.commit", obj):
         raise PermissionDenied()
 
     return perform_commit(request, obj)
@@ -131,7 +122,7 @@ def commit_component(request, project, component):
 def commit_translation(request, project, component, lang):
     obj = get_translation(request, project, component, lang)
 
-    if not request.user.has_perm('vcs.commit', obj):
+    if not request.user.has_perm("vcs.commit", obj):
         raise PermissionDenied()
 
     return perform_commit(request, obj)
@@ -142,7 +133,7 @@ def commit_translation(request, project, component, lang):
 def update_project(request, project):
     obj = get_project(request, project)
 
-    if not request.user.has_perm('vcs.update', obj):
+    if not request.user.has_perm("vcs.update", obj):
         raise PermissionDenied()
 
     return perform_update(request, obj)
@@ -153,7 +144,7 @@ def update_project(request, project):
 def update_component(request, project, component):
     obj = get_component(request, project, component)
 
-    if not request.user.has_perm('vcs.update', obj):
+    if not request.user.has_perm("vcs.update", obj):
         raise PermissionDenied()
 
     return perform_update(request, obj)
@@ -164,7 +155,7 @@ def update_component(request, project, component):
 def update_translation(request, project, component, lang):
     obj = get_translation(request, project, component, lang)
 
-    if not request.user.has_perm('vcs.update', obj):
+    if not request.user.has_perm("vcs.update", obj):
         raise PermissionDenied()
 
     return perform_update(request, obj)
@@ -175,7 +166,7 @@ def update_translation(request, project, component, lang):
 def push_project(request, project):
     obj = get_project(request, project)
 
-    if not request.user.has_perm('vcs.push', obj):
+    if not request.user.has_perm("vcs.push", obj):
         raise PermissionDenied()
 
     return perform_push(request, obj)
@@ -186,7 +177,7 @@ def push_project(request, project):
 def push_component(request, project, component):
     obj = get_component(request, project, component)
 
-    if not request.user.has_perm('vcs.push', obj):
+    if not request.user.has_perm("vcs.push", obj):
         raise PermissionDenied()
 
     return perform_push(request, obj)
@@ -197,7 +188,7 @@ def push_component(request, project, component):
 def push_translation(request, project, component, lang):
     obj = get_translation(request, project, component, lang)
 
-    if not request.user.has_perm('vcs.push', obj):
+    if not request.user.has_perm("vcs.push", obj):
         raise PermissionDenied()
 
     return perform_push(request, obj)
@@ -208,7 +199,7 @@ def push_translation(request, project, component, lang):
 def reset_project(request, project):
     obj = get_project(request, project)
 
-    if not request.user.has_perm('vcs.reset', obj):
+    if not request.user.has_perm("vcs.reset", obj):
         raise PermissionDenied()
 
     return perform_reset(request, obj)
@@ -219,7 +210,7 @@ def reset_project(request, project):
 def reset_component(request, project, component):
     obj = get_component(request, project, component)
 
-    if not request.user.has_perm('vcs.reset', obj):
+    if not request.user.has_perm("vcs.reset", obj):
         raise PermissionDenied()
 
     return perform_reset(request, obj)
@@ -230,7 +221,7 @@ def reset_component(request, project, component):
 def reset_translation(request, project, component, lang):
     obj = get_translation(request, project, component, lang)
 
-    if not request.user.has_perm('vcs.reset', obj):
+    if not request.user.has_perm("vcs.reset", obj):
         raise PermissionDenied()
 
     return perform_reset(request, obj)
@@ -241,7 +232,7 @@ def reset_translation(request, project, component, lang):
 def cleanup_project(request, project):
     obj = get_project(request, project)
 
-    if not request.user.has_perm('vcs.reset', obj):
+    if not request.user.has_perm("vcs.reset", obj):
         raise PermissionDenied()
 
     return perform_cleanup(request, obj)
@@ -252,7 +243,7 @@ def cleanup_project(request, project):
 def cleanup_component(request, project, component):
     obj = get_component(request, project, component)
 
-    if not request.user.has_perm('vcs.reset', obj):
+    if not request.user.has_perm("vcs.reset", obj):
         raise PermissionDenied()
 
     return perform_cleanup(request, obj)
@@ -263,7 +254,7 @@ def cleanup_component(request, project, component):
 def cleanup_translation(request, project, component, lang):
     obj = get_translation(request, project, component, lang)
 
-    if not request.user.has_perm('vcs.reset', obj):
+    if not request.user.has_perm("vcs.reset", obj):
         raise PermissionDenied()
 
     return perform_cleanup(request, obj)

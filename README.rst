@@ -1,17 +1,20 @@
-Weblate
-=======
+.. image:: https://s.weblate.org/cdn/Logo-Darktext-borders.png
+   :alt: Weblate
+   :target: https://weblate.org/
+   :height: 80px
 
-.. image:: https://cloud.drone.io/api/badges/WeblateOrg/weblate/status.svg
-    :alt: Build status
-    :target: https://cloud.drone.io/WeblateOrg/weblate
+**Weblate is a copylefted libre software web-based continuous localization system,
+used by over 1150 libre projects and companies in more than 115 countries.**
+
+Install it, or use the Hosted Weblate service at `weblate.org`_.
+
+.. image:: https://img.shields.io/badge/website-weblate.org-blue.svg
+    :alt: Website
+    :target: https://weblate.org/
 
 .. image:: https://hosted.weblate.org/widgets/weblate/-/svg-badge.svg
     :alt: Translation status
-    :target: https://hosted.weblate.org/engage/weblate/?utm_source=widget
-
-.. image:: https://codecov.io/gh/WeblateOrg/weblate/branch/master/graph/badge.svg
-    :alt: Codecov Coverage Status
-    :target: https://codecov.io/gh/WeblateOrg/weblate
+    :target: https://hosted.weblate.org/engage/weblate/
 
 .. image:: https://bestpractices.coreinfrastructure.org/projects/552/badge
     :alt: CII Best Practices
@@ -20,39 +23,43 @@ Weblate
 .. image:: https://img.shields.io/pypi/v/Weblate.svg
     :target: https://pypi.org/project/Weblate/
 
-.. image:: https://img.shields.io/readthedocs/weblate.svg 
+.. image:: https://readthedocs.org/projects/weblate/badge/
     :target: https://docs.weblate.org/
 
-Weblate is a libre software web-based continuous localization system used by
-over 1150+ opensource projects & companies in over 115+ countries around the
-World.
+.. image:: https://img.shields.io/github/license/WeblateOrg/weblate.svg
+    :alt: License
+    :target: https://github.com/WeblateOrg/weblate/blob/master/COPYING
 
-The Weblate is to be found at https://weblate.org/
+Support
+-------
+
+Weblate is a libre software with optional professional support and cloud
+hosting offerings. Check out https://weblate.org/hosting/ for more information.
 
 Documentation
 -------------
 
-Detailed documentation is available in the ``docs`` directory of the sources.
-
-The documentation can be also viewed online on https://docs.weblate.org/.
+To be found in the ``docs`` directory of the source code, or
+viewed online on https://docs.weblate.org/
 
 Installation
 ------------
 
-Installation and setup instructions are provided in the manual, check
-the quick setup guide:
+Setup instructions:
 
-https://docs.weblate.org/en/latest/admin/quick.html
+https://docs.weblate.org/en/latest/admin/install.html
 
 Bugs
 ----
 
-Please report bugs to https://github.com/WeblateOrg/weblate/issues
+Please report feature requests and problems to:
+
+https://github.com/WeblateOrg/weblate/issues
 
 License
 -------
 
-Copyright © 2012 - 2019 Michal Čihař michal@cihar.com
+Copyright © 2012–2020 Michal Čihař michal@cihar.com
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -65,3 +72,5 @@ PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
 this program. If not, see https://www.gnu.org/licenses/.
+
+.. _weblate.org: https://weblate.org/

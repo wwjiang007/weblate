@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,6 +18,5 @@
 #
 """File format specific behavior."""
 
-from __future__ import unicode_literals
 
-default_app_config = 'weblate.formats.apps.FormatsConfig'
+default_app_config = "weblate.formats.apps.FormatsConfig"

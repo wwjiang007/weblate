@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,10 +18,10 @@
 #
 
 from django.apps import AppConfig
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 
 class TransConfig(AppConfig):
-    name = 'weblate.trans'
-    label = 'trans'
-    verbose_name = _('Weblate translations')
+    name = "weblate.trans"
+    label = "trans"
+    verbose_name = _("Weblate translations")

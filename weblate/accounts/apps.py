@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,7 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-from __future__ import unicode_literals
 
 from django.apps import AppConfig
 from django.core.checks import register
@@ -26,10 +24,10 @@ from weblate.accounts.checks import check_avatars
 
 
 class AccountsConfig(AppConfig):
-    name = 'weblate.accounts'
-    label = 'accounts'
-    verbose_name = 'Accounts'
+    name = "weblate.accounts"
+    label = "accounts"
+    verbose_name = "Accounts"
 
     def ready(self):
-        super(AccountsConfig, self).ready()
+        super().ready()
         register(check_avatars, deploy=True)

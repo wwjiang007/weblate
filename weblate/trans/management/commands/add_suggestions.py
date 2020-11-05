@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -27,25 +26,18 @@ from weblate.trans.management.commands import WeblateTranslationCommand
 
 
 class Command(WeblateTranslationCommand):
-    """WeblateTranslationCommand
-    Command for mass importing suggestions.
-    """
-    help = 'imports suggestions'
+    """Command for mass importing suggestions."""
+
+    help = "imports suggestions"
 
     def add_arguments(self, parser):
-        super(Command, self).add_arguments(parser)
+        super().add_arguments(parser)
         parser.add_argument(
-            '--author',
-            default='noreply@weblate.org',
-            help=(
-                'Email address of author (has to be registered in Weblate)'
-            )
+            "--author",
+            default="noreply@weblate.org",
+            help=("Email address of author (has to be registered in Weblate)"),
         )
-        parser.add_argument(
-            'file',
-            type=argparse.FileType('rb'),
-            help='File to import',
-        )
+        parser.add_argument("file", type=argparse.FileType("rb"), help="File to import")
 
     def handle(self, *args, **options):
         # Get translation object
@@ -58,10 +50,13 @@ class Command(WeblateTranslationCommand):
         # Process import
         try:
             translation.merge_upload(
-                request, options['file'], False, method='suggest',
-                author_email=options['author']
+                request,
+                options["file"],
+                False,
+                method="suggest",
+                author_email=options["author"],
             )
         except IOError as err:
-            raise CommandError('Failed to import translation file: {}'.format(err))
+            raise CommandError("Failed to import translation file: {}".format(err))
         finally:
-            options['file'].close()
+            options["file"].close()

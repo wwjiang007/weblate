@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,64 +17,64 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 import re
 
-from defusedxml import ElementTree
+import bleach
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.utils.functional import cached_property
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.checks.base import TargetCheck
+from weblate.utils.html import extract_bleach
+from weblate.utils.xml import parse_xml
 
 BBCODE_MATCH = re.compile(
-    r'(?P<start>\[(?P<tag>[^]]+)(@[^]]*)?\])(.*?)(?P<end>\[\/(?P=tag)\])',
-    re.MULTILINE
+    r"(?P<start>\[(?P<tag>[^]]+)(@[^]]*)?\])(.*?)(?P<end>\[\/(?P=tag)\])", re.MULTILINE
 )
 
 MD_LINK = re.compile(
-    r'!?\[('
-    r'(?:\[[^^\]]*\]|[^\[\]]|\](?=[^\[]*\]))*'
-    r')\]\('
-    r'''\s*(<)?([\s\S]*?)(?(2)>)(?:\s+['"]([\s\S]*?)['"])?\s*'''
-    r'\)'
+    r"!?\[("
+    r"(?:\[[^^\]]*\]|[^\[\]]|\](?=[^\[]*\]))*"
+    r")\]\("
+    r"""\s*(<)?([\s\S]*?)(?(2)>)(?:\s+['"]([\s\S]*?)['"])?\s*"""
+    r"\)"
 )
 MD_REFLINK = re.compile(
-    r'!?\[('
-    r'(?:\[[^^\]]*\]|[^\[\]]|\](?=[^\[]*\]))*'
-    r')\]\s*\[([^^\]]*)\]'
+    r"!?\[("  # leading [
+    r"(?:\[[^^\]]*\]|[^\[\]]|\](?=[^\[]*\]))*"  # link text
+    r")\]\s*\[([^^\]]*)\]"  # trailing ] with optional target
 )
 MD_SYNTAX = re.compile(
-    r'(_{2})(?:[\s\S]+?)_{2}(?!_)'        # __word__
-    r'|'
-    r'(\*{2})(?:[\s\S]+?)\*{2}(?!\*)'     # **word**
-    r'|'
-    r'\b(_)(?:(?:__|[^_])+?)_\b'          # _word_
-    r'|'
-    r'(\*)(?:(?:\*\*|[^\*])+?)\*(?!\*)'   # *word*
-    r'|'
-    r'(`+)\s*(?:[\s\S]*?[^`])\s*\5(?!`)'  # `code`
-    r'|'
-    r'(~~)(?=\S)(?:[\s\S]*?\S)~~'         # ~~word~~
+    r"(_{2})(?:[\s\S]+?)_{2}(?!_)"  # __word__
+    r"|"
+    r"(\*{2})(?:[\s\S]+?)\*{2}(?!\*)"  # **word**
+    r"|"
+    r"\b(_)(?:(?:__|[^_])+?)_\b"  # _word_
+    r"|"
+    r"(\*)(?:(?:\*\*|[^\*])+?)\*(?!\*)"  # *word*
+    r"|"
+    r"(`+)\s*(?:[\s\S]*?[^`])\s*\5(?!`)"  # `code`
+    r"|"
+    r"(~~)(?=\S)(?:[\s\S]*?\S)~~"  # ~~word~~
 )
 
-XML_MATCH = re.compile(r'<[^>]+>')
-XML_ENTITY_MATCH = re.compile(r'&#?\w+;')
+XML_MATCH = re.compile(r"<[^>]+>")
+XML_ENTITY_MATCH = re.compile(r"&#?\w+;")
 
 
 def strip_entities(text):
     """Strip all HTML entities (we don't care about them)."""
-    return XML_ENTITY_MATCH.sub('', text)
+    return XML_ENTITY_MATCH.sub(" ", text)
 
 
 class BBCodeCheck(TargetCheck):
     """Check for matching bbcode tags."""
-    check_id = 'bbcode'
-    name = _('Mismatched BBcode')
-    description = _('BBcode in translation does not match source')
-    severity = 'warning'
+
+    check_id = "bbcode"
+    name = _("BBcode markup")
+    description = _("BBcode in translation does not match source")
 
     def check_single(self, source, target, unit):
         # Parse source
@@ -98,12 +97,8 @@ class BBCodeCheck(TargetCheck):
             return []
         ret = []
         for match in BBCODE_MATCH.finditer(source):
-            for tag in ('start', 'end'):
-                ret.append((
-                    match.start(tag),
-                    match.end(tag),
-                    match.group(tag)
-                ))
+            for tag in ("start", "end"):
+                ret.append((match.start(tag), match.end(tag), match.group(tag)))
         return ret
 
 
@@ -118,15 +113,15 @@ class BaseXMLCheck(TargetCheck):
                 return self.parse_xml(text, False), False
         text = strip_entities(text)
         if wrap:
-            text = '<weblate>{}</weblate>'.format(text)
+            text = "<weblate>{}</weblate>".format(text)
 
-        return ElementTree.fromstring(text.encode('utf-8'))
+        return parse_xml(text.encode() if "encoding" in text else text)
 
     def is_source_xml(self, flags, source):
         """Quick check if source looks like XML."""
-        if 'xml-text' in flags:
+        if "xml-text" in flags:
             return True
-        return '<' in source and len(XML_MATCH.findall(source))
+        return "<" in source and len(XML_MATCH.findall(source))
 
     def check_single(self, source, target, unit):
         """Check for single phrase, not dealing with plurals."""
@@ -135,10 +130,10 @@ class BaseXMLCheck(TargetCheck):
 
 class XMLValidityCheck(BaseXMLCheck):
     """Check whether XML in target is valid."""
-    check_id = 'xml-invalid'
-    name = _('Invalid XML markup')
-    description = _('The translation is not valid XML')
-    severity = 'danger'
+
+    check_id = "xml-invalid"
+    name = _("XML syntax")
+    description = _("The translation is not valid XML")
 
     def check_single(self, source, target, unit):
         if not self.is_source_xml(unit.all_flags, source):
@@ -163,10 +158,10 @@ class XMLValidityCheck(BaseXMLCheck):
 
 class XMLTagsCheck(BaseXMLCheck):
     """Check whether XML in target matches source."""
-    check_id = 'xml-tags'
-    name = _('XML tags mismatch')
-    description = _('XML tags in translation do not match source')
-    severity = 'warning'
+
+    check_id = "xml-tags"
+    name = _("XML markup")
+    description = _("XML tags in translation do not match source")
 
     def check_single(self, source, target, unit):
         if not self.is_source_xml(unit.all_flags, source):
@@ -199,10 +194,22 @@ class XMLTagsCheck(BaseXMLCheck):
             self.parse_xml(source)
         except SyntaxError:
             return ret
+        # Include XML markup
         for match in XML_MATCH.finditer(source):
             ret.append((match.start(), match.end(), match.group()))
+        # Add XML entities
+        skipranges = [x[:2] for x in ret]
+        skipranges.append((len(source), len(source)))
+        offset = 0
         for match in XML_ENTITY_MATCH.finditer(source):
-            ret.append((match.start(), match.end(), match.group()))
+            start = match.start()
+            end = match.end()
+            while skipranges[offset][1] < end:
+                offset += 1
+            # Avoid including entities inside markup
+            if start > skipranges[offset][0] and end < skipranges[offset][1]:
+                continue
+            ret.append((start, end, match.group()))
         return ret
 
 
@@ -210,14 +217,14 @@ class MarkdownBaseCheck(TargetCheck):
     default_disabled = True
 
     def __init__(self):
-        super(MarkdownBaseCheck, self).__init__()
-        self.enable_string = 'md-text'
+        super().__init__()
+        self.enable_string = "md-text"
 
 
 class MarkdownRefLinkCheck(MarkdownBaseCheck):
-    check_id = 'md-reflink'
-    name = _('Markdown link references')
-    description = _('Markdown link references does not match source')
+    check_id = "md-reflink"
+    name = _("Markdown references")
+    description = _("Markdown link references do not match source")
 
     def check_single(self, source, target, unit):
         src_match = MD_REFLINK.findall(source)
@@ -232,9 +239,9 @@ class MarkdownRefLinkCheck(MarkdownBaseCheck):
 
 
 class MarkdownLinkCheck(MarkdownBaseCheck):
-    check_id = 'md-link'
-    name = _('Markdown links')
-    description = _('Markdown links do not match source')
+    check_id = "md-link"
+    name = _("Markdown links")
+    description = _("Markdown links do not match source")
 
     def check_single(self, source, target, unit):
         src_match = MD_LINK.findall(source)
@@ -249,16 +256,16 @@ class MarkdownLinkCheck(MarkdownBaseCheck):
         # We don't check actual remote link targets as those might
         # be localized as well (consider links to Wikipedia).
         # Instead we check only relative links and templated ones.
-        link_start = ('.', '#', '{')
+        link_start = (".", "#", "{")
         tgt_anchors = {x[2] for x in tgt_match if x[2] and x[2][0] in link_start}
         src_anchors = {x[2] for x in src_match if x[2] and x[2][0] in link_start}
         return tgt_anchors != src_anchors
 
 
 class MarkdownSyntaxCheck(MarkdownBaseCheck):
-    check_id = 'md-syntax'
-    name = _('Markdown syntax')
-    description = _('Markdown syntax does not match source')
+    check_id = "md-syntax"
+    name = _("Markdown syntax")
+    description = _("Markdown syntax does not match source")
 
     @staticmethod
     def extract_match(match):
@@ -278,7 +285,7 @@ class MarkdownSyntaxCheck(MarkdownBaseCheck):
             return []
         ret = []
         for match in MD_SYNTAX.finditer(source):
-            value = ''
+            value = ""
             for i in range(6):
                 value = match.group(i + 1)
                 if value:
@@ -291,9 +298,9 @@ class MarkdownSyntaxCheck(MarkdownBaseCheck):
 
 
 class URLCheck(TargetCheck):
-    check_id = 'url'
-    name = _('URL')
-    description = _('The translation does not contain an URL')
+    check_id = "url"
+    name = _("URL")
+    description = _("The translation does not contain an URL")
     default_disabled = True
 
     @cached_property
@@ -308,3 +315,13 @@ class URLCheck(TargetCheck):
             return False
         except ValidationError:
             return True
+
+
+class SafeHTMLCheck(TargetCheck):
+    check_id = "safe-html"
+    name = _("Unsafe HTML")
+    description = _("The translation uses unsafe HTML markup")
+    default_disabled = True
+
+    def check_single(self, source, target, unit):
+        return bleach.clean(target, **extract_bleach(source)) != target

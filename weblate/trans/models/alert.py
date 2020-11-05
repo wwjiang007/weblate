@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,14 +17,14 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.template.loader import render_to_string
-from django.utils.encoding import force_text, python_2_unicode_compatible
+from django.utils.encoding import force_str
 from django.utils.functional import cached_property
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
+from weblate_language_data.countries import DEFAULT_LANGS
 
 from weblate.utils.fields import JSONField
 
@@ -41,96 +40,104 @@ def register(cls):
     return cls
 
 
-@python_2_unicode_compatible
 class Alert(models.Model):
-    component = models.ForeignKey(
-        'Component', on_delete=models.deletion.CASCADE
-    )
+    component = models.ForeignKey("Component", on_delete=models.deletion.CASCADE)
     timestamp = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
     name = models.CharField(max_length=150)
+    dismissed = models.BooleanField(default=False, db_index=True)
     details = JSONField(default={})
 
-    class Meta(object):
-        unique_together = ('component', 'name')
+    class Meta:
+        unique_together = ("component", "name")
+        verbose_name = "component alert"
+        verbose_name_plural = "component alerts"
+
+    def __str__(self):
+        return force_str(self.obj.verbose)
+
+    def save(self, *args, **kwargs):
+        is_new = not self.id
+        super().save(*args, **kwargs)
+        if is_new:
+            from weblate.trans.models import Change
+
+            Change.objects.create(
+                action=Change.ACTION_ALERT,
+                component=self.component,
+                alert=self,
+                details={"alert": self.name},
+            )
 
     @cached_property
     def obj(self):
         return ALERTS[self.name](self, **self.details)
 
-    def __str__(self):
-        return force_text(self.obj.verbose)
-
-    def render(self):
-        return self.obj.render()
-
-    def save(self, *args, **kwargs):
-        is_new = (not self.id)
-        super(Alert, self).save(*args, **kwargs)
-        if is_new:
-            from weblate.trans.models import Change
-            Change.objects.create(
-                action=Change.ACTION_ALERT,
-                component=self.component,
-                alert=self,
-                details={'alert': self.name},
-            )
+    def render(self, user):
+        return self.obj.render(user)
 
 
-class BaseAlert(object):
-    verbose = ''
+class BaseAlert:
+    verbose = ""
     on_import = False
+    link_wide = False
+    dismissable = False
 
     def __init__(self, instance):
         self.instance = instance
 
-    def get_context(self):
+    def get_analysis(self):
+        return {}
+
+    def get_context(self, user):
         result = {
-            'alert': self.instance,
-            'component': self.instance.component,
-            'timestamp': self.instance.timestamp,
-            'details': self.instance.details,
+            "alert": self.instance,
+            "component": self.instance.component,
+            "timestamp": self.instance.timestamp,
+            "details": self.instance.details,
+            "analysis": self.get_analysis(),
+            "user": user,
         }
         result.update(self.instance.details)
         return result
 
-    def render(self):
+    def render(self, user):
         return render_to_string(
-            'trans/alert/{}.html'.format(self.__class__.__name__.lower()),
-            self.get_context()
+            "trans/alert/{}.html".format(self.__class__.__name__.lower()),
+            self.get_context(user),
         )
 
 
 class ErrorAlert(BaseAlert):
     def __init__(self, instance, error):
-        super(ErrorAlert, self).__init__(instance)
+        super().__init__(instance)
         self.error = error
 
 
 class MultiAlert(BaseAlert):
     def __init__(self, instance, occurrences):
-        super(MultiAlert, self).__init__(instance)
+        super().__init__(instance)
         self.occurrences = self.process_occurrences(occurrences)
 
-    def get_context(self):
-        result = super(MultiAlert, self).get_context()
-        result['occurrences'] = self.occurrences
+    def get_context(self, user):
+        result = super().get_context(user)
+        result["occurrences"] = self.occurrences
         return result
 
     def process_occurrences(self, occurrences):
         from weblate.lang.models import Language
         from weblate.trans.models import Unit
+
         processors = (
-            ('language_code', 'language', Language, 'code'),
-            ('unit_pk', 'unit', Unit, 'pk'),
+            ("language_code", "language", Language, "code"),
+            ("unit_pk", "unit", Unit, "pk"),
         )
         for occurrence in occurrences:
             for key, target, obj, lookup in processors:
                 if key not in occurrence:
                     continue
                 try:
-                    occurrence[target] = obj.objects.get(
-                        **{lookup: occurrence[key]}
-                    )
+                    occurrence[target] = obj.objects.get(**{lookup: occurrence[key]})
                 except ObjectDoesNotExist:
                     occurrence[target] = None
         return occurrences
@@ -138,67 +145,161 @@ class MultiAlert(BaseAlert):
 
 @register
 class DuplicateString(MultiAlert):
-    verbose = _('Duplicated string for translation.')
+    # Translators: Name of an alert
+    verbose = _("Duplicated string found in the file.")
     on_import = True
 
 
 @register
 class DuplicateLanguage(MultiAlert):
-    verbose = _('Duplicated translation.')
+    # Translators: Name of an alert
+    verbose = _("Duplicated translation.")
     on_import = True
+
+    def get_analysis(self):
+        result = {}
+        source = self.instance.component.source_language
+        for occurrence in self.occurrences:
+            if occurrence["language"] == source:
+                result["source_language"] = True
+            codes = {
+                code.strip().replace("-", "_").lower()
+                for code in occurrence["codes"].split(",")
+            }
+            if codes.intersection(DEFAULT_LANGS):
+                result["default_country"] = True
+        return result
+
+
+@register
+class DuplicateFilemask(BaseAlert):
+    # Translators: Name of an alert
+    verbose = _("Duplicated filemask.")
+    link_wide = True
+
+    def __init__(self, instance, duplicates):
+        super().__init__(instance)
+        self.duplicates = duplicates
 
 
 @register
 class MergeFailure(ErrorAlert):
-    verbose = _('Could not merge the repository.')
+    # Translators: Name of an alert
+    verbose = _("Could not merge the repository.")
+    link_wide = True
 
 
 @register
 class UpdateFailure(ErrorAlert):
-    verbose = _('Could not update the repository.')
+    # Translators: Name of an alert
+    verbose = _("Could not update the repository.")
+    link_wide = True
 
 
 @register
 class PushFailure(ErrorAlert):
-    verbose = _('Could not push the repository.')
+    # Translators: Name of an alert
+    verbose = _("Could not push the repository.")
+    link_wide = True
+
+    def get_context(self, user):
+        result = super().get_context(user)
+        result["terminal"] = "terminal prompts disabled" in result["error"]
+        return result
 
 
 @register
 class ParseError(MultiAlert):
-    verbose = _('Could not parse translation files.')
+    # Translators: Name of an alert
+    verbose = _("Could not parse translation files.")
     on_import = True
 
 
 @register
 class BillingLimit(BaseAlert):
-    verbose = _('Your billing plan has exceeded its limits.')
+    # Translators: Name of an alert
+    verbose = _("Your billing plan has exceeded its limits.")
 
 
 @register
 class RepositoryOutdated(BaseAlert):
-    verbose = _('Repository outdated.')
+    # Translators: Name of an alert
+    verbose = _("Repository outdated.")
+    link_wide = True
 
 
 @register
 class RepositoryChanges(BaseAlert):
-    verbose = _('Repository has changes.')
+    # Translators: Name of an alert
+    verbose = _("Repository has changes.")
+    link_wide = True
 
 
 @register
 class MissingLicense(BaseAlert):
-    verbose = _('License info missing.')
+    # Translators: Name of an alert
+    verbose = _("License info missing.")
 
 
 @register
 class AddonScriptError(MultiAlert):
-    verbose = _('Could not run addon.')
+    # Translators: Name of an alert
+    verbose = _("Could not run addon.")
+
+
+@register
+class CDNAddonError(MultiAlert):
+    # Translators: Name of an alert
+    verbose = _("Could not run addon.")
 
 
 @register
 class MsgmergeAddonError(MultiAlert):
-    verbose = _('Could not run addon.')
+    # Translators: Name of an alert
+    verbose = _("Could not run addon.")
 
 
 @register
 class MonolingualTranslation(BaseAlert):
-    verbose = _('Misconfigured monolingual translation.')
+    # Translators: Name of an alert
+    verbose = _("Misconfigured monolingual translation.")
+
+
+@register
+class UnsupportedConfiguration(BaseAlert):
+    # Translators: Name of an alert
+    verbose = _("Unsupported component configuration")
+
+    def __init__(self, instance, vcs, file_format):
+        super().__init__(instance)
+        self.vcs = vcs
+        self.file_format = file_format
+
+
+@register
+class BrokenBrowserURL(BaseAlert):
+    # Translators: Name of an alert
+    verbose = _("Broken repository browser URL")
+    dismissable = True
+
+    def __init__(self, instance, link, error):
+        super().__init__(instance)
+        self.link = link
+        self.error = error
+
+
+@register
+class BrokenProjectURL(BaseAlert):
+    # Translators: Name of an alert
+    verbose = _("Broken project website URL")
+    dismissable = True
+
+    def __init__(self, instance, error=None):
+        super().__init__(instance)
+        self.error = error
+
+
+@register
+class UnusedScreenshot(BaseAlert):
+    # Translators: Name of an alert
+    verbose = _("Unused screenshot")

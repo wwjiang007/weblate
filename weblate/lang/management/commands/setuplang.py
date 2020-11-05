@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,23 +17,25 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from django.core.management.base import BaseCommand
-
 from weblate.lang.models import Language
+from weblate.utils.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = 'Populates language definitions'
+    help = "Populates language definitions"
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--no-update',
-            action='store_false',
-            dest='update',
+            "--no-update",
+            action="store_false",
+            dest="update",
             default=True,
-            help='Prevents updates to existing language definitions'
+            help="Prevents updates to existing language definitions",
         )
 
     def handle(self, *args, **options):
         """Create default set of languages."""
-        Language.objects.setup(options['update'])
+        kwargs = {}
+        if options["verbosity"] >= 1:
+            kwargs["logger"] = self.stdout.write
+        Language.objects.setup(options["update"], **kwargs)

@@ -3,6 +3,7 @@
 {% load translations %}
 {% load authnames %}
 {% load crispy_forms_tags %}
+{% load icons %}
 
 {% block breadcrumbs %}
 <li><a href="{% url 'profile' %}">{% trans "Your profile" %}</a></li>
@@ -33,7 +34,7 @@
 <div class="tab-content">
 
 <div class="tab-pane active" id="languages">
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% documentation_icon 'user/profile' 'languages' right=True %}{% trans "Languages" %}</h4></div>
   <div class="panel-body">
     {% crispy languagesform %}
@@ -48,7 +49,7 @@
 </div>
 
 <div class="tab-pane" id="preferences">
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% documentation_icon 'user/profile' 'preferences' right=True %}{% trans "Preferences" %}</h4></div>
   <div class="panel-body">
     {{ usersettingsform|crispy }}
@@ -62,7 +63,7 @@
 
 <div class="tab-pane" id="notifications">
 
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% documentation_icon 'user/profile' 'subscriptions' right=True %}{% trans "Watched projects" %}</h4></div>
   <div class="panel-body">
 {% crispy subscriptionform %}
@@ -73,7 +74,7 @@
   </div>
 </div>
 
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% documentation_icon 'user/profile' 'subscriptions' right=True %}{% trans "Notification settings" %}</h4></div>
   <div class="panel-body">
 
@@ -103,7 +104,7 @@
 </div>
 
 <div class="tab-pane" id="account">
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% documentation_icon 'user/profile' right=True %}{% trans "Account" %}</h4></div>
   <div class="panel-body">
 {% crispy userform %}
@@ -114,9 +115,9 @@
   </div>
 </div>
 
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% documentation_icon 'user/profile' 'authentication' right=True %}{% trans "Current user identities" %}</h4></div>
-<table class="table">
+<table class="table table-auth">
 <thead>
 <tr>
 <th>{% trans "Identity" %}</th>
@@ -124,20 +125,22 @@
 <th>{% trans "Action" %}</th>
 </tr>
 <tbody>
+{% if request.user.has_usable_password or has_email_auth %}
 <tr>
-<th><i class="fa fa-lg fa-wl-social fa-key" aria-hidden="true"></i> {% trans "Password" %}</th>
+<th>{% auth_name 'password' ' ' %}</th>
 <td>{{ request.user.username }}</td>
 <td>
 <a href="{% url 'password' %}" class="btn btn-primary">{% if request.user.has_usable_password %}{% trans "Change password" %}{% else %}{% trans "Set password" %}{% endif %}</a>
 </td>
 </tr>
+{% endif %}
 {% for assoc in associated %}
 <tr>
-<th>{% auth_name assoc.provider '' ' ' %}</th>
+<th>{% auth_name assoc.provider ' ' %}</th>
 <td>{{ assoc.uid }}</td>
 <td>
 {% if associated.count > 1 %}
-<a href="{% url 'social:disconnect_individual' assoc.provider assoc.id %}?next={% url 'profile' %}%23account" class="disconnect btn btn-danger"><i class="fa fa-trash"></i> {% trans "Disconnect" %}</a>
+<a href="{% url 'social:disconnect_individual' assoc.provider assoc.id %}?next={% url 'profile' %}%23account" class="disconnect btn btn-danger">{% trans "Disconnect" %}</a>
 {% endif %}
 </td>
 
@@ -148,7 +151,7 @@
 </div>
 
 {% if new_backends %}
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Add new association" %}</h4></div>
   <div class="panel-body">
 {% for name in new_backends %}
@@ -165,47 +168,42 @@
     <p>{% trans "Account removal deletes all your private data." %}</p>
    </div>
    <div class="panel-footer">
-    <a class="btn btn-danger" href="{% url 'remove' %}"><i class="fa fa-trash"></i> {% trans "Remove my account" %}</a>
+    <a class="btn btn-danger" href="{% url 'remove' %}">{% trans "Remove my account" %}</a>
    </div>
 </div>
 
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% trans "User data" %}</h4></div>
   <div class="panel-body">
 
     <p>{% trans "You can download all your private data." %}</p>
    </div>
    <div class="panel-footer">
-    <a class="btn btn-primary link-post" href="{% url 'userdata' %}"><i class="fa fa-save"></i> {% trans "Download user data" %}</a>
+    <a class="btn btn-primary link-post" href="{% url 'userdata' %}">{% trans "Download user data" %}</a>
    </div>
 </div>
 
 </div>
 
 <div class="tab-pane" id="profile">
-<div class="panel panel-primary">
-  <div class="panel-heading"><h4 class="panel-title">{% trans "Your summary" %}</h4></div>
-<table class="table">
-{% with request.user as user %}
-{% include 'user-activity.html' %}
-{% endwith %}
-<tr>
-{% url 'user_page' user=request.user.username as user_page%}
-<th>{% trans "Your public profile" %}</th>
-<td><a href="{{ user_page }}">{{ user_page }}</a></td>
-</tr>
-</table>
-<div class="panel-footer">
-    <p class="help-block">{% trans "Your public appearance on this site." %}</p>
+<div class="panel panel-default">
+  <div class="panel-heading"><h4 class="panel-title">{% documentation_icon 'user/profile' 'public-profile' right=True %}{% trans "Public profile" %}</h4></div>
+  <div class="panel-body">
+    {% crispy profileform %}
+    <p class="help-block">
+      {% blocktrans %}All of the fields on this page are optional and can be deleted at any time, and by filling them out, you're giving us consent to share this data wherever your user profile appears.{% endblocktrans %}
+    </p>
+  </div>
+  <div class="panel-footer">
+    <input type="submit" value="{% trans "Save" %}" class="btn btn-primary" />
+  </div>
 </div>
-</div>
-
 {% if enable_avatars %}
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% documentation_icon 'user/profile' 'avatar' right=True %}{% trans "Your avatar" %}</h4></div>
   <div class="panel-body">
-<p class="border"><img src="{% url 'user_avatar' user=request.user.username size=128 %}" /></p>
-<p><a href="https://www.gravatar.com/">{% trans "Avatars are provided using Gravatar." %}</a></p>
+<p class="border"><img class="avatar w128" alt="{% trans "User avatar" %}" src="{% url 'user_avatar' user=request.user.username size=128 %}" /></p>
+<p><a href="{{ avatar_url_prefix }}">{% blocktrans %}Avatars are provided using {{ avatar_url_prefix }}.{% endblocktrans %}</a></p>
 </div>
 </div>
 {% endif %}
@@ -213,14 +211,14 @@
 </div>
 
 <div class="tab-pane" id="audit">
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Description" %}</h4></div>
   <div class="panel-body">
     <p>{% blocktrans %}Contact us immediately if you see anything suspicious in the audit log.{% endblocktrans %}</p>
   </div>
 </div>
 
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Audit log" %}</h4></div>
 <table class="table">
 <thead>
@@ -252,7 +250,7 @@
 </div>
 
 <div class="tab-pane" id="api">
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% documentation_icon 'api' right=True %}{% trans "API access" %}</h4></div>
 <table class="table">
 <tr><td colspan="2">
@@ -261,7 +259,8 @@
 <tr>
 <th>{% trans "Your personal API key:" %}</th>
 <td>
-    {{ user.auth_token.key }} 
+    {{ user.auth_token.key }}
+    <button type="button" class="btn btn-link btn-xs" data-clipboard-text="{{ user.auth_token.key }}" title="{% trans "Copy to clipboard" %}">{% icon "copy.svg" %}</button>
 </td>
 </tr>
 <tr>
@@ -278,7 +277,7 @@
 </tr>
 <tr>
 <td colspan="2">
-<pre>
+<pre dir="ltr">
 curl \
     -H "Authorization: Token {{ user.auth_token.key }}" \
     {{ site_url }}{% url 'api:api-root' %}
@@ -290,7 +289,7 @@ curl \
 </tr>
 <tr>
 <td colspan="2">
-<pre>
+<pre dir="ltr">
 wlc \
     --key {{ user.auth_token.key }} \
     --url {{ site_url }}{% url 'api:api-root' %} \
@@ -302,11 +301,11 @@ wlc \
 </div>
 
 {% if has_gitexport %}
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% documentation_icon 'admin/optionals' 'git-exporter' right=True %}{% trans "Accessing Git repositories" %}</h4></div>
   <div class="panel-body">
     <p>{% blocktrans %}The API key is also used to authenticate to automatically exported Git repositories.{% endblocktrans %}</p>
-    <pre>
+    <pre dir="ltr">
 git clone 'https://{{ user.username }}:{{ user.auth_token.key }}@{{ site_domain }}/git/PROJECT/COMPONENT/'</pre>
   </div>
 </div>
@@ -315,7 +314,7 @@ git clone 'https://{{ user.username }}:{{ user.auth_token.key }}@{{ site_domain 
 </div>
 
 <div class="tab-pane" id="licenses">
-<div class="panel panel-primary">
+<div class="panel panel-default">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Licenses" %}</h4></div>
   <div class="panel-body">
     <p>{% trans "Please pay attention to the licensing info, as this specifies how translations can be used." %}</p>
@@ -333,30 +332,29 @@ git clone 'https://{{ user.username }}:{{ user.auth_token.key }}@{{ site_domain 
 </ul>
 {% endif %}
 {% endwith %}
+</div>
+</div>
 
 {% if licenses %}
-<p>{% trans "The following translations have explicitly specified their license:" %}</p>
-<table class="table">
-<thead>
-<tr><th>{% trans "Project" %}</th><th>{% trans "License" %}</th></tr>
-</thead>
-<tbody>
-{% for component in licenses %}
-<tr>
-<th><a href="{{ component.get_absolute_url }}">{{ component }}</a></th>
-<td>
-{% if component.license_url %}
-<a href="{{ component.license_url }}">{{ component.license }}</a></p>
-{% else %}
-{{ component.license }}
-{% endif %}
-</td>
-</tr>
+{% regroup licenses by license as license_list %}
+<div class="tab-pane" id="licenses">
+<div class="panel panel-default">
+  <div class="panel-heading"><h4 class="panel-title">{% trans "Licenses for individual translations" %}</h4></div>
+<div class="panel-body">
+{% for dummy, items in license_list %}
+<h4>
+{{ items.0.get_license_display }}
+<span title="{{ items.0.get_license_display }}" class="license badge">{{ items.0.license_badge }}</span>
+<a class="doc-link" href="{{ items.0.license_url }}">{% icon "info.svg" %}</a>
+</h4>
+<p>
+    {% for component in items %}
+        <a href="{{ component.get_absolute_url }}" class="btn btn-link">{{ component }}</a>
+    {% endfor %}
+</p>
 {% endfor %}
-</tbody>
-</table>
-{% endif %}
 </div>
+{% endif %}
 </div>
 </div>
 

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,13 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-"""
-Example pre commit script
-"""
+"""Example pre commit script."""
 
-from __future__ import unicode_literals
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.addons.events import EVENT_PRE_COMMIT
 from weblate.addons.scripts import BaseScriptAddon
@@ -33,13 +29,13 @@ class ExamplePreAddon(BaseScriptAddon):
     # Event used to trigger the script
     events = (EVENT_PRE_COMMIT,)
     # Name of the addon, has to be unique
-    name = 'weblate.example.pre'
+    name = "weblate.example.pre"
     # Verbose name and long descrption
-    verbose = _('Execute script before commit')
-    description = _('This addon executes a script.')
+    verbose = _("Execute script before commit")
+    description = _("This addon executes a script.")
 
     # Script to execute
-    script = '/bin/true'
+    script = "/bin/true"
     # File to add in commit (for pre commit event)
     # does not have to be set
-    add_file = 'po/{{ language_code }}.po'
+    add_file = "po/{{ language_code }}.po"

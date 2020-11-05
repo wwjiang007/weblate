@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,55 +18,60 @@
 #
 
 from datetime import datetime
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.utils.html import escape
-from django.utils.http import is_safe_url
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.safestring import mark_safe
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 
 import weblate
 import weblate.screenshots.views
 from weblate.utils.site import get_site_domain, get_site_url
 from weblate.wladmin.models import ConfigurationError
 
-URL_BASE = 'https://weblate.org/?utm_source=weblate&utm_term=%s'
-URL_DONATE = 'https://weblate.org/donate/?utm_source=weblate&utm_term=%s'
+WEBLATE_URL = "https://weblate.org/"
+DONATE_URL = "https://weblate.org/donate/"
 
 CONTEXT_SETTINGS = [
-    'SITE_TITLE',
-    'OFFER_HOSTING',
-    'ENABLE_AVATARS',
-    'ENABLE_SHARING',
-    'PIWIK_SITE_ID',
-    'PIWIK_URL',
-    'GOOGLE_ANALYTICS_ID',
-    'ENABLE_HOOKS',
-    'REGISTRATION_OPEN',
-    'STATUS_URL',
-    'LEGAL_URL',
+    "SITE_TITLE",
+    "OFFER_HOSTING",
+    "ENABLE_AVATARS",
+    "ENABLE_SHARING",
+    "MATOMO_SITE_ID",
+    "MATOMO_URL",
+    "GOOGLE_ANALYTICS_ID",
+    "ENABLE_HOOKS",
+    "REGISTRATION_OPEN",
+    "STATUS_URL",
+    "LEGAL_URL",
+    "FONTS_CDN_URL",
+    "AVATAR_URL_PREFIX",
+    "HIDE_VERSION",
     # Hosted Weblate integration
-    'PAYMENT_ENABLED',
+    "PAYMENT_ENABLED",
 ]
 
-CONTEXT_APPS = ['billing', 'legal', 'gitexport']
+CONTEXT_APPS = ["billing", "legal", "gitexport"]
 
 
 def add_error_logging_context(context):
-    if (hasattr(settings, 'ROLLBAR')
-            and 'client_token' in settings.ROLLBAR
-            and 'environment' in settings.ROLLBAR):
-        context['rollbar_token'] = settings.ROLLBAR['client_token']
-        context['rollbar_environment'] = settings.ROLLBAR['environment']
+    if (
+        hasattr(settings, "ROLLBAR")
+        and "client_token" in settings.ROLLBAR
+        and "environment" in settings.ROLLBAR
+    ):
+        context["rollbar_token"] = settings.ROLLBAR["client_token"]
+        context["rollbar_environment"] = settings.ROLLBAR["environment"]
     else:
-        context['rollbar_token'] = None
-        context['rollbar_environment'] = None
+        context["rollbar_token"] = None
+        context["rollbar_environment"] = None
 
-    if (hasattr(settings, 'RAVEN_CONFIG')
-            and 'public_dsn' in settings.RAVEN_CONFIG):
-        context['sentry_dsn'] = settings.RAVEN_CONFIG['public_dsn']
+    if hasattr(settings, "RAVEN_CONFIG") and "public_dsn" in settings.RAVEN_CONFIG:
+        context["sentry_dsn"] = settings.RAVEN_CONFIG["public_dsn"]
     else:
-        context['sentry_dsn'] = None
+        context["sentry_dsn"] = None
 
 
 def add_settings_context(context):
@@ -77,71 +81,96 @@ def add_settings_context(context):
 
 def add_optional_context(context):
     for name in CONTEXT_APPS:
-        appname = 'weblate.{}'.format(name)
-        context['has_{}'.format(name)] = appname in settings.INSTALLED_APPS
+        appname = "weblate.{}".format(name)
+        context["has_{}".format(name)] = appname in settings.INSTALLED_APPS
+
+
+def get_preconnect_list():
+    result = []
+    if settings.MATOMO_URL:
+        result.append(urlparse(settings.MATOMO_URL).hostname)
+    if settings.GOOGLE_ANALYTICS_ID:
+        result.append("www.google-analytics.com")
+    return result
+
+
+def get_bread_image(path):
+    if path == "/":
+        return "dashboard.svg"
+    first = path.split("/", 2)[1]
+    if first in ("user", "accounts"):
+        return "account.svg"
+    if first == "checks":
+        return "alert.svg"
+    if first == "languages":
+        return "language.svg"
+    if first == "manage":
+        return "wrench.svg"
+    if first in ("about", "stats", "keys", "legal"):
+        return "weblate.svg"
+    if first in (
+        "glossaries",
+        "upload-glossaries",
+        "delete-glossaries",
+        "edit-glossaries",
+    ):
+        return "glossary.svg"
+    return "project.svg"
 
 
 def weblate_context(request):
     """Context processor to inject various useful variables into context."""
-    if is_safe_url(request.GET.get('next', ''), allowed_hosts=None):
-        login_redirect_url = request.GET['next']
+    if url_has_allowed_host_and_scheme(request.GET.get("next", ""), allowed_hosts=None):
+        login_redirect_url = request.GET["next"]
     else:
         login_redirect_url = request.get_full_path()
 
     # Load user translations if user is authenticated
     watched_projects = None
-    if hasattr(request, 'user') and request.user.is_authenticated:
-        watched_projects = request.user.allowed_projects.filter(
-            profile=request.user.profile
-        )
+    if hasattr(request, "user") and request.user.is_authenticated:
+        watched_projects = request.user.watched_projects
 
     if settings.OFFER_HOSTING:
-        description = _(
-            'Hosted Weblate, the place to localize your software project.'
-        )
+        description = _("Hosted Weblate, the place to localize your software project.")
     else:
         description = _(
-            'This site runs Weblate for localizing various software projects.'
+            "This site runs Weblate for localizing various software projects."
         )
 
-    weblate_url = URL_BASE % weblate.VERSION
-
     context = {
-        'cache_param': '?v={}'.format(weblate.GIT_VERSION),
-        'version': weblate.VERSION,
-        'description': description,
-
-        'weblate_link': mark_safe(
-            '<a href="{}">weblate.org</a>'.format(escape(weblate_url))
+        "cache_param": "?v={}".format(weblate.GIT_VERSION)
+        if not settings.COMPRESS_ENABLED
+        else "",
+        "version": weblate.VERSION,
+        "bread_image": get_bread_image(request.path),
+        "description": description,
+        "weblate_link": mark_safe(
+            '<a href="{}">weblate.org</a>'.format(escape(WEBLATE_URL))
         ),
-        'weblate_name_link': mark_safe(
-            '<a href="{}">Weblate</a>'.format(escape(weblate_url))
+        "weblate_name_link": mark_safe(
+            '<a href="{}">Weblate</a>'.format(escape(WEBLATE_URL))
         ),
-        'weblate_version_link': mark_safe(
+        "weblate_version_link": mark_safe(
             '<a href="{}">Weblate {}</a>'.format(
-                escape(weblate_url), weblate.VERSION
+                escape(WEBLATE_URL), "" if settings.HIDE_VERSION else weblate.VERSION
             )
         ),
-        'donate_url': URL_DONATE % weblate.VERSION,
-
-        'site_url': get_site_url(),
-        'site_domain': get_site_domain(),
-
-        'current_date': datetime.utcnow().strftime('%Y-%m-%d'),
-        'current_year': datetime.utcnow().strftime('%Y'),
-        'current_month': datetime.utcnow().strftime('%m'),
-
-        'login_redirect_url': login_redirect_url,
-
-        'has_ocr': weblate.screenshots.views.HAS_OCR,
-        'has_antispam': bool(settings.AKISMET_API_KEY),
-
-        'watched_projects': watched_projects,
-
-        'allow_index': False,
-        'configuration_errors': ConfigurationError.objects.filter(
+        "donate_url": DONATE_URL,
+        "site_url": get_site_url(),
+        "site_domain": get_site_domain(),
+        "current_date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "current_year": datetime.utcnow().strftime("%Y"),
+        "current_month": datetime.utcnow().strftime("%m"),
+        "login_redirect_url": login_redirect_url,
+        "has_ocr": weblate.screenshots.views.HAS_OCR,
+        "has_antispam": bool(settings.AKISMET_API_KEY),
+        "has_sentry": bool(settings.SENTRY_DSN),
+        "watched_projects": watched_projects,
+        "allow_index": False,
+        "configuration_errors": ConfigurationError.objects.filter(
             ignored=False
-        ).order_by('-timestamp'),
+        ).order_by("-timestamp"),
+        "preconnect_list": get_preconnect_list(),
     }
 
     add_error_logging_context(context)

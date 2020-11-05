@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -25,5 +24,5 @@ from weblate.utils.db import re_escape
 
 class DbTest(TestCase):
     def test_re_escape(self):
-        self.assertEqual(re_escape('[a-z]'), '\\[a\\-z\\]')
-        self.assertEqual(re_escape('a{1,4}'), 'a\\{1,4\\}')
+        self.assertEqual(re_escape("[a-z]"), "\\[a\\-z\\]")
+        self.assertEqual(re_escape("a{1,4}"), "a\\{1,4\\}")

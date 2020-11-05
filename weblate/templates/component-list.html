@@ -12,12 +12,20 @@
 <ul class="nav nav-pills">
   <li class="active"><a href="#overview" data-toggle="tab">{% trans "Components" %}</a></li>
   <li><a href="#information" data-toggle="tab">{% trans "Information" %}</a></li>
+  <li class="dropdown">
+    <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+      {% trans "Files" %} <span class="caret"></span>
+    </a>
+    <ul class="dropdown-menu">
+      <li><a href="{% url "download_component_list" name=object.slug %}?format=zip" title="{% trans "Download for offline translation." %}">{% blocktrans %}Download original translation files as ZIP file{% endblocktrans %}</a></li>
+    </ul>
+  </li>
 </ul>
 
 <div class="tab-content">
 
 <div class="tab-pane active" id="overview">
-{% include "snippets/list-objects.html" with objects=components name_template="snippets/list-object-name.html" label=_("Component") %}
+{% include "snippets/list-objects.html" with objects=components label=_("Component") %}
 </div>
 
 <div class="tab-pane" id="information">
@@ -27,7 +35,7 @@
 <th>{% trans "Number of components" %}</th>
 <td colspan="2">{{ object.components.all|length }}</td>
 </tr>
-{% include "project_stats.html" %}
+{% include "snippets/stats.html" with stats=object.stats %}
 {% for auto in object.autocomponentlist_set.all %}
 <tr>
 <th>{%if forloop.first%}{% trans "Automatic component list assignment" %}{% endif %}</th>

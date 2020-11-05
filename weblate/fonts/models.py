@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,15 +17,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.db import models
 from django.urls import reverse
-from django.utils.encoding import python_2_unicode_compatible
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.fonts.utils import get_font_name
 from weblate.fonts.validators import validate_font
@@ -38,7 +35,6 @@ from weblate.utils.data import data_dir
 FONT_STORAGE = FileSystemStorage(location=data_dir("fonts"))
 
 
-@python_2_unicode_compatible
 class Font(models.Model, UserDisplayMixin):
     family = models.CharField(verbose_name=_("Font family"), max_length=100, blank=True)
     style = models.CharField(verbose_name=_("Font style"), max_length=100, blank=True)
@@ -57,23 +53,29 @@ class Font(models.Model, UserDisplayMixin):
         on_delete=models.deletion.SET_NULL,
     )
 
-    class Meta(object):
+    class Meta:
         unique_together = [("family", "style", "project")]
-
-    def __init__(self, *args, **kwargs):
-        super(Font, self).__init__(*args, **kwargs)
-        self.field_errors = {}
 
     def __str__(self):
         return "{} {}".format(self.family, self.style)
 
+    def save(
+        self, force_insert=False, force_update=False, using=None, update_fields=None
+    ):
+        self.clean()
+        super().save(force_insert, force_update, using, update_fields)
+
     def get_absolute_url(self):
         return reverse("font", kwargs={"pk": self.pk, "project": self.project.slug})
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.field_errors = {}
 
     def clean_fields(self, exclude=None):
         self.field_errors = {}
         try:
-            super(Font, self).clean_fields(exclude)
+            super().clean_fields(exclude)
         except ValidationError as error:
             self.field_errors = error.error_dict
             raise
@@ -82,12 +84,6 @@ class Font(models.Model, UserDisplayMixin):
         # Try to parse file only if it passed validation
         if "font" not in self.field_errors and not self.family:
             self.family, self.style = get_font_name(self.font)
-
-    def save(
-        self, force_insert=False, force_update=False, using=None, update_fields=None
-    ):
-        self.clean()
-        super(Font, self).save(force_insert, force_update, using, update_fields)
 
     def get_usage(self):
         related = FontGroup.objects.filter(
@@ -101,14 +97,13 @@ class FontGroupQuerySet(models.QuerySet):
         return self.order_by("name")
 
 
-@python_2_unicode_compatible
 class FontGroup(models.Model):
     name = models.SlugField(
         verbose_name=_("Font group name"),
         max_length=100,
         help_text=_(
             "Identifier you will use in checks to select this font group. "
-            "Avoid whitespace or special chars."
+            "Avoid whitespaces and special characters."
         ),
     )
     font = models.ForeignKey(
@@ -121,7 +116,7 @@ class FontGroup(models.Model):
 
     objects = FontGroupQuerySet.as_manager()
 
-    class Meta(object):
+    class Meta:
         unique_together = [("name", "project")]
 
     def __str__(self):
@@ -133,7 +128,6 @@ class FontGroup(models.Model):
         )
 
 
-@python_2_unicode_compatible
 class FontOverride(models.Model):
     group = models.ForeignKey(FontGroup, on_delete=models.deletion.CASCADE)
     font = models.ForeignKey(
@@ -143,7 +137,7 @@ class FontOverride(models.Model):
         Language, on_delete=models.deletion.CASCADE, verbose_name=_("Language")
     )
 
-    class Meta(object):
+    class Meta:
         unique_together = [("group", "language")]
 
     def __str__(self):

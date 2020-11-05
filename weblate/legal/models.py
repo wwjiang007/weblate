@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,13 +17,11 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from datetime import date
 
 from django.conf import settings
 from django.db import models
-from django.utils.encoding import python_2_unicode_compatible
 
 from weblate.accounts.models import AuditLog
 from weblate.utils.request import get_ip_address, get_user_agent
@@ -33,19 +30,17 @@ from weblate.utils.request import get_ip_address, get_user_agent
 TOS_DATE = date(2017, 7, 2)
 
 
-@python_2_unicode_compatible
 class Agreement(models.Model):
     user = models.OneToOneField(
-        settings.AUTH_USER_MODEL, unique=True,
-        on_delete=models.deletion.CASCADE
+        settings.AUTH_USER_MODEL, unique=True, on_delete=models.deletion.CASCADE
     )
     tos = models.DateField(default=date(1970, 1, 1))
     address = models.GenericIPAddressField(null=True)
-    user_agent = models.CharField(max_length=200, default='')
+    user_agent = models.CharField(max_length=200, default="")
     timestamp = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return '{0}:{1}'.format(self.user.username, self.tos)
+        return "{0}:{1}".format(self.user.username, self.tos)
 
     def is_current(self):
         return self.tos == TOS_DATE
@@ -53,7 +48,7 @@ class Agreement(models.Model):
     def make_current(self, request):
         if not self.is_current():
             AuditLog.objects.create(
-                self.user, request, 'tos', date=TOS_DATE.isoformat()
+                self.user, request, "tos", date=TOS_DATE.isoformat()
             )
             self.tos = TOS_DATE
             self.address = get_ip_address(request)

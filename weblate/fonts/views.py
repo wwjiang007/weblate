@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,7 +21,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied, ValidationError
 from django.shortcuts import redirect
 from django.utils.decorators import method_decorator
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from django.views.generic import DetailView, ListView
 
 from weblate.fonts.forms import FontForm, FontGroupForm, FontOverrideForm
@@ -41,12 +40,14 @@ class FontListView(ProjectViewMixin, ListView):
         return self.project.font_set.order_by("family", "style")
 
     def get_context_data(self, **kwargs):
-        result = super(FontListView, self).get_context_data(**kwargs)
+        result = super().get_context_data(**kwargs)
         result["object"] = self.project
         result["font_list"] = result["object_list"]
         result["group_list"] = self.project.fontgroup_set.order()
         result["font_form"] = self._font_form or FontForm()
-        result["group_form"] = self._group_form or FontGroupForm(auto_id="id_group_%s")
+        result["group_form"] = self._group_form or FontGroupForm(
+            auto_id="id_group_%s", project=self.project
+        )
         result["can_edit"] = self.request.user.has_perm("project.edit", self.project)
         return result
 
@@ -56,7 +57,9 @@ class FontListView(ProjectViewMixin, ListView):
         if request.FILES:
             form = self._font_form = FontForm(request.POST, request.FILES)
         else:
-            form = self._group_form = FontGroupForm(request.POST, auto_id="id_group_%s")
+            form = self._group_form = FontGroupForm(
+                request.POST, auto_id="id_group_%s", project=self.project
+            )
         if form.is_valid():
             instance = form.save(commit=False)
             instance.project = self.project
@@ -68,7 +71,7 @@ class FontListView(ProjectViewMixin, ListView):
             except ValidationError:
                 messages.error(request, _("Entry by the same name already exists."))
         else:
-            messages.error(request, _("Creation failed, please the fix errors below."))
+            messages.error(request, _("Creation failed, please fix the errors below."))
         return self.get(request, **kwargs)
 
 
@@ -80,7 +83,7 @@ class FontDetailView(ProjectViewMixin, DetailView):
         return self.project.font_set.all()
 
     def get_context_data(self, **kwargs):
-        result = super(FontDetailView, self).get_context_data(**kwargs)
+        result = super().get_context_data(**kwargs)
         result["can_edit"] = self.request.user.has_perm("project.edit", self.project)
         return result
 
@@ -104,8 +107,10 @@ class FontGroupDetailView(ProjectViewMixin, DetailView):
         return self.project.fontgroup_set.all()
 
     def get_context_data(self, **kwargs):
-        result = super(FontGroupDetailView, self).get_context_data(**kwargs)
-        result["form"] = self._form or FontGroupForm(instance=self.object)
+        result = super().get_context_data(**kwargs)
+        result["form"] = self._form or FontGroupForm(
+            instance=self.object, project=self.project
+        )
         result["override_form"] = self._override_form or FontOverrideForm()
         result["can_edit"] = self.request.user.has_perm("project.edit", self.project)
         return result
@@ -116,7 +121,9 @@ class FontGroupDetailView(ProjectViewMixin, DetailView):
             raise PermissionDenied()
 
         if "name" in request.POST:
-            form = self._form = FontGroupForm(request.POST, instance=self.object)
+            form = self._form = FontGroupForm(
+                request.POST, instance=self.object, project=self.project
+            )
             if form.is_valid():
                 instance = form.save(commit=False)
                 try:
@@ -126,7 +133,7 @@ class FontGroupDetailView(ProjectViewMixin, DetailView):
                 except ValidationError:
                     messages.error(request, _("Entry by the same name already exists."))
             return self.get(request, **kwargs)
-        elif "language" in request.POST:
+        if "language" in request.POST:
             form = self._form = FontOverrideForm(request.POST)
             if form.is_valid():
                 instance = form.save(commit=False)
@@ -138,7 +145,7 @@ class FontGroupDetailView(ProjectViewMixin, DetailView):
                 except ValidationError:
                     messages.error(request, _("Entry by the same name already exists."))
             return self.get(request, **kwargs)
-        elif "override" in request.POST:
+        if "override" in request.POST:
             try:
                 self.object.fontoverride_set.filter(
                     pk=int(request.POST["override"])

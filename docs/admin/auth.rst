@@ -17,12 +17,17 @@ The authentication attempts are subject to :ref:`rate-limit`.
 Authentication backends
 -----------------------
 
-The inbuilt solution of Django is used for authentication,
+The built-in solution of Django is used for authentication,
 including various social options to do so.
-Using it means you can import the user database of other Django based projects (see
-:ref:`pootle-migration`).
+Using it means you can import the user database of other Django-based projects
+(see :ref:`pootle-migration`).
 
 Django can additionally be set up to authenticate against other means too.
+
+.. seealso::
+
+   :ref:`docker-auth` describes how to configure authentication in the official
+   Docker image.
 
 Social authentication
 ---------------------
@@ -47,7 +52,7 @@ in :doc:`psa:configuration/django`.
     .. seealso:: :doc:`psa:pipeline`
 
 Enabling individual backends is quite easy, it's just a matter of adding an entry to
-the ``AUTHENTICATION_BACKENDS`` setting and possibly adding keys needed for a given
+the :setting:`django:AUTHENTICATION_BACKENDS` setting and possibly adding keys needed for a given
 authentication method. Please note that some backends do not provide user e-mail by
 default, you have to request it explicitly, otherwise Weblate will not be able
 to properly credit contributions users make.
@@ -59,7 +64,7 @@ to properly credit contributions users make.
 OpenID authentication
 ~~~~~~~~~~~~~~~~~~~~~
 
-For OpenID based services it's usually just a matter of enabling them. The following
+For OpenID-based services it's usually just a matter of enabling them. The following
 section enables OpenID authentication for OpenSUSE, Fedora and Ubuntu:
 
 .. code-block:: python
@@ -73,8 +78,8 @@ section enables OpenID authentication for OpenSUSE, Fedora and Ubuntu:
         'weblate.accounts.auth.WeblateUserBackend',
     )
 
-.. seealso:: 
-   
+.. seealso::
+
    :doc:`psa:backends/openid`
 
 .. _github_auth:
@@ -101,6 +106,8 @@ You need to register an application on GitHub and then tell Weblate all its secr
 The GitHub should be configured to have callback URL as
 ``https://example.com/accounts/complete/github/``.
 
+.. include:: /snippets/oauth-site.rst
+
 .. seealso::
 
     :doc:`psa:backends/github`
@@ -126,8 +133,10 @@ You need to register an application on Bitbucket and then tell Weblate all its s
     SOCIAL_AUTH_BITBUCKET_SECRET = 'Bitbucket Client Secret'
     SOCIAL_AUTH_BITBUCKET_VERIFIED_EMAILS_ONLY = True
 
-.. seealso:: 
-   
+.. include:: /snippets/oauth-site.rst
+
+.. seealso::
+
    :doc:`psa:backends/bitbucket`
 
 .. _google_auth:
@@ -153,8 +162,10 @@ The redirect URL is ``https://WEBLATE SERVER/accounts/complete/google-oauth2/``
     SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = 'Client ID'
     SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = 'Client secret'
 
-.. seealso:: 
-   
+.. include:: /snippets/oauth-site.rst
+
+.. seealso::
+
    :doc:`psa:backends/google`
 
 .. _facebook_auth:
@@ -164,6 +175,8 @@ Facebook OAuth 2
 
 As per usual with OAuth 2 services, you need to register your application with
 Facebook. Once this is done, you can set up Weblate to use it:
+
+The redirect URL is ``https://WEBLATE SERVER/accounts/complete/facebook/``
 
 .. code-block:: python
 
@@ -179,8 +192,10 @@ Facebook. Once this is done, you can set up Weblate to use it:
     SOCIAL_AUTH_FACEBOOK_SECRET = 'secret'
     SOCIAL_AUTH_FACEBOOK_SCOPE = ['email', 'public_profile']
 
-.. seealso:: 
-   
+.. include:: /snippets/oauth-site.rst
+
+.. seealso::
+
    :doc:`psa:backends/facebook`
 
 
@@ -212,14 +227,94 @@ ensure you mark the `read_user` scope.
     # If you are using your own GitLab
     # SOCIAL_AUTH_GITLAB_API_URL = 'https://gitlab.example.com/'
 
-.. seealso:: 
-   
+.. include:: /snippets/oauth-site.rst
+
+.. seealso::
+
    :doc:`psa:backends/gitlab`
+
+.. _azure-auth:
+
+Microsoft Azure Active Directory
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Weblate can be configured to use common or specific tenants for authentication.
+
+The redirect URL is ``https://WEBLATE SERVER/accounts/complete/azuread-oauth2/``
+for common and ``https://WEBLATE SERVER/accounts/complete/azuread-tenant-oauth2/``
+for tenant-specific authentication.
+
+.. code-block:: python
+
+    # Azure AD common
+
+    # Authentication configuration
+    AUTHENTICATION_BACKENDS = (
+        "social_core.backends.azuread.AzureADOAuth2",
+        "social_core.backends.email.EmailAuth",
+        "weblate.accounts.auth.WeblateUserBackend",
+    )
+
+    # OAuth2 keys
+    SOCIAL_AUTH_AZUREAD_OAUTH2_KEY = ""
+    SOCIAL_AUTH_AZUREAD_OAUTH2_SECRET = ""
+
+.. code-block:: python
+
+    # Azure AD Tenant
+
+    # Authentication configuration
+    AUTHENTICATION_BACKENDS = (
+        "social_core.backends.azuread_tenant.AzureADTenantOAuth2",
+        "social_core.backends.email.EmailAuth",
+        "weblate.accounts.auth.WeblateUserBackend",
+    )
+
+    # OAuth2 keys
+    SOCIAL_AUTH_AZUREAD_TENANT_OAUTH2_KEY = ""
+    SOCIAL_AUTH_AZUREAD_TENANT_OAUTH2_SECRET = ""
+    # Tenant ID
+    SOCIAL_AUTH_AZUREAD_TENANT_OAUTH2_TENANT_ID = ""
+
+.. include:: /snippets/oauth-site.rst
+
+.. seealso::
+
+   :doc:`psa:backends/azuread`
+
+.. _slack-auth:
+
+Slack
+~~~~~
+
+For using Slack OAuth 2, you need to register an application on
+<https://api.slack.com/apps>.
+
+The redirect URL is ``https://WEBLATE SERVER/accounts/complete/slack/``.
+
+.. code-block:: python
+
+    # Authentication configuration
+    AUTHENTICATION_BACKENDS = (
+        'social_core.backends.slack.SlackOAuth2',
+        'social_core.backends.email.EmailAuth',
+        'weblate.accounts.auth.WeblateUserBackend',
+    )
+
+    # Social auth backends setup
+    SOCIAL_AUTH_SLACK_KEY = ''
+    SOCIAL_AUTH_SLACK_SECRET = ''
+
+.. include:: /snippets/oauth-site.rst
+
+.. seealso::
+
+   :doc:`psa:backends/slack`
 
 Turning off password authentication
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Email and password authentication can be disabled by removing
+E-mail and password authentication can be turned off by removing
 ``social_core.backends.email.EmailAuth`` from
 :setting:`django:AUTHENTICATION_BACKENDS`. Always keep
 ``weblate.accounts.auth.WeblateUserBackend`` there, it is needed for core
@@ -248,7 +343,7 @@ The default :file:`settings.py` comes with a reasonable set of
 :setting:`django:AUTH_PASSWORD_VALIDATORS`:
 
 * Passwords can't be too similar to your other personal info.
-* Passwords must contain at least 6 characters.
+* Passwords must contain at least 10 characters.
 * Passwords can't be a commonly used password.
 * Passwords can't be entirely numeric.
 * Passwords can't consist of a single character or only whitespace.
@@ -260,6 +355,52 @@ Additionally you can also install
 `django-zxcvbn-password <https://pypi.org/project/django-zxcvbn-password/>`_
 which gives quite realistic estimates of password difficulty and allows rejecting
 passwords below a certain threshold.
+
+.. _saml-auth:
+
+SAML authentication
+-------------------
+
+.. versionadded:: 4.1.1
+
+Please follow the Python Social Auth instructions for configuration. Notable differences:
+
+* Weblate supports single IDP which has to be called ``weblate`` in
+  ``SOCIAL_AUTH_SAML_ENABLED_IDPS``.
+* The SAML XML metadata URL is ``/accounts/metadata/saml/``.
+* Following settings are automatically filled in:
+  ``SOCIAL_AUTH_SAML_SP_ENTITY_ID``, ``SOCIAL_AUTH_SAML_TECHNICAL_CONTACT``,
+  ``SOCIAL_AUTH_SAML_SUPPORT_CONTACT``
+
+Example configuration:
+
+.. code-block::
+
+    # Authentication configuration
+    AUTHENTICATION_BACKENDS = (
+        "social_core.backends.email.EmailAuth",
+        "social_core.backends.saml.SAMLAuth",
+        "weblate.accounts.auth.WeblateUserBackend",
+    )
+
+    # Social auth backends setup
+    SOCIAL_AUTH_SAML_SP_PUBLIC_CERT = "-----BEGIN CERTIFICATE-----"
+    SOCIAL_AUTH_SAML_SP_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----"
+    SOCIAL_AUTH_SAML_ENABLED_IDPS = {
+        "weblate": {
+            "entity_id": "https://idp.testshib.org/idp/shibboleth",
+            "url": "https://idp.testshib.org/idp/profile/SAML2/Redirect/SSO",
+            "x509cert": "MIIEDjCCAvagAwIBAgIBADA ... 8Bbnl+ev0peYzxFyF5sQA==",
+            "attr_name": "full_name",
+            "attr_username": "username",
+            "attr_email": "email",
+        }
+    }
+
+.. seealso::
+
+   :ref:`Configuring SAML in Docker <docker-saml>`,
+   :doc:`psa:backends/saml`
 
 .. _ldap-auth:
 
@@ -322,6 +463,22 @@ Once you have the package installed, you can hook it into the Django authenticat
         'email': 'mail',
     }
 
+    # Hide the registration form
+    REGISTRATION_OPEN = False
+
+.. note::
+
+    You should remove ``'social_core.backends.email.EmailAuth'`` from the
+    :setting:`django:AUTHENTICATION_BACKENDS` setting, otherwise users will be able to set
+    their password in Weblate, and authenticate using that. Keeping
+    ``'weblate.accounts.auth.WeblateUserBackend'`` is still needed in order to
+    make permissions and facilitate anonymous users. It will also allow you
+    to sign in using a local admin account, if you have created it (e.g. by using
+    :djadmin:`createadmin`).
+
+Using bind password
+~~~~~~~~~~~~~~~~~~~
+
 If you can not use direct bind for authentication, you will need to use search,
 and provide a user to bind for the search. For example:
 
@@ -335,15 +492,33 @@ and provide a user to bind for the search. For example:
    AUTH_LDAP_USER_SEARCH = LDAPSearch("ou=users,dc=example,dc=com",
        ldap.SCOPE_SUBTREE, "(uid=%(user)s)")
 
-.. note::
+Active Directory integration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    You should remove ``'social_core.backends.email.EmailAuth'`` from the
-    ``AUTHENTICATION_BACKENDS`` setting, otherwise users will be able to set
-    their password in Weblate, and authenticate using that. Keeping
-    ``'weblate.accounts.auth.WeblateUserBackend'`` is still needed in order to
-    make permissions and facilitate anonymous users. It will also allow you
-    to log in using a local admin account, if you have created it (e.g. by using
-    :djadmin:`createadmin`).
+.. code-block:: python
+
+    import ldap
+    from django_auth_ldap.config import LDAPSearch, NestedActiveDirectoryGroupType
+
+    AUTH_LDAP_BIND_DN = "CN=ldap,CN=Users,DC=example,DC=com"
+    AUTH_LDAP_BIND_PASSWORD = "password"
+
+    # User and group search objects and types
+    AUTH_LDAP_USER_SEARCH = LDAPSearch("CN=Users,DC=example,DC=com", ldap.SCOPE_SUBTREE, "(sAMAccountName=%(user)s)")
+
+    # Make selected group a superuser in Weblate
+    AUTH_LDAP_USER_FLAGS_BY_GROUP = {
+        # is_superuser means user has all permissions
+        "is_superuser": "CN=weblate_AdminUsers,OU=Groups,DC=example,DC=com",
+    }
+
+    # Map groups from AD to Weblate
+    AUTH_LDAP_GROUP_SEARCH = LDAPSearch("OU=Groups,DC=example,DC=com", ldap.SCOPE_SUBTREE, "(objectClass=group)")
+    AUTH_LDAP_GROUP_TYPE = NestedActiveDirectoryGroupType()
+    AUTH_LDAP_FIND_GROUP_PERMS = True
+
+    # Optionally enable group mirroring from LDAP to Weblate
+    # AUTH_LDAP_MIRROR_GROUPS = True
 
 .. seealso::
 
@@ -375,7 +550,7 @@ authentication system by modifying the :file:`settings.py` file:
 
 .. code-block:: python
 
-    # Add CAS backed, keep the Django one if you want to be able to log in
+    # Add CAS backed, keep the Django one if you want to be able to sign in
     # even without LDAP for the admin account
     AUTHENTICATION_BACKENDS = (
         'django_cas_ng.backends.CASBackend',
@@ -396,8 +571,7 @@ this to work you have to import the signal from the `django-cas-ng` package and
 connect your code with this signal. Doing this in settings file can
 cause problems, therefore it's suggested to put it:
 
-- In your app config's :py:meth:`django:django.apps.AppConfig.ready` method (Django 1.7 and above)
-- At the end of your :file:`models.py` file (Django 1.6 and below)
+- In your app config's :py:meth:`django:django.apps.AppConfig.ready` method
 - In the project's :file:`urls.py` file (when no models exist)
 
 .. code-block:: python
@@ -413,7 +587,7 @@ cause problems, therefore it's suggested to put it:
 
 .. seealso::
 
-    `Django CAS NG <https://github.com/mingchen/django-cas-ng>`_
+    `Django CAS NG <https://github.com/django-cas-ng/django-cas-ng>`_
 
 Configuring third party Django authentication
 ---------------------------------------------

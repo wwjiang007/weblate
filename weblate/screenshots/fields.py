@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -24,5 +23,6 @@ from weblate.utils.validators import validate_bitmap
 
 
 class ScreenshotField(ImageField):
-    """File field which forces certain image types"""
+    """File field which forces certain image types."""
+
     default_validators = [validate_bitmap]

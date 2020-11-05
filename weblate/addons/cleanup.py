@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,38 +17,16 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
-
-import os
-
 from django.utils.functional import cached_property
-from django.utils.translation import ugettext_lazy as _
-from translate.storage.lisa import LISAfile
-from translate.storage.resx import RESXFile
+from django.utils.translation import gettext_lazy as _
 
 from weblate.addons.base import UpdateBaseAddon
-from weblate.formats.txt import AppStoreParser
 
 
-class CleanupAddon(UpdateBaseAddon):
-    name = 'weblate.cleanup.generic'
-    verbose = _('Cleanup translation files')
-    description = _(
-        'Update all translation files to match the monolingual base file. '
-        'For most file formats, this means removing stale translation keys '
-        'no longer present in the base file.'
-    )
-    icon = 'eraser'
-
+class BaseCleanupAddon(UpdateBaseAddon):
     @cached_property
     def template_store(self):
         return self.instance.component.template_store.store
-
-    @classmethod
-    def can_install(cls, component, user):
-        if not component.has_template():
-            return False
-        return super(CleanupAddon, cls).can_install(component, user)
 
     @staticmethod
     def build_index(storage):
@@ -60,122 +37,48 @@ class CleanupAddon(UpdateBaseAddon):
 
         return index
 
-    def update_appstore(self, index, translation, storage):
-        """Filter obsolete units in storage.
+    def build_indexes(self):
+        index = self.build_index(self.template_store)
+        if self.instance.component.intermediate:
+            intermediate = self.build_index(
+                self.instance.component.intermediate_store.store
+            )
+        else:
+            intermediate = {}
+        return index, intermediate
 
-        This does simple filtering of units list.
-        """
-        for unit in storage.units:
-            if unit.getid() not in index:
-                filename = storage.get_filename(unit.filename)
-                self.extra_files.append(filename)
-                os.unlink(filename)
-
-    def update_units(self, index, translation, storage):
-        """Filter obsolete units in storage.
-
-        This does simple filtering of units list.
-        """
-        startlen = len(storage.units)
-
-        # Remove extra units
-        storage.units = [u for u in storage.units if u.getid() in index]
-
-        if startlen != len(storage.units):
-            storage.save()
-
-    def update_lisa(self, index, translation, storage):
-        """Filter obsolete units in LISA based storage.
-
-        This removes the corresponding XML element.
-        """
-        changed = False
-
-        # Remove extra units
-        for unit in storage.units:
-            if unit.getid() not in index:
-                storage.body.remove(unit.xmlelement)
-                changed = True
-
-        if changed:
-            storage.save()
-
-    def update_resx(self, index, translation, storage, changes):
-        """Filter obsolete units in RESX storage.
-
-        This removes the corresponding XML element and
-        also adds newly added units and changed ones.
-        """
-        sindex = self.build_index(storage)
-        changed = False
-
-        # Add missing units
-        for unit in self.template_store.units:
-            if unit.getid() not in sindex:
-                storage.addunit(unit, True)
-                changed = True
-
-        # Remove extra units and apply target changes
-        for unit in storage.units:
-            unitid = unit.getid()
-            if unitid not in index:
-                storage.body.remove(unit.xmlelement)
-                changed = True
-            if unitid in changes:
-                unit.target = index[unitid].target
-                changed = True
-
-        if changed:
-            storage.save()
+    @staticmethod
+    def get_index(index, intermediate, translation):
+        if intermediate and translation.is_source:
+            return intermediate
+        return index
 
     @staticmethod
     def iterate_translations(component):
-        for translation in component.translation_set.iterator():
-            if translation.is_template:
-                continue
-            yield translation
+        yield from (
+            translation
+            for translation in component.translation_set.iterator()
+            if not translation.is_source or component.intermediate
+        )
 
-    @staticmethod
-    def find_changes(index, storage):
-        """Find changed units in storage"""
-        result = set()
+    @classmethod
+    def can_install(cls, component, user):
+        if not component.has_template():
+            return False
+        return super().can_install(component, user)
 
-        for unit in storage.units:
-            unitid = unit.getid()
-            if unitid not in index:
-                continue
-            if unit.target != index[unitid].target:
-                result.add(unitid)
 
-        return result
+class CleanupAddon(BaseCleanupAddon):
+    name = "weblate.cleanup.generic"
+    verbose = _("Cleanup translation files")
+    description = _(
+        "Update all translation files to match the monolingual base file. "
+        "For most file formats, this means removing stale translation keys "
+        "no longer present in the base file."
+    )
+    icon = "eraser.svg"
 
     def update_translations(self, component, previous_head):
-        index = self.build_index(self.template_store)
-
-        if isinstance(self.template_store, AppStoreParser):
-            for translation in self.iterate_translations(component):
-                self.update_appstore(
-                    index, translation, translation.store.store
-                )
-        elif isinstance(self.template_store, RESXFile):
-            if previous_head:
-                content = component.repository.get_file(
-                    component.template, previous_head
-                )
-                changes = self.find_changes(
-                    index,
-                    RESXFile.parsestring(content)
-                )
-            else:
-                # No previous revision, probably first commit
-                changes = set()
-            for translation in self.iterate_translations(component):
-                self.update_resx(
-                    index, translation, translation.store.store, changes
-                )
-        elif isinstance(self.template_store, LISAfile):
-            for translation in self.iterate_translations(component):
-                self.update_lisa(index, translation, translation.store.store)
-        else:
-            for translation in self.iterate_translations(component):
-                self.update_units(index, translation, translation.store.store)
+        for translation in self.iterate_translations(component):
+            filenames = translation.store.cleanup()
+            self.extra_files.extend(filenames)

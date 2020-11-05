@@ -1,8 +1,14 @@
 {% extends "base.html" %}
 {% load i18n %}
 {% load translations %}
-{% load permissions %}
-{% load crispy_forms_tags %}
+{% load static %}
+
+{% block extra_script %}
+{% if support.name != 'community' %}
+<script id="zammad_form_script" defer data-cfasync="false" src="https://care.weblate.org/assets/form/form.js"></script>
+<script defer data-cfasync="false" src="{% static 'zammad.js' %}{{ cache_param }}"></script>
+{% endif %}
+{% endblock %}
 
 {% block breadcrumbs %}
 <li><a href="{% url 'manage' %}">{% trans "Manage" %}</a></li>
@@ -10,7 +16,7 @@
 
 {% block content %}
 
-<div class="panel panel-primary">
+<div class="panel panel-default">
 <div class="panel-heading">
   <h4 class="panel-title">
     {% documentation_icon 'admin/support' right=True %}
@@ -20,7 +26,14 @@
   <table class="table table-condensed table-striped">
   <tr>
   <th>{% trans "Support status" %}</th>
-  <td>{{ support.get_verbose }}</td>
+  <td>
+    {{ support.get_verbose }}
+    {% if not support.in_limits %}
+    <div class="alert alert-danger" role="alert">
+    {% trans "Exceeding service limits" %}
+    </div>
+    {% endif %}
+  </td>
   </tr>
   {% if support.expiry %}
   <tr>
@@ -35,26 +48,11 @@
   <a href="https://weblate.org/donate/" class="btn btn-primary">{% trans "Donate to Weblate" %}</a>
   {% else %}
   <a href="https://weblate.org/user/" class="btn btn-primary">{% trans "Manage support package" %}</a>
-  <a href="mailto:support@weblate.org" class="btn btn-primary">{% trans "Get support" %}</a>
+  <a href="mailto:support@weblate.org" id="support-form" data-fullname="{{ user.full_name }}" data-email="{{ user.email }}" class="btn btn-primary">{% trans "Get help" %}</a>
   {% endif %}
   </div>
 </div>
 
-<form action="{% url 'manage-activate' %}" method="POST">
-{% csrf_token %}
-<div class="panel panel-primary">
-<div class="panel-heading"><h4 class="panel-title">
-    {% documentation_icon 'admin/support' right=True %}
-    {% trans "Activate support package" %}
-</h4></div>
-  <div class="panel-body">
-  {{ activate_form|crispy }}
-  </div>
-  <div class="panel-footer">
-  <input type="submit" class="btn btn-primary" value="{% trans "Activate" %}" />
-  </div>
-</div>
-</form>
+{% include "manage/snippets/activation-form.html" %}
 
 {% endblock %}
-

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,26 +17,25 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import absolute_import, unicode_literals
 
 import os.path
 
 from django.core.files.storage import DefaultStorage
 
-from weblate.celery import app
 from weblate.screenshots.models import Screenshot
+from weblate.utils.celery import app
 
 
-@app.task
+@app.task(trail=False)
 def cleanup_screenshot_files():
-    """Remove stale screenshots"""
+    """Remove stale screenshots."""
     storage = DefaultStorage()
     try:
-        files = storage.listdir('screenshots')[1]
+        files = storage.listdir("screenshots")[1]
     except OSError:
         return
     for name in files:
-        fullname = os.path.join('screenshots', name)
+        fullname = os.path.join("screenshots", name)
         if not Screenshot.objects.filter(image=fullname).exists():
             storage.delete(fullname)
 
@@ -45,7 +43,5 @@ def cleanup_screenshot_files():
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
-        3600 * 24,
-        cleanup_screenshot_files.s(),
-        name='screenshot-files-cleanup',
+        3600 * 24, cleanup_screenshot_files.s(), name="screenshot-files-cleanup"
     )

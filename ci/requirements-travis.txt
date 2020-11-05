@@ -1,3 +1,0 @@
-codecov
-# Need version matching glib
-pygobject==3.30.4

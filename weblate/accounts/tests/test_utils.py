@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,11 +17,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-"""
-Tests for various helper utilities.
-"""
+"""Tests for various helper utilities."""
 
-from __future__ import unicode_literals
 
 from django.test import TestCase
 
@@ -32,30 +28,12 @@ from weblate.accounts.tasks import cleanup_auditlog, cleanup_social_auth
 
 class PipelineTest(TestCase):
     def test_slugify(self):
-        self.assertEqual(
-            slugify_username('zkouska'),
-            'zkouska'
-        )
-        self.assertEqual(
-            slugify_username('Zkouska'),
-            'Zkouska'
-        )
-        self.assertEqual(
-            slugify_username('zkouška'),
-            'zkouska'
-        )
-        self.assertEqual(
-            slugify_username(' zkouska '),
-            'zkouska'
-        )
-        self.assertEqual(
-            slugify_username('ahoj - ahoj'),
-            'ahoj-ahoj'
-        )
-        self.assertEqual(
-            slugify_username('..test'),
-            'test'
-        )
+        self.assertEqual(slugify_username("zkouska"), "zkouska")
+        self.assertEqual(slugify_username("Zkouska"), "Zkouska")
+        self.assertEqual(slugify_username("zkouška"), "zkouska")
+        self.assertEqual(slugify_username(" zkouska "), "zkouska")
+        self.assertEqual(slugify_username("ahoj - ahoj"), "ahoj-ahoj")
+        self.assertEqual(slugify_username("..test"), "test")
 
 
 class TasksTest(TestCase):

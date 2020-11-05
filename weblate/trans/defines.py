@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-"""Hardcoded length limitations"""
+"""Hardcoded length limitations."""
 
 # Component name and slug length
 COMPONENT_NAME_LENGTH = 100
@@ -34,3 +33,13 @@ FILENAME_LENGTH = 400
 # Glossary entry length
 # Note: This is currently limited by 192 to allow index on MySQL
 GLOSSARY_LENGTH = 190
+
+# User model length
+# Note: This is currently limited by 192 to allow index on MySQL
+FULLNAME_LENGTH = 150
+USERNAME_LENGTH = 150
+EMAIL_LENGTH = 190
+
+# Language
+LANGUAGE_CODE_LENGTH = 50
+LANGUAGE_NAME_LENGTH = 100

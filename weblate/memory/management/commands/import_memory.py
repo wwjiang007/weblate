@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,44 +17,37 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 import argparse
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 
-from weblate.memory.storage import MemoryImportError, TranslationMemory
+from weblate.memory.models import Memory, MemoryImportError
+from weblate.utils.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    """
-    Command for importing translation memory.
-    """
-    help = 'imports translation memory'
+    """Command for importing translation memory."""
+
+    help = "imports translation memory"
 
     def add_arguments(self, parser):
-        super(Command, self).add_arguments(parser)
+        super().add_arguments(parser)
         parser.add_argument(
-            '--language-map',
-            help='Map language codes in the TMX to Weblate, eg. en_US:en'
+            "--language-map",
+            help="Map language codes in the TMX to Weblate, for example en_US:en",
         )
         parser.add_argument(
-            'file',
-            type=argparse.FileType('rb'),
-            help='File to import (TMX or JSON)',
+            "file", type=argparse.FileType("rb"), help="File to import (TMX or JSON)"
         )
 
     def handle(self, *args, **options):
         """Translation memory import."""
         langmap = None
-        if options['language_map']:
-            langmap = {
-                x: y for (x, y) in (
-                    z.split(':', 1) for z in options['language_map'].split(',')
-                )
-            }
+        if options["language_map"]:
+            langmap = dict(z.split(":", 1) for z in options["language_map"].split(","))
 
         try:
-            TranslationMemory.import_file(None, options['file'], langmap)
+            Memory.objects.import_file(None, options["file"], langmap)
         except MemoryImportError as error:
-            raise CommandError('Import failed: {}'.format(error))
+            raise CommandError("Import failed: {}".format(error))

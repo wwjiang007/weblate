@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright ©2018 Sun Zhigang <hzsunzhigang@corp.netease.com>
 #
@@ -18,7 +17,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 import random
 import time
@@ -32,73 +30,62 @@ from weblate.machinery.base import (
     MissingConfiguration,
 )
 
-NETEASE_API_ROOT = 'https://jianwai.netease.com/api/text/trans'
+NETEASE_API_ROOT = "https://jianwai.netease.com/api/text/trans"
 
 
 class NeteaseSightTranslation(MachineTranslation):
     """Netease Sight API machine translation support."""
-    name = 'Netease Sight'
+
+    name = "Netease Sight"
     max_score = 90
 
     # Map codes used by Netease Sight to codes used by Weblate
-    language_map = {
-        'zh_Hans': 'zh',
-    }
+    language_map = {"zh_Hans": "zh"}
 
     def __init__(self):
         """Check configuration."""
-        super(NeteaseSightTranslation, self).__init__()
+        super().__init__()
         if settings.MT_NETEASE_KEY is None:
-            raise MissingConfiguration(
-                'Netease Sight Translate requires app key'
-            )
+            raise MissingConfiguration("Netease Sight Translate requires app key")
         if settings.MT_NETEASE_SECRET is None:
-            raise MissingConfiguration(
-                'Netease Sight Translate requires app secret'
-            )
+            raise MissingConfiguration("Netease Sight Translate requires app secret")
 
     def download_languages(self):
         """List of supported languages."""
-        return [
-            'zh',
-            'en',
-        ]
+        return ["zh", "en"]
 
-    def authenticate(self, request):
+    def get_authentication(self):
         """Hook for backends to allow add authentication headers to request."""
-        # Override to add required headers.
-
         nonce = str(random.randint(1000, 99999999))
         timestamp = str(int(1000 * time.time()))
 
         sign = settings.MT_NETEASE_SECRET + nonce + timestamp
-        sign = sign.encode('utf-8')
-        sign = sha1(sign).hexdigest()
+        sign = sign.encode()
+        sign = sha1(sign).hexdigest()  # nosec
 
-        request.add_header('Content-Type', 'application/json')
-        request.add_header('appkey', settings.MT_NETEASE_KEY)
-        request.add_header('nonce', nonce)
-        request.add_header('timestamp', timestamp)
-        request.add_header('signature', sign)
+        return {
+            "Content-Type": "application/json",
+            "appkey": settings.MT_NETEASE_KEY,
+            "nonce": nonce,
+            "timestamp": timestamp,
+            "signature": sign,
+        }
 
-    def download_translations(self, source, language, text, unit, request):
+    def download_translations(self, source, language, text, unit, user, search):
         """Download list of possible translations from a service."""
-        response = self.json_req(
-            NETEASE_API_ROOT,
-            http_post=True,
-            json_body=True,
-            lang=source,
-            content=text,
+        response = self.request(
+            "post", NETEASE_API_ROOT, json={"lang": source, "content": text}
         )
+        payload = response.json()
 
-        if not response['success']:
-            raise MachineTranslationError(response['message'])
+        if not payload["success"]:
+            raise MachineTranslationError(payload["message"])
 
-        translation = response['relatedObject']['content'][0]['transContent']
+        translation = payload["relatedObject"]["content"][0]["transContent"]
 
-        return [{
-            'text': translation,
-            'quality': self.max_score,
-            'service': self.name,
-            'source': text,
-        }]
+        yield {
+            "text": translation,
+            "quality": self.max_score,
+            "service": self.name,
+            "source": text,
+        }

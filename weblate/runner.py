@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -24,7 +23,6 @@ import sys
 
 def main(argv=None):
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "weblate.settings")
-    os.environ['DJANGO_IS_MANAGEMENT_COMMAND'] = '1'
 
     from django.core.management import execute_from_command_line
 
@@ -32,9 +30,10 @@ def main(argv=None):
         argv = sys.argv
     try:
         execute_from_command_line(argv)
-    except Exception as error:
+    except Exception:
         from weblate.utils.errors import report_error
-        report_error(error)
+
+        report_error()
         raise
 
 

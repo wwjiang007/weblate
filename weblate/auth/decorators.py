@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,7 +17,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from functools import wraps
 
@@ -27,9 +25,11 @@ from django.core.exceptions import PermissionDenied
 
 def management_access(view):
     """Decorator that checks management access."""
+
     @wraps(view)
     def wrapper(request, *args, **kwargs):
-        if not request.user.has_perm('management.use'):
+        if not request.user.has_perm("management.use"):
             raise PermissionDenied
         return view(request, *args, **kwargs)
+
     return wrapper

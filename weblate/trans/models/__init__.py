@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,48 +16,53 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-
-from __future__ import unicode_literals
-
 import os
-import shutil
 
 from django.db.models.signals import m2m_changed, post_delete, post_save
 from django.dispatch import receiver
 
-from weblate.celery import app
 from weblate.trans.models._conf import WeblateConf
 from weblate.trans.models.agreement import ContributorAgreement
 from weblate.trans.models.alert import Alert
+from weblate.trans.models.announcement import Announcement
 from weblate.trans.models.change import Change
 from weblate.trans.models.comment import Comment
 from weblate.trans.models.component import Component
 from weblate.trans.models.componentlist import AutoComponentList, ComponentList
-from weblate.trans.models.dictionary import Dictionary
+from weblate.trans.models.label import Label
 from weblate.trans.models.project import Project
-from weblate.trans.models.source import Source
 from weblate.trans.models.suggestion import Suggestion, Vote
 from weblate.trans.models.translation import Translation
 from weblate.trans.models.unit import Unit
-from weblate.trans.models.whiteboard import WhiteboardMessage
+from weblate.trans.models.variant import Variant
 from weblate.trans.signals import user_pre_delete
 from weblate.utils.decorators import disable_for_loaddata
-from weblate.utils.files import remove_readonly
+from weblate.utils.files import remove_tree
 
 __all__ = [
-    'Project', 'Component', 'Translation', 'Unit', 'Suggestion',
-    'Comment', 'Vote', 'Change', 'Dictionary', 'Source',
-    'WhiteboardMessage', 'ComponentList',
-    'WeblateConf', 'ContributorAgreement',
-    'Alert',
+    "Project",
+    "Component",
+    "Translation",
+    "Unit",
+    "Suggestion",
+    "Comment",
+    "Vote",
+    "Change",
+    "Announcement",
+    "ComponentList",
+    "WeblateConf",
+    "ContributorAgreement",
+    "Alert",
+    "Variant",
+    "Label",
 ]
 
 
 def delete_object_dir(instance):
-    """Remove path if it exists"""
+    """Remove path if it exists."""
     project_path = instance.full_path
     if os.path.exists(project_path):
-        shutil.rmtree(project_path, onerror=remove_readonly)
+        remove_tree(project_path)
 
 
 @receiver(post_delete, sender=Project)
@@ -77,62 +81,53 @@ def component_post_delete(sender, instance, **kwargs):
     # Invalidate stats
     instance.stats.invalidate()
 
-    # Schedule project cleanup
-    from weblate.trans.tasks import cleanup_project
-    cleanup_project.delay(instance.project.pk)
-
     # Do not delete linked components
     if not instance.is_repo_link:
         delete_object_dir(instance)
 
 
-@receiver(post_save, sender=Source)
+@receiver(post_save, sender=Unit)
 @disable_for_loaddata
 def update_source(sender, instance, **kwargs):
     """Update unit priority or checks based on source change."""
-    if instance.check_flags_modified:
-        for unit in instance.units:
-            unit.run_checks()
-        instance.run_checks()
-        for unit in instance.units:
-            unit.translation.invalidate_cache()
+    if not instance.is_source:
+        return
+    # Run checks, update state and priority if flags changed
+    if (
+        instance.old_unit.extra_flags != instance.extra_flags
+        or instance.state != instance.old_unit.state
+    ):
+        # We can not exclude current unit here as we need to trigger the updates below
+        for unit in instance.unit_set.prefetch_full():
+            unit.update_state()
             unit.update_priority()
+            unit.run_checks()
+        if not instance.is_bulk_edit and not instance.is_batch_update:
+            instance.translation.component.invalidate_stats_deep()
 
 
-@receiver(post_delete, sender=Comment)
-@receiver(post_save, sender=Comment)
+@receiver(m2m_changed, sender=Unit.labels.through)
 @disable_for_loaddata
-def update_comment_flag(sender, instance, **kwargs):
-    """Update related unit comment flags"""
-    for unit in instance.related_units:
-        # Update unit stats
-        if unit.update_has_comment():
-            unit.translation.invalidate_cache()
-
-
-@receiver(post_delete, sender=Suggestion)
-@receiver(post_save, sender=Suggestion)
-@disable_for_loaddata
-def update_suggestion_flag(sender, instance, **kwargs):
-    """Update related unit suggestion flags"""
-    for unit in instance.related_units:
-        # Update unit stats
-        if unit.update_has_suggestion():
-            unit.translation.invalidate_cache()
+def change_labels(sender, instance, action, pk_set, **kwargs):
+    """Update unit labels."""
+    if (
+        action not in ("post_add", "post_remove", "post_clear")
+        or (action != "post_clear" and not pk_set)
+        or not instance.is_source
+    ):
+        return
+    if not instance.is_bulk_edit:
+        instance.translation.component.invalidate_stats_deep()
 
 
 @receiver(user_pre_delete)
 def user_commit_pending(sender, instance, **kwargs):
     """Commit pending changes for user on account removal."""
     # All user changes
-    all_changes = Change.objects.last_changes(instance).filter(
-        user=instance,
-    )
+    all_changes = Change.objects.last_changes(instance).filter(user=instance)
 
     # Filter where project is active
-    user_translation_ids = all_changes.values_list(
-        'translation', flat=True
-    ).distinct()
+    user_translation_ids = all_changes.values_list("translation", flat=True).distinct()
 
     # Commit changes where user is last author
     for translation in Translation.objects.filter(pk__in=user_translation_ids):
@@ -142,11 +137,14 @@ def user_commit_pending(sender, instance, **kwargs):
             # Non content changes
             continue
         if last_author == instance:
-            translation.commit_pending('user delete', None)
+            translation.commit_pending("user delete", None)
 
 
 @receiver(m2m_changed, sender=ComponentList.components.through)
-def change_componentlist(sender, instance, **kwargs):
+@disable_for_loaddata
+def change_componentlist(sender, instance, action, **kwargs):
+    if not action.startswith("post_"):
+        return
     instance.stats.invalidate()
 
 
@@ -174,18 +172,33 @@ def auto_component_list(sender, instance, **kwargs):
 @receiver(post_save, sender=Component)
 @disable_for_loaddata
 def post_save_update_checks(sender, instance, **kwargs):
+    from weblate.trans.tasks import update_checks
+
     if instance.old_component.check_flags == instance.check_flags:
         return
     update_checks.delay(instance.pk)
 
 
-@app.task
-def update_checks(pk):
-    component = Component.objects.get(pk=pk)
-    for translation in component.translation_set.iterator():
-        for unit in translation.unit_set.iterator():
-            unit.run_checks()
-    for source in component.source_set.iterator():
-        source.run_checks()
-    for translation in component.translation_set.iterator():
-        translation.invalidate_cache()
+@receiver(post_delete, sender=Component)
+@disable_for_loaddata
+def post_delete_linked(sender, instance, **kwargs):
+    # When removing project, the linked component might be already deleted now
+    try:
+        if instance.linked_component:
+            instance.linked_component.update_link_alerts(noupdate=True)
+    except Component.DoesNotExist:
+        pass
+
+
+@receiver(post_save, sender=Comment)
+@receiver(post_save, sender=Suggestion)
+@receiver(post_delete, sender=Suggestion)
+@disable_for_loaddata
+def stats_invalidate(sender, instance, **kwargs):
+    """Invalidate stats on new comment or suggestion."""
+    # Invalidate stats counts
+    instance.unit.translation.invalidate_cache()
+    # Invalidate unit cached properties
+    for key in ["all_comments", "suggestions"]:
+        if key in instance.__dict__:
+            del instance.__dict__[key]

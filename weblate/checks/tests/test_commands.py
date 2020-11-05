@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,53 +19,33 @@
 
 """Test for management commands."""
 
-from django.core.management import call_command
-from six import StringIO
+from io import StringIO
 
-from weblate.trans.tests.test_commands import CheckGitTest
+from django.core.management import call_command
+from django.test import SimpleTestCase
+
+from weblate.trans.tests.test_commands import WeblateComponentCommandTestCase
 from weblate.trans.tests.test_models import RepoTestCase
 
 
-class PeriodicCommandTest(RepoTestCase):
+class ListSameCommandTest(RepoTestCase):
     def setUp(self):
-        super(PeriodicCommandTest, self).setUp()
+        super().setUp()
         self.component = self.create_component()
-
-    def test_list_checks(self):
-        output = StringIO()
-        call_command(
-            'list_ignored_checks',
-            stdout=output
-        )
-        self.assertEqual('', output.getvalue())
-
-    def test_list_all_checks(self):
-        output = StringIO()
-        call_command(
-            'list_ignored_checks',
-            list_all=True,
-            stdout=output
-        )
-        self.assertEqual(2, len(output.getvalue().splitlines()))
-
-    def test_list_count_checks(self):
-        output = StringIO()
-        call_command(
-            'list_ignored_checks',
-            count=10,
-            stdout=output
-        )
-        self.assertEqual('', output.getvalue())
 
     def test_list_same_checks(self):
         output = StringIO()
-        call_command(
-            'list_same_checks',
-            stdout=output
-        )
+        call_command("list_same_checks", stdout=output)
         self.assertEqual(1, len(output.getvalue().splitlines()))
 
 
-class UpdateChecksTest(CheckGitTest):
-    command_name = 'updatechecks'
-    expected_string = 'Processing'
+class UpdateChecksTest(WeblateComponentCommandTestCase):
+    command_name = "updatechecks"
+    expected_string = "Processing"
+
+
+class ListTestCase(SimpleTestCase):
+    def test_list_checks(self):
+        output = StringIO()
+        call_command("list_checks", stdout=output)
+        self.assertIn(".. _check-same:", output.getvalue())

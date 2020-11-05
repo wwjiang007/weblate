@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,101 +17,124 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import absolute_import, unicode_literals
 
 from datetime import timedelta
 
 from celery.schedules import crontab
+from django.conf import settings
 from django.db.models import Q
-from django.urls import reverse
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 from weblate.accounts.notifications import send_notification_email
 from weblate.billing.models import Billing
-from weblate.celery import app
-from weblate.utils.site import get_site_url
+from weblate.utils.celery import app
 
 
-@app.task
+@app.task(trail=False)
 def billing_check():
     Billing.objects.check_limits()
 
 
-@app.task
+@app.task(trail=False)
 def billing_alert():
     for bill in Billing.objects.filter(state=Billing.STATE_ACTIVE):
         in_limit = bill.in_display_limits()
         for project in bill.projects.iterator():
             for component in project.component_set.iterator():
                 if in_limit:
-                    component.delete_alert('BillingLimit')
+                    component.delete_alert("BillingLimit")
                 else:
-                    component.add_alert('BillingLimit')
+                    component.add_alert("BillingLimit")
 
 
-@app.task
+@app.task(trail=False)
 def billing_notify():
     billing_check()
 
     limit = Billing.objects.get_out_of_limits()
     due = Billing.objects.get_unpaid()
+    toremove = Billing.objects.exclude(removal=None).order_by("removal")
+    trial = Billing.objects.filter(removal=None, state=Billing.STATE_TRIAL).order_by(
+        "expiry"
+    )
 
-    if limit or due:
+    if limit or due or toremove or trial:
         send_notification_email(
-            'en', 'ADMINS', 'billing_check',
-            context={'limit': limit, 'due': due}
+            "en",
+            [a[1] for a in settings.ADMINS] + settings.ADMINS_BILLING,
+            "billing_check",
+            context={
+                "limit": limit,
+                "due": due,
+                "toremove": toremove,
+                "trial": trial,
+            },
         )
 
 
-@app.task
+@app.task(trail=False)
 def notify_expired():
+    # Notify about expired billings
     possible_billings = Billing.objects.filter(
-        Q(state=Billing.STATE_ACTIVE) | Q(removal__isnull=False)
-    )
+        # Active without payment (checked later)
+        Q(state=Billing.STATE_ACTIVE)
+        # Scheduled removal
+        | Q(removal__isnull=False)
+        # Trials expiring soon
+        | Q(state=Billing.STATE_TRIAL, expiry__lte=timezone.now() + timedelta(days=7))
+    ).exclude(projects__isnull=True)
     for bill in possible_billings:
-        if bill.state != Billing.STATE_TRIAL and bill.check_payment_status():
+        if bill.state == Billing.STATE_ACTIVE and bill.check_payment_status(now=True):
             continue
+        if bill.plan.price:
+            note = _(
+                "You will stop receiving this notification once "
+                "you pay the bills or the project is removed."
+            )
+        else:
+            note = _(
+                "You will stop receiving this notification once "
+                "you change to regular subscription or the project is removed."
+            )
 
         for user in bill.get_notify_users():
             send_notification_email(
                 user.profile.language,
-                user.email,
-                'billing_expired',
+                [user.email],
+                "billing_expired",
                 context={
-                    'billing': bill,
-                    'billing_url': get_site_url(reverse('billing')),
+                    "billing": bill,
+                    "payment_enabled": getattr(settings, "PAYMENT_ENABLED", False),
+                    "unsubscribe_note": note,
                 },
                 info=bill,
             )
 
 
-@app.task
+@app.task(trail=False)
 def schedule_removal():
-    removal = timezone.now() + timedelta(days=15)
-    for bill in Billing.objects.filter(state=Billing.STATE_ACTIVE):
-        if bill.check_payment_status(30):
+    removal = timezone.now() + timedelta(days=settings.BILLING_REMOVAL_PERIOD)
+    for bill in Billing.objects.filter(state=Billing.STATE_ACTIVE, removal=None):
+        if bill.check_payment_status():
             continue
         bill.removal = removal
-        bill.save(update_fields=['removal'])
+        bill.save(update_fields=["removal"])
 
 
-@app.task
+@app.task(trail=False)
 def perform_removal():
     for bill in Billing.objects.filter(removal__lte=timezone.now()):
         for user in bill.get_notify_users():
             send_notification_email(
                 user.profile.language,
-                user.email,
-                'billing_expired',
-                context={
-                    'billing': bill,
-                    'billing_url': get_site_url(reverse('billing')),
-                    'final_removal': True,
-                },
+                [user.email],
+                "billing_expired",
+                context={"billing": bill, "final_removal": True},
                 info=bill,
             )
         for prj in bill.projects.iterator():
-            prj.log_warning('removing due to unpaid billing')
+            prj.log_warning("removing due to unpaid billing")
             prj.stats.invalidate()
             prj.delete()
         bill.removal = None
@@ -122,33 +144,25 @@ def perform_removal():
 
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
+    sender.add_periodic_task(3600, billing_check.s(), name="billing-check")
+    sender.add_periodic_task(3600 * 24, billing_alert.s(), name="billing-alert")
     sender.add_periodic_task(
-        3600,
-        billing_check.s(),
-        name='billing-check',
-    )
-    sender.add_periodic_task(
-        3600 * 24,
-        billing_alert.s(),
-        name='billing-alert',
-    )
-    sender.add_periodic_task(
-        3600 * 24,
+        crontab(hour=3, minute=0, day_of_week="monday,thursday"),
         billing_notify.s(),
-        name='billing-notify',
+        name="billing-notify",
     )
     sender.add_periodic_task(
-        crontab(hour=1, minute=0, day_of_week='monday,thursday'),
+        crontab(hour=1, minute=0, day_of_week="monday,thursday"),
         perform_removal.s(),
-        name='perform-removal',
+        name="perform-removal",
     )
     sender.add_periodic_task(
-        crontab(hour=2, minute=0, day_of_week='monday,thursday'),
+        crontab(hour=2, minute=0, day_of_week="monday,thursday"),
         schedule_removal.s(),
-        name='schedule-removal',
+        name="schedule-removal",
     )
     sender.add_periodic_task(
-        crontab(hour=2, minute=30, day_of_week='monday,thursday'),
+        crontab(hour=2, minute=30, day_of_week="monday,thursday"),
         notify_expired.s(),
-        name='notify-expired',
+        name="notify-expired",
     )

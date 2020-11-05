@@ -10,11 +10,11 @@
 <a href="{{ item.get_absolute_url }}">{{ item.translation.component }}</a>
 </td>
 <td>
-{% format_translation item.target item.translation.language item.translation.plural %}
+{% format_translation item.target item.translation.language item.translation.plural simple=True %}
 </td>
 <td{% if item.translated and item.translation.component != unit.translation.component and item.target != unit.target %}  rowspan="2"{% endif %}>
 {% if user_can_translate and item.translated %}
-<a class="mergebutton btn btn-primary" href="{{ unit.translation.get_translate_url}}?{{ search_url }}&amp;offset={{ offset }}&amp;checksum={{ unit.checksum }}&amp;merge={{ item.id }}" title="{% trans "Use this translation for all components" %}"><i class="fa fa-check"></i> {% trans "Use this translation" %}</a>
+<a class="mergebutton btn btn-primary" href="{{ unit.translation.get_translate_url}}?{{ search_url }}&amp;offset={{ offset }}&amp;checksum={{ unit.checksum }}&amp;merge={{ item.id }}" title="{% trans "Use this translation for all components" %}">{% trans "Use this translation" %}</a>
 {% endif %}
 </td>
 </tr>
@@ -22,8 +22,7 @@
 <tr>
 <td>
 <p class="help-block">{% trans "Change compared to this translation:" %}</p>
-{% format_translation item.target item.translation.language item.translation.plural unit.target %}
+{% format_translation item.target item.translation.language item.translation.plural unit.target simple=True %}
 </td>
 </tr>
 {% endif %}
-

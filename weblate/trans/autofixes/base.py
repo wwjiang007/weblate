@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,9 +18,10 @@
 #
 
 
-class AutoFix(object):
-    """Base class for AutoFixes"""
-    fix_id = 'auto'
+class AutoFix:
+    """Base class for AutoFixes."""
+
+    fix_id = "auto"
 
     def get_identifier(self):
         return self.fix_id
@@ -32,6 +32,5 @@ class AutoFix(object):
 
     def fix_target(self, target, unit):
         """Return a target translation array with a single fix applied."""
-        source = unit.get_source_plurals()[0]
-        results = [self.fix_single_target(t, source, unit) for t in target]
+        results = [self.fix_single_target(t, unit.source_string, unit) for t in target]
         return [r[0] for r in results], max((r[1] for r in results))

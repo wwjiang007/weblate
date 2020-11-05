@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,11 +17,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
-
-import binascii
 import os
 
+from django.conf import settings
+from django.contrib.auth import update_session_auth_hash
 from social_django.models import Code
 
 from weblate.accounts.models import AuditLog, VerifiedEmail
@@ -32,32 +30,25 @@ from weblate.trans.signals import user_pre_delete
 
 def remove_user(user, request):
     """Remove user account."""
-
     # Send signal (to commit any pending changes)
     user_pre_delete.send(instance=user, sender=user.__class__)
 
     # Store activity log and notify
-    AuditLog.objects.create(user, request, 'removed')
+    AuditLog.objects.create(user, request, "removed")
 
     # Remove any email validation codes
     invalidate_reset_codes(user)
 
     # Change username
-    user.username = 'deleted-{0}'.format(user.pk)
-    user.email = 'noreply+{}@weblate.org'.format(user.pk)
+    user.username = "deleted-{0}".format(user.pk)
+    user.email = "noreply+{}@weblate.org".format(user.pk)
     while User.objects.filter(username=user.username).exists():
-        user.username = 'deleted-{0}-{1}'.format(
-            user.pk,
-            binascii.b2a_hex(os.urandom(5))
-        )
+        user.username = "deleted-{0}-{1}".format(user.pk, os.urandom(5).hex())
     while User.objects.filter(email=user.email).exists():
-        user.email = 'noreply+{0}-{1}@weblate.org'.format(
-            user.pk,
-            binascii.b2a_hex(os.urandom(5))
-        )
+        user.email = "noreply+{0}-{1}@weblate.org".format(user.pk, os.urandom(5).hex())
 
     # Remove user information
-    user.full_name = 'Deleted User'
+    user.full_name = "Deleted User"
 
     # Disable the user
     user.is_active = False
@@ -70,13 +61,16 @@ def remove_user(user, request):
     # Remove user from all groups
     user.groups.clear()
 
+    # Remove user translation memory
+    user.memory_set.all().delete()
+
 
 def get_all_user_mails(user, entries=None):
     """Return all verified mails for user."""
-    verified = VerifiedEmail.objects.filter(social__user=user)
+    kwargs = {"social__user": user}
     if entries:
-        verified = verified.filter(social__in=entries)
-    emails = set(verified.values_list('email', flat=True))
+        kwargs["social__in"] = entries
+    emails = set(VerifiedEmail.objects.filter(**kwargs).values_list("email", flat=True))
     emails.add(user.email)
     return emails
 
@@ -86,3 +80,22 @@ def invalidate_reset_codes(user=None, entries=None, emails=None):
     if emails is None:
         emails = get_all_user_mails(user, entries)
     Code.objects.filter(email__in=emails).delete()
+
+
+def cycle_session_keys(request, user):
+    """
+    Cycle session keys.
+
+    Updating the password logs out all other sessions for the user
+    except the current one and change key for current session.
+    """
+    # Change unusable password hash to be able to invalidate other sessions
+    if not user.has_usable_password():
+        user.set_unusable_password()
+    # Cycle session key
+    update_session_auth_hash(request, user)
+
+
+def adjust_session_expiry(request):
+    """Set longer expiry for authenticated users."""
+    request.session.set_expiry(settings.SESSION_COOKIE_AGE_AUTHENTICATED)

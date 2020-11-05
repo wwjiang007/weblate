@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,26 +17,25 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-"""
-Tests for quality checks.
-"""
+"""Tests for rendering quality checks."""
 
-from __future__ import unicode_literals
 
 from weblate.checks.render import MaxSizeCheck
 from weblate.fonts.models import FontGroup, FontOverride
 from weblate.fonts.tests.utils import FontTestCase
+from weblate.utils.state import STATE_TRANSLATED
 
 
 class MaxSizeCheckTest(FontTestCase):
     def setUp(self):
-        super(MaxSizeCheckTest, self).setUp()
+        super().setUp()
         self.check = MaxSizeCheck()
 
     def perform_check(self, target, flags):
         unit = self.get_unit()
         unit.flags = flags
         unit.target = target
+        unit.state = STATE_TRANSLATED
         return self.check.check_target(["source"], [target], unit)
 
     def test_good(self):
@@ -63,7 +61,7 @@ class MaxSizeCheckTest(FontTestCase):
     def test_custom_font(self):
         self.add_font_group()
         self.assertFalse(self.perform_check("short", "max-size:500,font-family:droid"))
-        self.assertEqual(self.check.last_font, "Droid Sans Fallback")
+        self.assertEqual(self.check.last_font, "Droid Sans Fallback Regular")
 
     def test_custom_font_override(self):
         group = self.add_font_group()
@@ -71,4 +69,4 @@ class MaxSizeCheckTest(FontTestCase):
             group=group, language=self.get_translation().language, font=group.font
         )
         self.assertFalse(self.perform_check("short", "max-size:500,font-family:droid"))
-        self.assertEqual(self.check.last_font, "Droid Sans Fallback")
+        self.assertEqual(self.check.last_font, "Droid Sans Fallback Regular")

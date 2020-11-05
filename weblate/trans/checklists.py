@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,21 +17,25 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from weblate.trans.filter import FILTERS
+
 
 class TranslationChecklist(list):
-    """Simple list wrapper for translation checklist"""
+    """Simple list wrapper for translation checklist."""
 
-    def add_if(self, stats, choices, name, level):
-        """Add to list if there are matches"""
+    def add_if(self, stats, name, level):
+        """Add to list if there are matches."""
         if getattr(stats, name) > 0:
-            self.add(stats, choices, name, level)
+            self.add(stats, name, level)
 
-    def add(self, stats, choices, name, level):
-        """Add item to the list"""
-        self.append((
-            name,
-            choices[name],
-            getattr(stats, name),
-            level,
-            getattr(stats, '{}_words'.format(name))
-        ))
+    def add(self, stats, name, level):
+        """Add item to the list."""
+        self.append(
+            (
+                FILTERS.get_filter_query(name),
+                FILTERS.get_filter_name(name),
+                getattr(stats, name),
+                level,
+                getattr(stats, "{}_words".format(name)),
+            )
+        )

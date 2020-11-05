@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,42 +17,59 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-"""Whoosh based full text search."""
+"""Celery integration helper tools."""
 
-from __future__ import absolute_import, unicode_literals
+import os
 
-from celery_batches import SimpleRequest
+from celery import Celery
+from celery.signals import task_failure
 from django.conf import settings
 
-from weblate.celery import app as celery_app
+# set the default Django settings module for the 'celery' program.
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "weblate.settings")
+
+app = Celery("weblate")
+
+# Using a string here means the worker doesn't have to serialize
+# the configuration object to child processes.
+# - namespace='CELERY' means all celery-related configuration keys
+#   should have a `CELERY_` prefix.
+app.config_from_object("django.conf:settings", namespace="CELERY")
+
+# Load task modules from all registered Django app configs.
+app.autodiscover_tasks()
 
 
-def extract_batch_kwargs(*args, **kwargs):
+@task_failure.connect
+def handle_task_failure(exception=None, **kwargs):
+    from weblate.utils.errors import report_error
+
+    report_error(
+        extra_data=kwargs,
+        cause="Failure while executing task",
+        skip_sentry=True,
+        print_tb=True,
+        level="error",
+    )
+
+
+@app.on_after_configure.connect
+def configure_error_handling(sender, **kargs):
+    """Rollbar and Sentry integration.
+
+    Based on
+    https://www.mattlayman.com/blog/2017/django-celery-rollbar/
     """
-    Wrapper to extract args from batch task.
+    if not bool(os.environ.get("CELERY_WORKER_RUNNING", False)):
+        return
 
-    It can be either passed directly in eager mode or as requests in
-    batch mode.
-    """
-    if args and isinstance(args[0], list) and isinstance(args[0][0], SimpleRequest):
-        return [request.kwargs for request in args[0]]
-    return [kwargs]
+    from weblate.utils.errors import init_error_collection
+
+    init_error_collection(celery=True)
 
 
-def extract_batch_args(*args):
-    """
-    Wrapper to extract args from batch task.
-
-    It can be either passed directly in eager mode or as requests in
-    batch mode.
-    """
-    if isinstance(args[0], list) and isinstance(args[0][0], SimpleRequest):
-        return [request.args for request in args[0]]
-    return [args]
-
-
-def get_queue_length(queue='celery'):
-    with celery_app.connection_or_acquire() as conn:
+def get_queue_length(queue="celery"):
+    with app.connection_or_acquire() as conn:
         return conn.default_channel.queue_declare(
             queue=queue, durable=True, auto_delete=False
         ).message_count
@@ -61,10 +77,10 @@ def get_queue_length(queue='celery'):
 
 def get_queue_list():
     """List queues in Celery."""
-    result = {'celery'}
+    result = {"celery"}
     for route in settings.CELERY_TASK_ROUTES.values():
-        if 'queue' in route:
-            result.add(route['queue'])
+        if "queue" in route:
+            result.add(route["queue"])
     return result
 
 
@@ -74,8 +90,7 @@ def get_queue_stats():
 
 
 def is_task_ready(task):
-    """
-    Workaround broken ready() for failed Celery results
+    """Workaround broken ready() for failed Celery results.
 
     In case the task ends with an exception, the result tries to reconstruct
     that. It can fail in case the exception can not be reconstructed using
@@ -87,3 +102,17 @@ def is_task_ready(task):
         return task.ready()
     except TypeError:
         return True
+
+
+def get_task_progress(task):
+    """Return progress of a Celery task."""
+    # Completed task
+    if is_task_ready(task):
+        return 100
+    # In progress
+    result = task.result
+    if task.state == "PROGRESS" and result is not None:
+        return result["progress"]
+
+    # Not yet started
+    return 0

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,40 +17,36 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
+import json
 
-from django.core.management.base import BaseCommand
-
-from weblate.memory.storage import TranslationMemory
-from weblate.memory.tasks import memory_backup
+from weblate.memory.models import Memory
+from weblate.utils.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    """
-    Command for exporting translation memory.
-    """
-    help = 'exports translation memory in JSON format'
+    """Command for exporting translation memory."""
+
+    help = "exports translation memory in JSON format"
 
     def add_arguments(self, parser):
-        super(Command, self).add_arguments(parser)
+        super().add_arguments(parser)
         parser.add_argument(
-            '--indent', default=2, dest='indent', type=int,
-            help=(
-                'Specifies the indent level to use when '
-                'pretty-printing output.'
-            ),
+            "--indent",
+            default=2,
+            dest="indent",
+            type=int,
+            help=("Specifies the indent level to use when " "pretty-printing output."),
         )
         parser.add_argument(
-            '--backup',
-            action='store_true',
-            help='Store backup to the backups directory in the DATA_DIR',
+            "--backup",
+            action="store_true",
+            help="Store backup to the backups directory in the DATA_DIR",
         )
 
     def handle(self, *args, **options):
-        if options['backup']:
-            memory_backup(options['indent'])
-            return
-        memory = TranslationMemory()
+        memory = Memory.objects.all().prefetch_lang()
         self.stdout.ending = None
-        memory.dump(self.stdout, indent=options['indent'])
-        self.stdout.write('\n')
+        json.dump(
+            [item.as_dict() for item in memory], self.stdout, indent=options["indent"]
+        )
+        self.stdout.write("\n")

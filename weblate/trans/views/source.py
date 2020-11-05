@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,204 +22,122 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.http.response import HttpResponseServerError
 from django.shortcuts import get_object_or_404
-from django.utils.encoding import force_text
-from django.utils.http import urlencode
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
 from weblate.lang.models import Language
-from weblate.trans.forms import CheckFlagsForm, ContextForm, MatrixLanguageForm
-from weblate.trans.models import Source, Translation, Unit
+from weblate.trans.forms import ContextForm, MatrixLanguageForm
+from weblate.trans.models import Unit
 from weblate.trans.util import redirect_next, render
 from weblate.utils import messages
-from weblate.utils.hash import checksum_to_hash
-from weblate.utils.views import get_component, get_paginator, show_form_errors
-
-
-def get_source(request, project, component):
-    """
-    Returns first translation in component
-    (this assumes all have same source strings).
-    """
-    obj = get_component(request, project, component)
-    try:
-        return obj, obj.translation_set.all()[0]
-    except (Translation.DoesNotExist, IndexError):
-        raise Http404('No translation exists in this component.')
-
-
-def review_source(request, project, component):
-    """Listing of source strings to review."""
-    obj, source = get_source(request, project, component)
-
-    # Grab search type and page number
-    rqtype = request.GET.get('type', 'all')
-    try:
-        id_hash = checksum_to_hash(request.GET.get('checksum', ''))
-    except ValueError:
-        id_hash = None
-    ignored = 'ignored' in request.GET
-    expand = False
-    query_string = {'type': rqtype}
-    if ignored:
-        query_string['ignored'] = 'true'
-
-    # Filter units:
-    if id_hash:
-        sources = source.unit_set.filter(id_hash=id_hash)
-        expand = True
-    else:
-        sources = source.unit_set.filter_type(
-            rqtype,
-            source.component.project,
-            source.language,
-            ignored
-        )
-
-    sources = get_paginator(request, sources.order())
-
-    return render(
-        request,
-        'source-review.html',
-        {
-            'object': obj,
-            'project': obj.project,
-            'source': source,
-            'page_obj': sources,
-            'query_string': urlencode(query_string),
-            'ignored': ignored,
-            'expand': expand,
-            'title': _('Review source strings in %s') % force_text(obj),
-        }
-    )
-
-
-def show_source(request, project, component):
-    """Show source strings summary and checks."""
-    obj, source = get_source(request, project, component)
-    source.stats.ensure_all()
-
-    return render(
-        request,
-        'source.html',
-        {
-            'object': obj,
-            'project': obj.project,
-            'source': source,
-            'title': _('Source strings in %s') % force_text(obj),
-        }
-    )
+from weblate.utils.views import get_component, show_form_errors
 
 
 @require_POST
 @login_required
 def edit_context(request, pk):
-    """Change source string context."""
-    source = get_object_or_404(Source, pk=pk)
+    unit = get_object_or_404(Unit, pk=pk)
+    if not unit.is_source:
+        raise Http404("Non source unit!")
 
-    if not request.user.has_perm('source.edit', source.component):
+    if not request.user.has_perm("source.edit", unit.translation.component):
         raise PermissionDenied()
 
-    form = ContextForm(request.POST)
+    form = ContextForm(request.POST, instance=unit, user=request.user)
+
     if form.is_valid():
-        source.context = form.cleaned_data['context']
-        source.save()
+        form.save()
     else:
-        messages.error(request, _('Failed to change a context!'))
+        messages.error(request, _("Failed to change a context!"))
         show_form_errors(request, form)
-    return redirect_next(request.POST.get('next'), source.get_absolute_url())
 
-
-@require_POST
-@login_required
-def edit_check_flags(request, pk):
-    """Change source string flags."""
-    source = get_object_or_404(Source, pk=pk)
-
-    if not request.user.has_perm('source.edit', source.component):
-        raise PermissionDenied()
-
-    form = CheckFlagsForm(request.POST)
-    if form.is_valid():
-        source.check_flags = form.cleaned_data['flags']
-        source.save()
-    else:
-        messages.error(request, _('Failed to change translation flags!'))
-        show_form_errors(request, form)
-    return redirect_next(request.POST.get('next'), source.get_absolute_url())
+    return redirect_next(request.POST.get("next"), unit.get_absolute_url())
 
 
 @login_required
 def matrix(request, project, component):
-    """Matrix view of all strings"""
+    """Matrix view of all strings."""
     obj = get_component(request, project, component)
 
     show = False
     languages = None
     language_codes = None
 
-    if 'lang' in request.GET:
+    if "lang" in request.GET:
         form = MatrixLanguageForm(obj, request.GET)
         show = form.is_valid()
     else:
         form = MatrixLanguageForm(obj)
 
     if show:
-        languages = Language.objects.filter(
-            code__in=form.cleaned_data['lang']
-        ).order()
-        language_codes = ','.join(languages.values_list('code', flat=True))
+        languages = Language.objects.filter(code__in=form.cleaned_data["lang"]).order()
+        language_codes = ",".join(languages.values_list("code", flat=True))
 
     return render(
         request,
-        'matrix.html',
+        "matrix.html",
         {
-            'object': obj,
-            'project': obj.project,
-            'languages': languages,
-            'language_codes': language_codes,
-            'languages_form': form,
-        }
+            "object": obj,
+            "project": obj.project,
+            "languages": languages,
+            "language_codes": language_codes,
+            "languages_form": form,
+        },
     )
 
 
 @login_required
 def matrix_load(request, project, component):
-    """Backend for matrix view of all strings"""
+    """Backend for matrix view of all strings."""
     obj = get_component(request, project, component)
 
     try:
-        offset = int(request.GET.get('offset', ''))
+        offset = int(request.GET.get("offset", ""))
     except ValueError:
-        return HttpResponseServerError('Missing offset')
-    language_codes = request.GET.get('lang')
+        return HttpResponseServerError("Missing offset")
+    language_codes = request.GET.get("lang")
     if not language_codes or offset is None:
-        return HttpResponseServerError('Missing lang')
+        return HttpResponseServerError("Missing lang")
 
     # Can not use filter to keep ordering
     translations = [
         get_object_or_404(obj.translation_set, language__code=lang)
-        for lang in language_codes.split(',')
+        for lang in language_codes.split(",")
     ]
 
     data = []
 
-    for unit in translations[0].unit_set.all()[offset:offset + 20]:
+    source_units = obj.source_translation.unit_set.order()[offset : offset + 20]
+    source_ids = [unit.pk for unit in source_units]
+
+    translated_units = [
+        {
+            unit.source_unit_id: unit
+            for unit in translation.unit_set.order().filter(source_unit__in=source_ids)
+        }
+        for translation in translations
+    ]
+
+    for unit in source_units:
         units = []
-        for translation in translations:
-            try:
-                units.append(translation.unit_set.get(id_hash=unit.id_hash))
-            except Unit.DoesNotExist:
+        # Avoid need to fetch source unit again
+        unit.source_unit = unit
+        for translation in translated_units:
+            if unit.pk in translation:
+                # Avoid need to fetch source unit again
+                translation[unit.pk].source_unit = unit
+                units.append(translation[unit.pk])
+            else:
                 units.append(None)
 
         data.append((unit, units))
 
     return render(
         request,
-        'matrix-table.html',
+        "matrix-table.html",
         {
-            'object': obj,
-            'data': data,
-            'last': translations[0].unit_set.count() <= offset + 20
-        }
+            "object": obj,
+            "data": data,
+            "last": translations[0].unit_set.count() <= offset + 20,
+        },
     )

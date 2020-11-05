@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -26,24 +25,34 @@ from weblate.trans.models import Component, Project
 from weblate.utils.decorators import disable_for_loaddata
 from weblate.utils.site import get_site_url
 
-SUPPORTED_VCS = frozenset(('git', 'gerrit', 'github', 'subversion', 'local'))
+SUPPORTED_VCS = {
+    "git",
+    "gerrit",
+    "github",
+    "gitlab",
+    "pagure",
+    "subversion",
+    "local",
+    "git-force-push",
+}
 
 
 def get_export_url(component):
-    """Return Git export URL for component"""
+    """Return Git export URL for component."""
     return get_site_url(
         reverse(
-            'git-export',
+            "git-export",
             kwargs={
-                'project': component.project.slug,
-                'component': component.slug,
-                'path': '',
-            }
+                "project": component.project.slug,
+                "component": component.slug,
+                "path": "",
+            },
         )
     )
 
 
 @receiver(pre_save, sender=Component)
+@disable_for_loaddata
 def save_component(sender, instance, **kwargs):
     if not instance.is_repo_link and instance.vcs in SUPPORTED_VCS:
         instance.git_export = get_export_url(instance)
@@ -57,4 +66,4 @@ def save_project(sender, instance, **kwargs):
             new_url = get_export_url(component)
             if component.git_export != new_url:
                 component.git_export = new_url
-                component.save(update_fields=['git_export'])
+                component.save(update_fields=["git_export"])

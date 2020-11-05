@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -24,89 +23,88 @@ import re
 
 from django.db import models
 from django.urls import reverse
-from django.utils.encoding import python_2_unicode_compatible
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.trans.fields import RegexField
+from weblate.trans.mixins import CacheKeyMixin
 from weblate.utils.stats import ComponentListStats
 
 
 class ComponentListQuerySet(models.QuerySet):
     def order(self):
-        return self.order_by('name')
+        return self.order_by("name")
 
 
-@python_2_unicode_compatible
-class ComponentList(models.Model):
+class ComponentList(models.Model, CacheKeyMixin):
 
     name = models.CharField(
-        verbose_name=_('Component list name'),
+        verbose_name=_("Component list name"),
         max_length=100,
         unique=True,
-        help_text=_('Display name')
+        help_text=_("Display name"),
     )
 
     slug = models.SlugField(
-        verbose_name=_('URL slug'),
-        db_index=True, unique=True,
+        verbose_name=_("URL slug"),
+        db_index=True,
+        unique=True,
         max_length=100,
-        help_text=_('Name used in URLs and filenames.')
+        help_text=_("Name used in URLs and filenames."),
     )
     show_dashboard = models.BooleanField(
-        verbose_name=_('Show on dashboard'),
+        verbose_name=_("Show on dashboard"),
         default=True,
         db_index=True,
         help_text=_(
-            'When enabled this component list will be shown as a tab on '
-            'the dashboard'
-        )
+            "When enabled this component list will be shown as a tab on "
+            "the dashboard"
+        ),
     )
 
-    components = models.ManyToManyField('Component', blank=True)
+    components = models.ManyToManyField("Component", blank=True)
 
     objects = ComponentListQuerySet.as_manager()
 
-    class Meta(object):
-        verbose_name = _('Component list')
-        verbose_name_plural = _('Component lists')
-
-    def tab_slug(self):
-        return "list-" + self.slug
+    class Meta:
+        verbose_name = _("Component list")
+        verbose_name_plural = _("Component lists")
 
     def __str__(self):
         return self.name
 
+    def get_absolute_url(self):
+        return reverse("component-list", kwargs={"name": self.slug})
+
     def __init__(self, *args, **kwargs):
-        super(ComponentList, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.stats = ComponentListStats(self)
 
-    def get_absolute_url(self):
-        return reverse('component-list', kwargs={'name': self.slug})
+    def tab_slug(self):
+        return "list-" + self.slug
 
 
-@python_2_unicode_compatible
 class AutoComponentList(models.Model):
     project_match = RegexField(
-        verbose_name=_('Project regular expression'),
+        verbose_name=_("Project regular expression"),
         max_length=200,
-        default='^$',
-        help_text=_(
-            'Regular expression which is used to match project slug.'
-        ),
+        default="^$",
+        help_text=_("Regular expression which is used to match project slug."),
     )
     component_match = RegexField(
-        verbose_name=_('Component regular expression'),
+        verbose_name=_("Component regular expression"),
         max_length=200,
-        default='^$',
-        help_text=_(
-            'Regular expression which is used to match component slug.'
-        ),
+        default="^$",
+        help_text=_("Regular expression which is used to match component slug."),
     )
     componentlist = models.ForeignKey(
         ComponentList,
-        verbose_name=_('Component list to assign'),
+        verbose_name=_("Component list to assign"),
         on_delete=models.deletion.CASCADE,
     )
+
+    class Meta:
+        verbose_name = _("Automatic component list assignment")
+        verbose_name_plural = _("Automatic component list assignments")
 
     def __str__(self):
         return self.componentlist.name
@@ -117,7 +115,3 @@ class AutoComponentList(models.Model):
         if not re.match(self.component_match, component.slug):
             return
         self.componentlist.components.add(component)
-
-    class Meta(object):
-        verbose_name = _('Automatic component list assignment')
-        verbose_name_plural = _('Automatic component list assignments')

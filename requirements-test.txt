@@ -1,5 +1,4 @@
 -r requirements-optional.txt
--r requirements-lint.txt
-httpretty>=0.9.5
-selenium
 coverage
+responses>=0.10.1,<0.13.0
+selenium>=4.0.0a6.post2

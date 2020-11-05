@@ -7,7 +7,7 @@ Access control
 
     Before Weblate 3.0, the privilege system was based on Django, but is now
     specifically built for Weblate. If you are using an older version, please
-    the consult documentation for that version, the information here will not apply.
+    consult the documentation for that version, the information here will not apply.
 
 Weblate comes with a fine grained privilege system to assign user permissions
 for the whole instance, or in a limited scope.
@@ -19,7 +19,7 @@ permissions, and groups assign them to users and translations, see
 After installation a default set of groups is created, and you can use those
 to assign users roles for the whole instance (see :ref:`default-groups`). Additionally when
 :ref:`acl` is turned on, you can assign users to specific translation projects.
-More fine-grained configuration can be achieved using :ref:`custom-acl`
+More fine-grained configuration can be achieved using :ref:`custom-acl`.
 
 Common setups
 -----------------
@@ -28,7 +28,7 @@ Locking down Weblate
 ++++++++++++++++++++
 
 To completely lock down your Weblate installation, you can use
-:setting:`LOGIN_REQUIRED_URLS` to force users to log in and
+:setting:`REQUIRE_LOGIN` to force users to sign in and
 :setting:`REGISTRATION_OPEN` to prevent new registrations.
 
 Site wide permissions
@@ -41,21 +41,33 @@ all projects configured as `Public` (see :ref:`acl`).
 Per project permissions
 +++++++++++++++++++++++
 
+.. note::
+
+    This feature is not available for projects running the Hosted Libre plan.
+
 Set your projects to `Protected` or `Private`, and manage users per
 project in the Weblate interface.
 
-Adding permissions to languages, projects or component sets
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Adding permissions to languages, components or projects
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-You can additionally grant permissions to any user based on project, language
-or a component set. To achieve this, create a new group (e.g. `Czech
-translators`) and configure it for a given resource. Any assigned permissions will
-be granted to members of that group for selected resources.
+.. note::
+
+    This feature is not available for projects running the Hosted Libre plan.
+
+You can additionally grant permissions to any user based on project, component or language
+set. To achieve this, create a new group (e.g. `Czech translators`) and
+configure it for a given resource. Any assigned permissions will be granted to
+members of that group for selected resources.
 
 This will work just fine without additional setup, if using per project
 permissions. For permissions on the whole instance, you will probably also want to remove
 these permissions from the `Users` group, or change automatic assignment of all
 users to that group (see :ref:`autogroup`).
+
+.. seealso::
+
+   :ref:`perm-check`
 
 .. _acl:
 
@@ -66,6 +78,10 @@ Per project access control
 
     By enabling ACL, all users are prohibited from accessing anything within a given
     project, unless you add the permissions for them to do just that.
+
+.. note::
+
+    This feature is not available for projects running the Hosted Libre plan.
 
 You can limit user's access to individual projects. This feature is turned on by
 :guilabel:`Access control` in the configuration of each respective project.
@@ -103,8 +119,8 @@ Automatic group assignments
 You can set up Weblate to automatically add users to groups based on their
 e-mail addresses. This automatic assignment happens only at the time of account creation.
 
-This can be set up in the Django admin interface (in the
-:guilabel:`Accounts` section).
+This can be set up in the Django admin interface for each group (in the
+:guilabel:`Authentication` section).
 
 .. note::
 
@@ -140,42 +156,61 @@ The authentication models consist of several objects:
         "Role" -- "Permission";
         "Group" -- "Project";
         "Group" -- "Language";
+        "Group" -- "Components";
         "Group" -- "Component list";
     }
+
+.. _perm-check:
 
 Permission checking
 +++++++++++++++++++
 
-Whenever a permission is checked to decide whether one is able to perform a given action,
-the check is carried out according to scope, and the following checks are performed:
+Whenever a permission is checked to decide whether one is able to perform a
+given action, the check is carried out according to scope, and the following
+checks are performed in the order:
 
-`Project`
-    Compared against the scope of the project, if not set, this matches no project.
+1. :guilabel:`Component list` is matched against component or project.
 
-    You can use :guilabel:`Project selection` to automate inclusion of all
-    projects.
+2. :guilabel:`Components` are matched against component or project.
 
-`Component list`
-    The scope component is matched against this list, if not set, this is ignored.
+3. :guilabel:`Projects` are matched against project.
 
-    Obviously this has no effect when checking access of the project scope,
-    so you will have to grant access to view all projects in a component list
-    by other means. By default this is achieved through the use of the `Viewers` group,
-    see :ref:`default-groups`).
+As you can see, granting access to a component automatically grants user access
+to a containing project as well.
 
-`Language`
-    Compared against scope of translations, if not set, this matches no
-    language.
+.. note::
 
-    You can use :guilabel:`Language selection` to automate inclusion of all
-    languages.
+   Only the first rule will be used. So if you set all of
+   :guilabel:`Component list`, :guilabel:`Components` and :guilabel:`Project`,
+   only :guilabel:`Component list` will be applied.
+
+An additional step is performed if checking permission for the translation:
+
+
+4. :guilabel:`Languages` are matched against the scope of translations if set,
+if not set, this does not match any language.
+
+.. hint::
+
+   You can use :guilabel:`Language selection` or :guilabel:`Project selection`
+   to automate inclusion of all languages or projects.
 
 Checking access to a project
 ++++++++++++++++++++++++++++
 
-A user has to be a member of a group linked to the project. Only membership is
-enough, no specific permissions are needed to access a project (this is used
-in the default `Viewers` group, see :ref:`default-groups`).
+A user has to be a member of a group linked to the project or any component
+inside it. Only membership is enough, no specific permissions are needed to
+access a project (this is used in the default `Viewers` group, see
+:ref:`default-groups`).
+
+Checking access to a component
+++++++++++++++++++++++++++++++
+
+A user can access the unrestricted component once he can access the containing
+project. With enabled :ref:`component-restricted` the access to the component
+requires explicit permission to the component (or containing component list).
+
+.. _manage-users:
 
 Managing users and groups
 -------------------------
@@ -194,10 +229,18 @@ Managing per project access control
 
 Users with the :guilabel:`Can manage ACL rules for a project` privilege (see
 :ref:`privileges`) can also manage users in projects with access control
-turned on through the project page. You can add users, or remove them from a project, or make
-them owners of it.
+turned on through the project page. The interface allows you to:
 
-The user management is available in the :guilabel:`Tools` menu of a project:
+* Add existing users to the project
+* Invite new users to the project
+* Change permissions of the users
+* Revoke access to the users
+
+.. versionadded:: 3.11
+
+* Resend user email invitations, invalidating any previously sent invitation
+
+The user management is available in the :guilabel:`Manage` menu of a project:
 
 .. image:: /images/manage-users.png
 
@@ -230,10 +273,9 @@ users.
     Can manage screenshots - add or remove them, and associate them to source
     strings.
 
-.. describe:: Template
+.. describe:: Sources
 
-    Can edit translation templates in :ref:`monolingual` and source string
-    info.
+    Can edit source strings in :ref:`monolingual` and source string info.
 
 .. describe:: Translate
 
@@ -258,17 +300,17 @@ Custom access control
 ---------------------
 
 By choosing :guilabel:`Custom` as :guilabel:`Access control`, Weblate will stop
-managing access for a given project, and you can set up custom rules in the Django
+managing access for a given project, and all users and groups can be managed using the Django
 admin interface. This can be used to define more complex access control, or
 set up a shared access policy for all projects in a single Weblate instance. If you
-want to enable this for all projects by default, please configure the
+want to turn this on for all projects by default, please configure the
 :setting:`DEFAULT_ACCESS_CONTROL`.
 
 .. warning::
 
     By turning this on, Weblate will remove all :ref:`acl` it has created for
     this project. If you are doing this without admin permission from the instance, you
-    will instantly loose your access to manage the project.
+    will instantly lose your access to manage the project.
 
 .. _default-groups:
 
@@ -286,23 +328,29 @@ Changes
 
 Comments
     Post comment [`Administration`, `Edit source`, `Power user`, `Review strings`, `Translate`]
+
     Delete comment [`Administration`]
 
 Component
     Edit component settings [`Administration`]
+
     Lock component, preventing it from being translated [`Administration`]
 
 Glossary
     Add glossary entry [`Administration`, `Manage glossary`, `Power user`]
+
     Edit glossary entry [`Administration`, `Manage glossary`, `Power user`]
+
     Delete glossary entry [`Administration`, `Manage glossary`, `Power user`]
+
     Upload glossary entries [`Administration`, `Manage glossary`, `Power user`]
 
-Machinery
-    Use machine translation services [`Administration`, `Power user`]
+Automatic suggestions
+    Use automatic suggestions [`Administration`, `Power user`]
 
 Projects
     Edit project settings [`Administration`]
+
     Manage project access [`Administration`]
 
 Reports
@@ -310,7 +358,9 @@ Reports
 
 Screenshots
     Add screenshot [`Administration`, `Manage screenshots`]
+
     Edit screenshot [`Administration`, `Manage screenshots`]
+
     Delete screenshot [`Administration`, `Manage screenshots`]
 
 Source strings
@@ -318,53 +368,81 @@ Source strings
 
 Strings
     Add new strings [`Administration`]
+
     Ignore failing checks [`Administration`, `Edit source`, `Power user`, `Review strings`, `Translate`]
+
     Edit strings [`Administration`, `Edit source`, `Power user`, `Review strings`, `Translate`]
+
     Review strings [`Administration`, `Review strings`]
+
     Edit string when suggestions are enforced [`Administration`, `Review strings`]
+
     Edit source strings [`Administration`, `Edit source`, `Power user`]
 
 Suggestions
     Accept suggestions [`Administration`, `Edit source`, `Power user`, `Review strings`, `Translate`]
+
     Add suggestions [`Add suggestion`, `Administration`, `Edit source`, `Power user`, `Review strings`, `Translate`]
+
     Delete suggestions [`Administration`]
+
     Vote on suggestions [`Administration`, `Edit source`, `Power user`, `Review strings`, `Translate`]
 
 Translations
     Start new translation [`Administration`, `Manage languages`, `Power user`]
+
     Perform automatic translation [`Administration`, `Manage languages`]
+
     Delete existing translations [`Administration`, `Manage languages`]
+
     Start translation into a new language [`Administration`, `Manage languages`]
 
 Uploads
     Define author of translation upload [`Administration`]
+
     Overwrite existing strings with an upload [`Administration`, `Edit source`, `Power user`, `Review strings`, `Translate`]
+
     Upload translation strings [`Administration`, `Edit source`, `Power user`, `Review strings`, `Translate`]
 
 VCS
     Access the internal repository [`Access repository`, `Administration`, `Manage repository`, `Power user`]
+
     Commit changes to the internal repository [`Administration`, `Manage repository`]
+
     Push change from the internal repository [`Administration`, `Manage repository`]
+
     Reset changes in the internal repository [`Administration`, `Manage repository`]
+
     View upstream repository location [`Access repository`, `Administration`, `Manage repository`, `Power user`]
+
     Update the internal repository [`Administration`, `Manage repository`]
 
-Global privileges 
-    Use management interface (global)
-    Add language definitions (global)
-    Manage language definitions (global)
-    Add groups (global)
-    Manage groups (global)
-    Add users (global)
-    Manage users (global)
-    Manage whiteboard (global)
-    Manage translation memory (global)
+Site wide privileges
+    Use management interface
 
-.. note:: 
+    Add new projects
 
-   The global privileges are not granted to any default role. These are
-   powerful and they are quite close to the superuser status - most of them can
-   affect all projects on your Weblate installation.
+    Add language definitions
+
+    Manage language definitions
+
+    Manage groups
+
+    Manage users
+
+    Manage roles
+
+    Manage announcements
+
+    Manage translation memory
+
+    Manage component lists
+
+.. note::
+
+   The site wide privileges are not granted to any default role. These are
+   powerful and quite close to the superuser status—most of them
+   affect all the projects of your Weblate installation.
 
 List of groups
 ++++++++++++++
@@ -409,6 +487,6 @@ The following groups are created upon installation (or after executing
 
 .. warning::
 
-    Never remove the predefined Weblate groups and users, this can lead to
+    Never remove the predefined Weblate groups and users, as this can lead to
     unexpected problems. If you do not want to use these features, just remove
     all privileges from them.

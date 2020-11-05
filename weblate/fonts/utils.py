@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,20 +18,21 @@
 #
 """Font handling wrapper."""
 
-from __future__ import unicode_literals
 
 import os
+from functools import lru_cache
+from io import BytesIO
 from tempfile import NamedTemporaryFile
 
 import cairo
 import gi
 from django.conf import settings
-from django.core.checks import Critical
+from django.core.cache import cache
 from django.utils.html import escape
 from PIL import ImageFont
 
+from weblate.utils.checks import weblate_check
 from weblate.utils.data import data_dir
-from weblate.utils.docs import get_doc_url
 
 gi.require_version("PangoCairo", "1.0")
 gi.require_version("Pango", "1.0")
@@ -77,11 +77,12 @@ FONT_WEIGHTS = {
     "normal": Pango.Weight.NORMAL,
     "light": Pango.Weight.LIGHT,
     "bold": Pango.Weight.BOLD,
+    "": None,
 }
 
 
 def configure_fontconfig():
-    """Configures fontconfig to use custom configuration"""
+    """Configures fontconfig to use custom configuration."""
     if getattr(configure_fontconfig, "is_configured", False):
         return
 
@@ -93,13 +94,15 @@ def configure_fontconfig():
 
     # Generate the configuration
     with open(config_name, "w") as handle:
-        handle.write(FONTCONFIG_CONFIG.format(
-            data_dir("cache", "fonts"),
-            fonts_dir,
-            os.path.join(settings.STATIC_ROOT, 'font-source', 'TTF'),
-            os.path.join(settings.STATIC_ROOT, 'font-dejavu'),
-            os.path.join(settings.STATIC_ROOT, 'font-droid'),
-        ))
+        handle.write(
+            FONTCONFIG_CONFIG.format(
+                data_dir("cache", "fonts"),
+                fonts_dir,
+                os.path.join(settings.STATIC_ROOT, "font-source", "TTF"),
+                os.path.join(settings.STATIC_ROOT, "font-dejavu"),
+                os.path.join(settings.STATIC_ROOT, "font-droid"),
+            )
+        )
 
     # Inject into environment
     os.environ["FONTCONFIG_FILE"] = config_name
@@ -111,8 +114,9 @@ def get_font_weight(weight):
     return FONT_WEIGHTS[weight]
 
 
-def render_size(font, weight, size, spacing, text, width=1000, lines=1):
-    """Check whether rendered text fits"""
+@lru_cache(maxsize=512)
+def render_size(font, weight, size, spacing, text, width=1000, lines=1, cache_key=None):
+    """Check whether rendered text fits."""
     configure_fontconfig()
 
     # Setup Pango/Cairo
@@ -123,7 +127,8 @@ def render_size(font, weight, size, spacing, text, width=1000, lines=1):
     # Load and configure font
     fontdesc = Pango.FontDescription.from_string(font)
     fontdesc.set_size(size * Pango.SCALE)
-    fontdesc.set_weight(weight)
+    if weight:
+        fontdesc.set_weight(weight)
     layout.set_font_description(fontdesc)
 
     # This seems to be only way to set letter spacing
@@ -136,17 +141,57 @@ def render_size(font, weight, size, spacing, text, width=1000, lines=1):
     layout.set_width(width * Pango.SCALE)
     layout.set_wrap(Pango.WrapMode.WORD)
 
-    return layout.get_pixel_size(), layout.get_line_count()
+    # Calculate dimensions
+    line_count = layout.get_line_count()
+    pixel_size = layout.get_pixel_size()
+
+    # Show text
+    PangoCairo.show_layout(context, layout)
+
+    # Render box around desired size
+    expected_height = lines * pixel_size.height / line_count
+    context.new_path()
+    context.set_source_rgb(0.8, 0.8, 0.8)
+    context.set_line_width(1)
+    context.move_to(1, 1)
+    context.line_to(width, 1)
+    context.line_to(width, expected_height)
+    context.line_to(1, expected_height)
+    context.line_to(1, 1)
+    context.stroke()
+
+    # Render box about actual size
+    context.new_path()
+    if pixel_size.width > width or line_count > lines:
+        context.set_source_rgb(246 / 255, 102 / 255, 76 / 255)
+    else:
+        context.set_source_rgb(0.4, 0.4, 0.4)
+    context.set_line_width(1)
+    context.move_to(1, 1)
+    context.line_to(pixel_size.width, 1)
+    context.line_to(pixel_size.width, pixel_size.height)
+    context.line_to(1, pixel_size.height)
+    context.line_to(1, 1)
+    context.stroke()
+
+    if cache_key:
+        with BytesIO() as buff:
+            surface.write_to_png(buff)
+            cache.set(cache_key, buff.getvalue())
+
+    return pixel_size, line_count
 
 
-def check_render_size(font, weight, size, spacing, text, width, lines):
-    """Check whether rendered text fits"""
-    size, actual_lines = render_size(font, weight, size, spacing, text, width, lines)
+def check_render_size(font, weight, size, spacing, text, width, lines, cache_key=None):
+    """Checks whether rendered text fits."""
+    size, actual_lines = render_size(
+        font, weight, size, spacing, text, width, lines, cache_key
+    )
     return size.width <= width and actual_lines <= lines
 
 
 def get_font_name(filelike):
-    """Return tuple of font family and style, eg. ('Ubuntu', 'Regular')"""
+    """Returns tuple of font family and style, for example ('Ubuntu', 'Regular')."""
     if not hasattr(filelike, "loaded_font"):
         # The tempfile creation is workaroud for Pillow crashing on invalid font
         # see https://github.com/python-pillow/Pillow/issues/3853
@@ -163,15 +208,9 @@ def get_font_name(filelike):
 
 
 def check_fonts(app_configs=None, **kwargs):
-    """Check font rendering."""
+    """Checks font rendering."""
     try:
         render_size("DejaVu Sans", Pango.Weight.NORMAL, 11, 0, "test")
         return []
     except Exception as error:
-        return [
-            Critical(
-                'Failed to use Pango: {}'.format(error),
-                hint=get_doc_url('admin/install', 'pangocairo'),
-                id='weblate.C024',
-            )
-        ]
+        return [weblate_check("weblate.C024", "Failed to use Pango: {}".format(error))]

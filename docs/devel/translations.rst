@@ -6,23 +6,61 @@ Managing translations
 Adding new translations
 -----------------------
 
-Weblate can add new translations to your translation components when configured
-:guilabel:`Template for new translations` (see :ref:`component`) or your file
-format doesn't require it (for most of monolingual files it is okay to start
-with blank files).
+New strings can be made available for translation when they appear in the base file,
+called :guilabel:`Template for new translations` (see :ref:`component`).
+If your file format doesn't require such a file, as is the case with most monolingual
+translation flows, you can start with blank files).
 
-Weblate can be configured to automatically add translation when requested by
-user or to send notification to project admins for approval and manual
-processing. This can be done using :guilabel:`New translation` in
-:ref:`component`. The project admins can still start translation within Weblate
-even if contact form is shown for regular users.
+New languages can be added right away when requested by a user in Weblate, or a
+notification will be sent to project admins for approval and manual addition.
+This can be done using :guilabel:`Start new translation` in :ref:`component`.
 
-Alternatively you can add the files manually to the VCS. Weblate will
-automatically detect new languages which are added to the VCS repository and
-makes them available for translation. This makes adding new translations
-incredibly easy:
+.. note::
 
-1. Add the translation file to VCS.
-2. Let Weblate update the repository (usually set up automatically, see
-   :ref:`update-vcs`).
+    Project admins can always start translation within Weblate directly.
 
+Language files added manually to the VCS are added to the component when Weblate updates
+the repository. About repository update settings, see :ref:`update-vcs`.
+
+.. _variants:
+
+String variants
+---------------
+
+Variants are useful to group several strings together so that translators can
+see all variants of the string at one place. You can define regular expression
+to group the strings in the :ref:`component`:
+
+.. image:: /images/variants-settings.png
+
+The expression is matched against :guilabel:`Key` to generate root key of the
+variant. All matching strings are then part of single variants group, including
+the translation exactly matching the root key, even if that is not matched by
+the regular expression.
+
+The following table lists some usage examples:
+
++---------------------------+-------------------------------+-----------------------------------------------+
+| Use case                  | Regular expression variant    | Matched translation keys                      |
++===========================+===============================+===============================================+
+| Suffix identification     | ``(Short|Min)$``              | ``monthShort``, ``monthMin``, ``month``       |
++---------------------------+-------------------------------+-----------------------------------------------+
+| Inline identification     | ``#[SML]``                    | ``dial#S.key``, ``dial#M.key``, ``dial.key``  |
++---------------------------+-------------------------------+-----------------------------------------------+
+
+The variant is later grouped when translating:
+
+.. image:: /images/variants-translate.png
+
+.. _labels:
+
+String labels
+-------------
+
+Split component translation strings into categories by text and colour in the project configuration.
+
+.. image:: /images/labels.png
+
+.. hint::
+
+    Labels can be assigned to units in :ref:`additional` by bulk editing, or using the :ref:`addon-weblate.flags.bulk` addon.

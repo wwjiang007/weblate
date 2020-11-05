@@ -2,31 +2,29 @@
 {% load permissions %}
 {% load translations %}
 
-{% perm 'screenshot.edit' object.component as user_can_change_screenshot %}
+{% perm 'screenshot.edit' object.translation.component as user_can_change_screenshot %}
 
-{% for source in sources %}
-{% with source.unit as unit %}
-{% if unit %}
+{% for unit in object.units.all %}
 <tr>
-<td class="translatetext">{% format_translation unit.source unit.translation.component.project.source_language %}</td>
+<td class="translatetext">{% format_translation unit.source unit.translation.component.source_language %}</td>
+<td>{{ unit.context }}</td>
+<td>{{ unit.location }}</td>
+<td>{{ unit.screenshots.count }}</td>
 <td>
-<a href="{{ source.get_absolute_url }}?checksum={{ unit.checksum }}" class="btn btn-primary"><i class="fa fa-search"></i> {% trans "View" %}</a>
+<a href="{{ unit.get_absolute_url }}" class="btn btn-primary">{% trans "View" %}</a>
 </td>
 {% if user_can_change_screenshot %}
 <td>
 <form action="{% url 'screenshot-remove-source' pk=object.pk %}" method="POST">
 {% csrf_token %}
-<input type="hidden" name="source" value="{{ source.pk }}" />
-<button type="submit" class="btn btn-danger"><i class="fa fa-trash"></i> {% trans "Remove" %}</button>
+<input type="hidden" name="source" value="{{ unit.pk }}" />
+<button type="submit" class="btn btn-danger">{% trans "Remove" %}</button>
 </form>
 {% endif %}
 </td>
 </tr>
-{% endif %}
-{% endwith %}
 {% empty %}
 <tr class="warning">
-<td colspan="2">{% trans "No source strings are currently assigned!" %}</td>
+<td colspan="5">{% trans "No source strings are currently assigned!" %}</td>
 </tr>
 {% endfor %}
-

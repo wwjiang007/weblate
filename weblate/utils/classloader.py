@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -28,20 +27,16 @@ from django.utils.functional import cached_property
 def load_class(name, setting):
     """Import module and creates class given by name in string."""
     try:
-        module, attr = name.rsplit('.', 1)
+        module, attr = name.rsplit(".", 1)
     except ValueError as error:
         raise ImproperlyConfigured(
-            'Error importing class {0} in {1}: "{2}"'.format(
-                name, setting, error
-            )
+            'Error importing class {0} in {1}: "{2}"'.format(name, setting, error)
         )
     try:
         mod = import_module(module)
     except ImportError as error:
         raise ImproperlyConfigured(
-            'Error importing module {0} in {1}: "{2}"'.format(
-                module, setting, error
-            )
+            'Error importing module {0} in {1}: "{2}"'.format(module, setting, error)
         )
     try:
         return getattr(mod, attr)
@@ -53,8 +48,9 @@ def load_class(name, setting):
         )
 
 
-class ClassLoader(object):
+class ClassLoader:
     """Dict like object to lazy load list of classes."""
+
     def __init__(self, name, construct=True):
         self.name = name
         self.construct = construct
@@ -63,6 +59,10 @@ class ClassLoader(object):
         result = {}
         value = getattr(settings, self.name)
         if value:
+            if not isinstance(value, (list, tuple)):
+                raise ImproperlyConfigured(
+                    f"Setting {self.name} must be list or tuple!"
+                )
             for path in value:
                 obj = load_class(path, self.name)
                 if self.construct:
@@ -111,5 +111,5 @@ class ClassLoader(object):
             if x not in exclude and cond(self[x])
         ]
         if empty:
-            result = [('', '')] + result
+            result.insert(0, ("", ""))
         return result

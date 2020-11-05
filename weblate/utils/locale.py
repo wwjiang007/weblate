@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,7 +17,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import absolute_import
 
 from contextlib import contextmanager
 from locale import LC_ALL, Error, getlocale, setlocale
@@ -28,11 +26,7 @@ from locale import LC_ALL, Error, getlocale, setlocale
 def c_locale():
     """Context to execute something in C locale."""
     # List of locales to reset
-    locales = [
-        ('C', 'UTF-8'),
-        ('en_US', 'UTF-8'),
-        '',
-    ]
+    locales = [("C", "UTF-8"), ("en_US", "UTF-8"), ""]
     try:
         # If locale is set, insert it to the top
         currlocale = getlocale()
@@ -41,7 +35,7 @@ def c_locale():
     except Error:
         pass
     # Set C locale for the execution
-    setlocale(LC_ALL, 'C')
+    setlocale(LC_ALL, "C")
     try:
         # Here the context gets executed
         yield

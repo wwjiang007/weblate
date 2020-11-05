@@ -2,9 +2,9 @@ Python modules
 ++++++++++++++
 
 .. hint::
-   
+
    We're using virtualenv to install Weblate in a separate environment from your
-   system. If you are not familiar with it, check virtualenv :doc:`venv:userguide`.
+   system. If you are not familiar with it, check virtualenv :doc:`venv:user_guide`.
 
 
 #. Create the virtualenv for Weblate:
@@ -31,7 +31,7 @@ Python modules
 
         pip install psycopg2-binary
 
-#. Install wanted optional dependencies depending on features you intend to use 
+#. Install wanted optional dependencies depending on features you intend to use
    (some might require additional system libraries, check :ref:`optional-deps`):
 
    .. code-block:: sh

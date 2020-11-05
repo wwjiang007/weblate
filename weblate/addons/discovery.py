@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,10 +17,9 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from django.utils.functional import cached_property
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.addons.base import BaseAddon
 from weblate.addons.events import EVENT_POST_UPDATE
@@ -31,43 +29,36 @@ from weblate.trans.discovery import ComponentDiscovery
 
 class DiscoveryAddon(BaseAddon):
     events = (EVENT_POST_UPDATE,)
-    name = 'weblate.discovery.discovery'
-    verbose = _('Component discovery')
+    name = "weblate.discovery.discovery"
+    verbose = _("Component discovery")
     description = _(
-        'This addon automatically adds or removes components to the '
-        'project based on file changes in the version control system.'
+        "Automatically adds or removes project components based on file changes "
+        "in the version control system."
     )
     settings_form = DiscoveryForm
     multiple = True
-    icon = 'search'
-    has_summary = True
+    icon = "magnify.svg"
     repo_scope = True
+    trigger_update = True
 
-    def post_update(self, component, previous_head):
-        self.perform()
-
-    def perform(self):
+    def post_update(self, component, previous_head: str, skip_push: bool):
         self.discovery.perform(
-            remove=self.instance.configuration['remove'],
-            background=True
+            remove=self.instance.configuration["remove"], background=True
         )
 
-    def get_settings_form(self, **kwargs):
+    def get_settings_form(self, user, **kwargs):
         """Return configuration for for this addon."""
-        if 'data' not in kwargs:
-            kwargs['data'] = self.instance.configuration
-            kwargs['data']['confirm'] = False
-        return super(DiscoveryAddon, self).get_settings_form(**kwargs)
+        if "data" not in kwargs:
+            kwargs["data"] = self.instance.configuration
+            kwargs["data"]["confirm"] = False
+        return super().get_settings_form(user, **kwargs)
 
     @cached_property
     def discovery(self):
         # Handle old settings which did not have this set
-        if 'new_base_template' not in self.instance.configuration:
-            self.instance.configuration['new_base_template'] = ''
+        if "new_base_template" not in self.instance.configuration:
+            self.instance.configuration["new_base_template"] = ""
         return ComponentDiscovery(
             self.instance.component,
             **ComponentDiscovery.extract_kwargs(self.instance.configuration)
         )
-
-    def get_summary(self):
-        return self.instance.configuration['match']

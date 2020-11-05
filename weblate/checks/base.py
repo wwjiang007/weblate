@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,34 +17,40 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+import re
+
+from django.http import Http404
+from siphashc import siphash
+
 from weblate.utils.docs import get_doc_url
 
 
-class Check(object):
+class Check:
     """Basic class for checks."""
-    check_id = ''
-    name = ''
-    description = ''
+
+    check_id = ""
+    name = ""
+    description = ""
     target = False
     source = False
     ignore_untranslated = True
     default_disabled = False
-    severity = 'info'
-    batch_update = False
+    propagates = False
     param_type = None
+    always_display = False
 
     def get_identifier(self):
         return self.check_id
 
     def __init__(self):
-        id_dash = self.check_id.replace('_', '-')
-        self.url_id = 'check:{0}'.format(self.check_id)
-        self.doc_id = 'check-{0}'.format(id_dash)
+        id_dash = self.check_id.replace("_", "-")
+        self.url_id = "check:{0}".format(self.check_id)
+        self.doc_id = "check-{0}".format(id_dash)
         self.enable_string = id_dash
-        self.ignore_string = 'ignore-{0}'.format(id_dash)
+        self.ignore_string = "ignore-{0}".format(id_dash)
 
     def should_skip(self, unit):
-        """Check whether we should skip processing this unit"""
+        """Check whether we should skip processing this unit."""
         # Is this disabled by default
         if self.default_disabled and self.enable_string not in unit.all_flags:
             return True
@@ -54,24 +59,30 @@ class Check(object):
         if self.ignore_string in unit.all_flags:
             return True
 
-        # Ignore target checks on templates
-        if unit.translation.is_template:
-            return True
-
         return False
 
-    def check_target(self, sources, targets, unit):
-        """Check target strings."""
-        # No checking of not translated units
-        if self.ignore_untranslated and not unit.translated:
+    def should_display(self, unit):
+        """Display the check always, not only when failing."""
+        if self.ignore_untranslated and not unit.state:
             return False
         if self.should_skip(unit):
             return False
-        return self.check_target_unit(sources, targets, unit)
+        # Display if enabled and the check is not triggered
+        return self.always_display and self.check_id not in unit.all_checks_names
 
-    def check_target_unit_with_flag(self, sources, targets, unit):
-        """Check flag value"""
-        raise NotImplementedError()
+    def check_target(self, sources, targets, unit):
+        """Check target strings."""
+        # No checking of not translated units (but we do check needs editing ones)
+        if self.ignore_untranslated and not unit.state:
+            return False
+        if self.should_skip(unit):
+            return False
+        if self.check_id in unit.check_cache:
+            return unit.check_cache[self.check_id]
+        unit.check_cache[self.check_id] = result = self.check_target_unit(
+            sources, targets, unit
+        )
+        return result
 
     def check_target_unit(self, sources, targets, unit):
         """Check single unit, handling plurals."""
@@ -93,7 +104,13 @@ class Check(object):
         raise NotImplementedError()
 
     def check_source(self, source, unit):
-        """Check source string"""
+        """Check source strings."""
+        if self.should_skip(unit):
+            return False
+        return self.check_source_unit(source, unit)
+
+    def check_source_unit(self, source, unit):
+        """Check source string."""
         raise NotImplementedError()
 
     def check_chars(self, source, target, pos, chars):
@@ -104,43 +121,65 @@ class Check(object):
         except IndexError:
             return False
 
-        return (
-            (src in chars and tgt not in chars)
-            or (src not in chars and tgt in chars)
-        )
-
-    def check_ends(self, target, ends):
-        """Check whether target ends with one of given ends."""
-        for end in ends:
-            if target.endswith(end):
-                return True
-        return False
+        return (src in chars) != (tgt in chars)
 
     def is_language(self, unit, vals):
         """Detect whether language is in given list, ignores variants."""
         return unit.translation.language.base_code in vals
 
-    def get_doc_url(self):
+    def get_doc_url(self, user=None):
         """Return link to documentation."""
-        return get_doc_url('user/checks', self.doc_id)
+        return get_doc_url("user/checks", self.doc_id, user=user)
 
     def check_highlight(self, source, unit):
-        """Return parts of the text that match to hightlight them
-        return is table that contains lists of two elements with
-        start position of the match and the value of the match
+        """Return parts of the text that match to hightlight them.
+
+        Result is list that contains lists of two elements with start position of the
+        match and the value of the match
         """
         return []
+
+    def get_description(self, check_obj):
+        return self.description
+
+    def get_fixup(self, unit):
+        return None
+
+    def render(self, request, unit):
+        raise Http404("Not supported")
+
+    def get_cache_key(self, unit, pos):
+        return "check:{}:{}:{}:{}".format(
+            self.check_id,
+            unit.pk,
+            siphash("Weblate   Checks", unit.all_flags.format()),
+            pos,
+        )
+
+    def get_replacement_function(self, unit):
+        flags = unit.all_flags
+        if not flags.has_value("replacements"):
+            return lambda text: text
+
+        # Parse the flag
+        replacements = flags.get_value("replacements")
+        # Create dict from that
+        replacements = dict(
+            replacements[pos : pos + 2] for pos in range(0, len(replacements), 2)
+        )
+
+        # Build regexp matcher
+        pattern = re.compile("|".join(re.escape(key) for key in replacements.keys()))
+
+        return lambda text: pattern.sub(lambda m: replacements[m.group(0)], text)
 
 
 class TargetCheck(Check):
     """Basic class for target checks."""
+
     target = True
 
-    def check_target_unit_with_flag(self, sources, targets, unit):
-        """We don't check flag value here."""
-        return False
-
-    def check_source(self, source, unit):
+    def check_source_unit(self, source, unit):
         """We don't check source strings here."""
         return False
 
@@ -151,32 +190,35 @@ class TargetCheck(Check):
 
 class SourceCheck(Check):
     """Basic class for source checks."""
-    source = True
 
-    def check_target_unit_with_flag(self, sources, targets, unit):
-        """We don't check flag value here."""
-        return False
+    source = True
 
     def check_single(self, source, target, unit):
         """We don't check target strings here."""
         return False
 
-    def check_source(self, source, unit):
-        """Check source string"""
+    def check_source_unit(self, source, unit):
+        """Check source string."""
         raise NotImplementedError()
 
 
 class TargetCheckParametrized(Check):
     """Basic class for target checks with flag value."""
+
     default_disabled = True
     target = True
 
-    def check_target(self, sources, targets, unit):
-        """Check flag value"""
+    def get_value(self, unit):
+        return unit.all_flags.get_value(self.enable_string)
+
+    def has_value(self, unit):
+        return unit.all_flags.has_value(self.enable_string)
+
+    def check_target_unit(self, sources, targets, unit):
+        """Check flag value."""
         if unit.all_flags.has_value(self.enable_string):
             return self.check_target_params(
-                sources, targets, unit,
-                unit.all_flags.get_value(self.enable_string)
+                sources, targets, unit, self.get_value(unit)
             )
         return False
 
@@ -187,14 +229,15 @@ class TargetCheckParametrized(Check):
         """We don't check single phrase here."""
         return False
 
-    def check_source(self, source, unit):
+    def check_source_unit(self, source, unit):
         """We don't check source strings here."""
         return False
 
 
 class CountingCheck(TargetCheck):
     """Check whether there is same count of given string."""
-    string = None
+
+    string = ""
 
     def check_single(self, source, target, unit):
         if not target or not source:

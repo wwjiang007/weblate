@@ -1,40 +1,51 @@
+.. _management-interface:
+
+Management interface
+====================
+
+The management interface offer administration settings under the
+:file:`/management/` URL. It is available for users signed in with admin
+privileges, accessible by using the wrench icon top right:
+
+.. image:: /images/support.png
+
+
 .. _admin-interface:
 
-Django admin interface
-======================
+The Django admin interface
+++++++++++++++++++++++++++
 
-Administration of Weblate is done through standard Django admin interface,
-which is available under :file:`/admin/` URL. Once logged in as user with
-proper privileges, you can access it using the wrench icon in top navigation:
+.. warning::
 
-.. image:: /images/admin-wrench.png
+   Will be removed in the future,
+   as its use is discouraged—most features can be managed directly in Weblate.
 
 Here you can manage objects stored in the database, such as users, translations
 and other settings:
 
 .. image:: /images/admin.png
 
-In the :guilabel:`Reports` section you can check the status of your site, tweak
-it for :ref:`production` or manage SSH keys to access :ref:`vcs-repos`.
+In the :guilabel:`Reports` section, you can check the status of your site, tweak
+it for :ref:`production`, or manage SSH keys used to access :ref:`vcs-repos`.
 
-With all sections below you can manage database objects. The most interesting one is
-probably :guilabel:`Weblate translations`, where you can manage translatable
-projects, see :ref:`project` and :ref:`component`.
+Manage database objects under any of the sections.
+The most interesting one is probably :guilabel:`Weblate translations`,
+where you can manage translatable projects, see :ref:`project` and :ref:`component`.
 
-Another section, :guilabel:`Weblate languages` holds language definitions, see
-:ref:`languages` for more details.
+:guilabel:`Weblate languages` holds language definitions, explained further in
+:ref:`languages`.
 
-Adding project
---------------
+Adding a project
+----------------
 
-First you have to add project, which will serve as container for all
-components. Usually you create one project for one piece of software or book
-(see :ref:`project` for information on individual parameters):
+Adding a project serves as container for all components.
+Usually you create one project for one piece of software, or book
+(See :ref:`project` for info on individual parameters):
 
 .. image:: /images/add-project.png
 
-.. seealso:: 
-   
+.. seealso::
+
    :ref:`project`
 
 .. _bilingual:
@@ -42,13 +53,13 @@ components. Usually you create one project for one piece of software or book
 Bilingual components
 --------------------
 
-Once you have added a project, you can add translation components to it
-(see :ref:`component` for information on individual parameters):
+Once you have added a project, translation components can be added to it.
+(See :ref:`component` for info regarding individual parameters):
 
 .. image:: /images/add-component.png
 
-.. seealso:: 
-   
+.. seealso::
+
    :ref:`component`,
    :ref:`bimono`
 
@@ -57,13 +68,13 @@ Once you have added a project, you can add translation components to it
 Monolingual components
 ----------------------
 
-For easier translating of monolingual formats, you should provide a template
-file, which contains mapping of message IDs to source language (usually
-English) (see :ref:`component` for information on individual parameters):
+For easier translation of these, provide a template file containing the
+mapping of message IDs to its respective source language (usually English).
+(See :ref:`component` for info regarding individual parameters):
 
 .. image:: /images/add-component-mono.png
 
-.. seealso:: 
-   
+.. seealso::
+
    :ref:`component`,
    :ref:`bimono`

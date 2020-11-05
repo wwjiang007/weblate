@@ -1,2 +1,5 @@
 {% load i18n %}
-<a {% if right %}class="pull-right flip"{% endif %} href="{{ doc_url }}" title="{% trans "Documentation" %}"><i class="fa fa-question-circle" aria-hidden="true"></i></a>
+{% load icons %}
+{% if doc_url %}
+<a {% if right %}class="pull-right flip doc-link"{% endif %} href="{{ doc_url }}" title="{% trans "Documentation" %}" target="_blank">{% icon "info.svg" %}</a>
+{% endif %}

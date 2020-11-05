@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,23 +18,22 @@
 #
 """Plain text file formats."""
 
-from __future__ import unicode_literals
-
 import os
 from collections import OrderedDict
 from glob import glob
 from itertools import chain
+from typing import List, Optional, Tuple, Union
 
-import six
 from django.utils.functional import cached_property
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.formats.base import TranslationFormat, TranslationUnit
 from weblate.utils.errors import report_error
 
 
-class TextItem(object):
+class TextItem:
     """Actual text unit object."""
+
     def __init__(self, filename, line, text, flags=None):
         self.filename = filename
         self.line = line
@@ -44,17 +42,18 @@ class TextItem(object):
 
     @cached_property
     def location(self):
-        return '{}:{}'.format(self.filename, self.line)
+        return "{}:{}".format(self.filename, self.line)
 
     def getid(self):
         return self.location
 
 
-class TextParser(object):
+class TextParser:
     """Simple text parser returning all content as single unit."""
+
     def __init__(self, storefile, filename=None, flags=None):
-        with open(storefile, 'rb') as handle:
-            content = handle.read().decode('utf-8')
+        with open(storefile, "r") as handle:
+            content = handle.read()
         if filename:
             self.filename = filename
         else:
@@ -62,28 +61,28 @@ class TextParser(object):
         self.units = [TextItem(self.filename, 1, content.strip(), flags)]
 
 
-class TextSerializer(object):
+class TextSerializer:
     def __init__(self, filename, units):
         self.units = [unit for unit in units if unit.filename == filename]
 
     def __call__(self, handle):
         for unit in self.units:
-            handle.write(unit.text.encode('utf-8'))
-            handle.write(b'\n')
+            handle.write(unit.text.encode())
+            handle.write(b"\n")
 
 
-class MultiParser(object):
-    filenames = ()
+class MultiParser:
+    filenames: Tuple[Tuple[str, str], ...] = ()
 
     def __init__(self, storefile):
-        if not isinstance(storefile, six.string_types):
-            raise ValueError('Needs string as a storefile!')
+        if not isinstance(storefile, str):
+            raise ValueError("Needs string as a storefile!")
 
         self.base = storefile
         self.parsers = self.load_parser()
-        self.units = list(chain.from_iterable(
-            parser.units for parser in self.parsers.values()
-        ))
+        self.units = list(
+            chain.from_iterable(parser.units for parser in self.parsers.values())
+        )
 
     def file_key(self, filename):
         return filename
@@ -107,25 +106,25 @@ class MultiParser(object):
 
 class AppStoreParser(MultiParser):
     filenames = (
-        ('title.txt', 'max-length:30'),
-        ('short[_-]description.txt', 'max-length:80'),
-        ('full[_-]description.txt', 'max-length:4000'),
-        ('subtitle.txt', 'max-length:80'),
-        ('description.txt', 'max-length:4000'),
-        ('keywords.txt', 'max-length:100'),
-        ('video.txt', 'max-length:256, url'),
-        ('marketing_url.txt', 'max-length:256, url'),
-        ('privacy_url.txt', 'max-length:256, url'),
-        ('support_url.txt', 'max-length:256, url'),
-        ('changelogs/*.txt', 'max-length:500'),
-        ('*.txt', ''),
+        ("title.txt", "max-length:30"),
+        ("short[_-]description.txt", "max-length:80"),
+        ("full[_-]description.txt", "max-length:4000"),
+        ("subtitle.txt", "max-length:80"),
+        ("description.txt", "max-length:4000"),
+        ("keywords.txt", "max-length:100"),
+        ("video.txt", "max-length:256, url"),
+        ("marketing_url.txt", "max-length:256, url"),
+        ("privacy_url.txt", "max-length:256, url"),
+        ("support_url.txt", "max-length:256, url"),
+        ("changelogs/*.txt", "max-length:500"),
+        ("*.txt", ""),
     )
 
     def file_key(self, filename):
-        parts = filename.rsplit('changelogs/', 1)
+        parts = filename.rsplit("changelogs/", 1)
         if len(parts) == 2:
             try:
-                return -int(parts[1].split('.')[0])
+                return -int(parts[1].split(".")[0])
             except ValueError:
                 pass
         return filename
@@ -148,7 +147,7 @@ class TextUnit(TranslationUnit):
     def target(self):
         """Return target string from a ttkit unit."""
         if self.unit is None:
-            return ''
+            return ""
         return self.unit.text
 
     @cached_property
@@ -161,7 +160,7 @@ class TextUnit(TranslationUnit):
         """Return flags from unit."""
         if self.mainunit.flags:
             return self.mainunit.flags
-        return ''
+        return ""
 
     def set_target(self, target):
         """Set translation unit target."""
@@ -178,19 +177,19 @@ class TextUnit(TranslationUnit):
 
 
 class AppStoreFormat(TranslationFormat):
-    name = _('App store metadata files')
-    format_id = 'appstore'
+    name = _("App store metadata files")
+    format_id = "appstore"
     can_add_unit = False
     monolingual = True
     unit_class = TextUnit
     simple_filename = False
 
     @classmethod
-    def load(cls, storefile):
+    def load(cls, storefile, template_store):
         return AppStoreParser(storefile)
 
-    def create_unit(self, key, source):
-        raise ValueError('Create not supported')
+    def create_unit(self, key: str, source: Union[str, List[str]]):
+        raise ValueError("Create not supported")
 
     @classmethod
     def create_new_file(cls, filename, language, base):
@@ -208,14 +207,11 @@ class AppStoreFormat(TranslationFormat):
                 continue
             self.save_atomic(
                 self.store.get_filename(unit.filename),
-                TextSerializer(unit.filename, self.store.units)
+                TextSerializer(unit.filename, self.store.units),
             )
 
     def get_filenames(self):
-        return [
-            self.store.get_filename(unit.filename)
-            for unit in self.store.units
-        ]
+        return [self.store.get_filename(unit.filename) for unit in self.store.units]
 
     @classmethod
     def get_class(cls):
@@ -229,6 +225,11 @@ class AppStoreFormat(TranslationFormat):
         try:
             AppStoreParser(base)
             return True
-        except Exception as error:
-            report_error(error, prefix='File parse error')
+        except Exception:
+            report_error(cause="File parse error")
             return False
+
+    def delete_unit(self, ttkit_unit) -> Optional[str]:
+        filename = self.store.get_filename(ttkit_unit.filename)
+        os.unlink(filename)
+        return filename

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,17 +16,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-from __future__ import unicode_literals
 
 from django.apps import AppConfig
 from django.db.models.signals import post_migrate
 
 
 class AuthConfig(AppConfig):
-    name = 'weblate.auth'
-    label = 'weblate_auth'
-    verbose_name = 'Authentication'
+    name = "weblate.auth"
+    label = "weblate_auth"
+    verbose_name = "Authentication"
 
     def ready(self):
         from weblate.auth.models import sync_create_groups
+
         post_migrate.connect(sync_create_groups, sender=self)

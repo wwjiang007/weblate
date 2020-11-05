@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,32 +17,30 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from weblate.accounts.tasks import cleanup_social_auth
 from weblate.screenshots.tasks import cleanup_screenshot_files
 from weblate.trans.models import Project
 from weblate.trans.tasks import (
-    cleanup_fulltext,
     cleanup_old_comments,
     cleanup_old_suggestions,
     cleanup_project,
     cleanup_stale_repos,
     cleanup_suggestions,
 )
+from weblate.utils.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = 'clenups orphaned checks and suggestions'
+    help = "clenups orphaned checks and suggestions"
 
     def handle(self, *args, **options):
         """Perfom cleanup of Weblate database."""
-        cleanup_fulltext()
         cleanup_screenshot_files()
         with transaction.atomic():
             cleanup_social_auth()
-        for project in Project.objects.values_list('id', flat=True):
+        for project in Project.objects.values_list("id", flat=True):
             cleanup_project(project)
         cleanup_suggestions()
         cleanup_stale_repos()

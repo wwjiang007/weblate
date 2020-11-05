@@ -7,7 +7,7 @@ provided. The reporting tool is found in the :guilabel:`Insights` menu of any
 translation component, project or on the dashboard:
 
 .. image:: /images/reporting.png
-    
+
 Several reporting tools are available on this page and all can produce output
 in HTML, reStructuredText or JSON. The first two formats are suitable for
 embedding statistics into existing documentation, while JSON is useful for further
@@ -25,24 +25,28 @@ and lists all contributors to a given language:
 
     * Czech
 
-        * Michal Čihař <michal@cihar.com>
-        * John Doe <john@example.com>
+        * Michal Čihař <michal@cihar.com> (10)
+        * John Doe <john@example.com> (5)
 
     * Dutch
 
-        * Jane Doe <jane@example.com>
+        * Jane Doe <jane@example.com> (42)
 
 
 It will render as:
 
     * Czech
 
-        * Michal Čihař <michal@cihar.com>
-        * John Doe <john@example.com>
+        * Michal Čihař <michal@cihar.com> (10)
+        * John Doe <john@example.com> (5)
 
     * Dutch
 
-        * Jae Doe <jane@example.com>
+        * Jae Doe <jane@example.com> (42)
+
+.. hint::
+
+    The number in parenthesis indicates number of contributions in given period.
 
 .. _stats:
 
@@ -54,7 +58,6 @@ Generates the number of translated words and strings by translator name:
 
 .. literalinclude:: reporting-example.rst
     :language: rst
-    :encoding: utf-8
 
 And it will get rendered as:
 
@@ -70,7 +73,7 @@ All stats are available in three variants:
 `New`
    Newly translated strings which didn't have translation before.
 `Approved`
-   Count for string approavals in review workflow (see :ref:`reviews`).
+   Count for string approvals in review workflow (see :ref:`reviews`).
 `Edited`
    Edited strings which had translation before.
 
@@ -78,11 +81,13 @@ The following metrics are available for each:
 
 `Count`
    Number of strings.
+`Edits`
+   Number of edits in the string, measured in Damerau–Levenshtein distance.
 `Source words`
    Number of words in the source string.
-`Source chars`
-   Number of chars in the source string.
+`Source characters`
+   Number of characters in the source string.
 `Target words`
    Number of words in the translated string.
-`Target chars`
-   Number of chars in the translated string.
+`Target characters`
+   Number of characters in the translated string.

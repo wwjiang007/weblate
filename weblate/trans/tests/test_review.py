@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,9 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-"""
-Tests for review workflow.
-"""
+"""Tests for review workflow."""
 
 from weblate.trans.tests.test_views import ViewTestCase
 from weblate.utils.state import STATE_APPROVED
@@ -28,13 +25,13 @@ from weblate.utils.state import STATE_APPROVED
 
 class ReviewTest(ViewTestCase):
     def setUp(self):
-        super(ReviewTest, self).setUp()
-        self.project.enable_review = True
+        super().setUp()
+        self.project.translation_review = True
         self.project.save()
 
     def approve(self):
         unit = self.get_unit()
-        unit.target = 'Ahoj svete!\n'
+        unit.target = "Ahoj svete!\n"
         unit.state = STATE_APPROVED
         unit.save()
 
@@ -42,27 +39,20 @@ class ReviewTest(ViewTestCase):
         unit = self.get_unit()
         if fail:
             self.assertTrue(unit.approved)
-            self.assertEqual(unit.target, 'Ahoj svete!\n')
+            self.assertEqual(unit.target, "Ahoj svete!\n")
         else:
             self.assertFalse(unit.approved)
-            self.assertEqual(unit.target, 'Nazdar svete!\n')
+            self.assertEqual(unit.target, "Nazdar svete!\n")
 
     def test_approve(self):
         self.make_manager()
-        self.edit_unit(
-            'Hello, world!\n',
-            'Nazdar svete!\n',
-            review=str(STATE_APPROVED),
-        )
+        self.edit_unit("Hello, world!\n", "Nazdar svete!\n", review=str(STATE_APPROVED))
         unit = self.get_unit()
         self.assertTrue(unit.approved)
 
     def test_edit_approved(self, fail=True):
         self.approve()
-        self.edit_unit(
-            'Hello, world!\n',
-            'Nazdar svete!\n',
-        )
+        self.edit_unit("Hello, world!\n", "Nazdar svete!\n")
         self.check_result(fail)
 
     def test_edit_reviewer(self):
@@ -71,21 +61,13 @@ class ReviewTest(ViewTestCase):
 
     def test_suggest(self, fail=True):
         self.approve()
-        self.edit_unit(
-            'Hello, world!\n',
-            'Nazdar svete!\n',
-            suggest='yes'
-        )
+        self.edit_unit("Hello, world!\n", "Nazdar svete!\n", suggest="yes")
 
         # Get ids of created suggestions
         suggestion = self.get_unit().suggestions[0].pk
 
         # Accept one of suggestions
-        self.edit_unit(
-            'Hello, world!\n',
-            '',
-            accept_edit=suggestion,
-        )
+        self.edit_unit("Hello, world!\n", "", accept_edit=suggestion)
         self.check_result(fail)
 
     def test_suggest_reviewr(self):

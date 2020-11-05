@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,8 +17,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
-
 import json
 
 from django.conf import settings
@@ -30,77 +27,81 @@ from weblate.machinery.base import (
     MissingConfiguration,
 )
 
-GOOGLE_API_ROOT = 'https://translation.googleapis.com/language/translate/v2/'
+GOOGLE_API_ROOT = "https://translation.googleapis.com/language/translate/v2/"
 
 
-class GoogleTranslation(MachineTranslation):
-    """Google Translate API v2 machine translation support."""
-    name = 'Google Translate'
-    max_score = 90
-
-    # Map old codes used by Google to new ones used by Weblate
+class GoogleBaseTranslation(MachineTranslation):
+    # Map codes used by Google to the ones used by Weblate
     language_map = {
-        'he': 'iw',
-        'jv': 'jw',
-        'nb': 'no',
+        "nb": "no",
+        "fil": "tl",
+        "zh_Hant": "zh-TW",
+        "zh_Hans": "zh-CN",
     }
+
+    def map_language_code(self, code):
+        """Convert language to service specific code."""
+        return super().map_language_code(code).replace("_", "-").split("@")[0]
+
+
+class GoogleTranslation(GoogleBaseTranslation):
+    """Google Translate API v2 machine translation support."""
+
+    name = "Google Translate"
+    max_score = 90
 
     def __init__(self):
         """Check configuration."""
-        super(GoogleTranslation, self).__init__()
+        super().__init__()
         if settings.MT_GOOGLE_KEY is None:
-            raise MissingConfiguration(
-                'Google Translate requires API key'
-            )
-
-    def convert_language(self, language):
-        """Convert language to service specific code."""
-        return super(GoogleTranslation, self).convert_language(
-            language.replace('_', '-').split('@')[0]
-        )
+            raise MissingConfiguration("Google Translate requires API key")
 
     def download_languages(self):
         """List of supported languages."""
-        response = self.json_req(
-            GOOGLE_API_ROOT + 'languages',
-            key=settings.MT_GOOGLE_KEY
+        response = self.request(
+            "get", GOOGLE_API_ROOT + "languages", params={"key": settings.MT_GOOGLE_KEY}
         )
+        payload = response.json()
 
-        if 'error' in response:
-            raise MachineTranslationError(response['error']['message'])
+        if "error" in payload:
+            raise MachineTranslationError(payload["error"]["message"])
 
-        return [d['language'] for d in response['data']['languages']]
+        return [d["language"] for d in payload["data"]["languages"]]
 
-    def download_translations(self, source, language, text, unit, request):
+    def download_translations(self, source, language, text, unit, user, search):
         """Download list of possible translations from a service."""
-        response = self.json_req(
+        response = self.request(
+            "get",
             GOOGLE_API_ROOT,
-            key=settings.MT_GOOGLE_KEY,
-            q=text,
-            source=source,
-            target=language,
-            format='text',
+            params={
+                "key": settings.MT_GOOGLE_KEY,
+                "q": text,
+                "source": source,
+                "target": language,
+                "format": "text",
+            },
         )
+        payload = response.json()
 
-        if 'error' in response:
-            raise MachineTranslationError(response['error']['message'])
+        if "error" in payload:
+            raise MachineTranslationError(payload["error"]["message"])
 
-        translation = response['data']['translations'][0]['translatedText']
+        translation = payload["data"]["translations"][0]["translatedText"]
 
-        return [{
-            'text': translation,
-            'quality': self.max_score,
-            'service': self.name,
-            'source': text,
-        }]
+        yield {
+            "text": translation,
+            "quality": self.max_score,
+            "service": self.name,
+            "source": text,
+        }
 
     def get_error_message(self, exc):
-        if hasattr(exc, 'read'):
+        if hasattr(exc, "read"):
             content = exc.read()
             try:
                 data = json.loads(content)
-                return data['error']['message']
+                return data["error"]["message"]
             except Exception:
                 pass
 
-        return super(GoogleTranslation, self).get_error_message(exc)
+        return super().get_error_message(exc)

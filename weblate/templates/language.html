@@ -10,7 +10,7 @@
 
 {% block content %}
 
-{% whiteboard_messages language=object %}
+{% announcements language=object %}
 
 {% perm 'language.edit' as user_can_edit_language %}
 
@@ -18,15 +18,14 @@
   <li class="active"><a href="#overview" data-toggle="tab">{% trans "Projects" %}</a></li>
   <li><a href="#information" data-toggle="tab">{% trans "Information" %}</a></li>
   <li><a href="#history" data-toggle="tab">{% trans "History" %}</a></li>
-  <li><a href="#activity" data-toggle="tab" data-load="activity" data-yearly="{% url 'yearly_activity' lang=object.code %}" data-monthly="{% url 'monthly_activity' lang=object.code %}">{% trans "Activity" %}</a></li>
+  <li><a href="#activity" data-toggle="tab">{% trans "Activity" %}</a></li>
   <li><a href="#dicts" data-toggle="tab">{% trans "Glossaries" %}</a></li>
   <li class="dropdown">
     <a class="dropdown-toggle" data-toggle="dropdown" href="#">
       {% trans "Tools" %} <span class="caret"></span>
     </a>
     <ul class="dropdown-menu">
-      <li><a href="{% url 'checks' %}?language={{ object.code }}">{% trans "Failing checks" %}</a></li>
-      <li><a href="{% url 'checks' %}?language={{ object.code }}&amp;ignored=true">{% trans "Ignored checks" %}</a></li>
+      <li><a href="{% url 'checks' %}?lang={{ object.code }}">{% trans "Failing checks" %}</a></li>
       {% if user_can_edit_language %}
       <li role="separator" class="divider"></li>
       {% if not object.translation_set.exists %}
@@ -42,7 +41,7 @@
 
 <div class="tab-pane active" id="overview">
 
-{% include "snippets/list-objects.html" with show_admin_badge=True objects=projects name_template="snippets/list-language-project.html" label=_("Project") language=object global_base="stats" stats_attr="language_stats" %}
+{% include "snippets/list-objects.html" with show_admin_badge=True objects=projects name_source="project" label=_("Project") language=object global_base="stats" %}
 
 </div>
 
@@ -92,10 +91,13 @@
 <td>{{ item.examples }}</td>
 </tr>
 {% endfor %}
+{% else %}
+<td colspan="2"></td>
+</tr>
 {% endif %}
 <tr>
-<th>{% trans "Plural equation" %}</th>
-<td colspan="2"><code>{{ plural.equation }}</code></td>
+<th>{% trans "Plural formula" %}</th>
+<td colspan="2"><code>{{ plural.formula }}</code></td>
 </tr>
 {% endfor %}
 </table>
@@ -107,13 +109,15 @@
 <a class="btn btn-primary" href="{% url 'changes' %}?{{ last_changes_url }}">{% trans "Browse all language changes" %}</a>
 </div>
 
+{% url 'yearly_activity' lang=object.code as yearly_activity %}
+{% url 'monthly_activity' lang=object.code as monthly_activity %}
 {% include "activity-tab.html" %}
 
 <div class="tab-pane" id="dicts">
 {% if dicts %}
 <div class="list-group">
 {% for dict in dicts %}
-<a class="list-group-item" href="{% url 'show_dictionary' lang=object.code project=dict.slug %}">{{ dict }}</a>
+<a class="list-group-item" href="{% url 'show_glossary' lang=object.code project=dict.slug %}">{{ dict }}</a>
 {% endfor %}
 </div>
 {% else %}

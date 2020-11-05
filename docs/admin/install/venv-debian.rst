@@ -9,8 +9,8 @@ Installing on Debian and Ubuntu
 
    apt install \
       libxml2-dev libxslt-dev libfreetype6-dev libjpeg-dev libz-dev libyaml-dev \
-      libcairo-dev gir1.2-pango-1.0 libgirepository1.0-dev \
-      build-essential python3-gdbm python3-dev python3-pip python3-virtualenv virtualenv
+      libcairo-dev gir1.2-pango-1.0 libgirepository1.0-dev libacl1-dev libssl-dev \
+      build-essential python3-gdbm python3-dev python3-pip python3-virtualenv virtualenv git
 
 .. include:: steps/install-system-optional.rst
 
@@ -32,7 +32,7 @@ Installing on Debian and Ubuntu
     apt install redis-server
 
     # Database server: PostgreSQL
-    apt install postgresql
+    apt install postgresql postgresql-contrib
 
     # SMTP server
     apt install exim4

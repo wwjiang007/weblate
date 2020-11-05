@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,34 +17,38 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from weblate.machinery.base import MachineTranslation
 
 
 class DummyTranslation(MachineTranslation):
     """Dummy machine translation for testing purposes."""
-    name = 'Dummy'
+
+    name = "Dummy"
 
     def download_languages(self):
         """Dummy translation supports just Czech language."""
-        return ('en', 'cs')
+        return ("en", "cs")
 
-    def download_translations(self, source, language, text, unit, request):
+    def download_translations(self, source, language, text, unit, user, search):
         """Dummy translation supports just single phrase."""
-        if source == 'en' and text.strip() == 'Hello, world!':
-            return [
-                {
-                    'text': 'Nazdar světe!',
-                    'quality': self.max_score,
-                    'service': 'Dummy',
-                    'source': text,
-                },
-                {
-                    'text': 'Ahoj světe!',
-                    'quality': self.max_score,
-                    'service': 'Dummy',
-                    'source': text
-                },
-            ]
-        return []
+        if source == "en" and text.strip() == "Hello, world!":
+            yield {
+                "text": "Nazdar světe!",
+                "quality": self.max_score,
+                "service": "Dummy",
+                "source": text,
+            }
+            yield {
+                "text": "Ahoj světe!",
+                "quality": self.max_score,
+                "service": "Dummy",
+                "source": text,
+            }
+        if source == "en" and text.strip() == "Hello, [7]!":
+            yield {
+                "text": "Nazdar [7]!",
+                "quality": self.max_score,
+                "service": "Dummy",
+                "source": text,
+            }

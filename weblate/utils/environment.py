@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,33 +17,47 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 import os
+from typing import Dict, List, Optional
 
 
-def get_env_list(name, default=None):
+def get_env_list(name: str, default: Optional[List[str]] = None) -> List[str]:
     """Helper to get list from environment."""
     if name not in os.environ:
         return default or []
-    return os.environ[name].split(',')
+    return os.environ[name].split(",")
 
 
-def get_env_map(name, default=None):
-    """
-    Helper to get mapping from environment.
+def get_env_map(name: str, default: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    """Helper to get mapping from environment.
 
-    parses 'full_name:name,email:mail'
-    into {'email': 'mail', 'full_name': 'name'}
+    parses 'full_name:name,email:mail' into {'email': 'mail', 'full_name': 'name'}
     """
     if os.environ.get(name):
-        return dict(e.split(':') for e in os.environ[name].split(','))
+        return dict(e.split(":") for e in os.environ[name].split(","))
     return default or {}
 
 
-def get_env_bool(name, default=False):
+def get_env_int(name: str, default: int = 0) -> int:
+    """Helper to get integer value from environment."""
+    if name not in os.environ:
+        return default
+    return int(os.environ[name])
+
+
+def get_env_bool(name: str, default: bool = False) -> bool:
     """Helper to get boolean value from environment."""
     if name not in os.environ:
         return default
-    true_values = {'true', 'yes', '1'}
+    true_values = {"true", "yes", "1"}
     return os.environ[name].lower() in true_values
+
+
+def modify_env_list(current: List[str], name: str) -> List[str]:
+    """Helper to modify list (for example checks)."""
+    for item in reversed(get_env_list("WEBLATE_ADD_{}".format(name))):
+        current.insert(0, item)
+    for item in get_env_list("WEBLATE_REMOVE_{}".format(name)):
+        current.remove(item)
+    return current

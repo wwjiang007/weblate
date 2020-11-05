@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,8 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-"""
-WSGI config for weblate project.
+"""WSGI config for weblate project.
 
 This module contains the WSGI application used by Django's development server
 and any production WSGI deployments. It should expose a module-level variable
@@ -31,7 +29,6 @@ might make sense to replace the whole Django WSGI application with a custom one
 that later delegates to the Django one. For example, you could introduce WSGI
 middleware here, or combine a Django application with an application of another
 framework.
-
 """
 import os
 
@@ -43,10 +40,3 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "weblate.settings")
 # file. This includes Django's development server, if the WSGI_APPLICATION
 # setting points here.
 application = get_wsgi_application()
-
-# Apply Sentry middleware
-try:
-    from raven.contrib.django.raven_compat.middleware.wsgi import Sentry
-    application = Sentry(get_wsgi_application())
-except ImportError:
-    pass

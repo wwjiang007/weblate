@@ -1,19 +1,23 @@
 {% load translations %}
 {% load i18n %}
-{% load static %}
 {% load crispy_forms_tags %}
+{% load permissions %}
+{% load icons %}
 
 {% for item in unitdata %}
 <tbody class="zen-unit">
 
 
 <tr id="row-status-{{ item.unit.checksum }}">
-<td>{{ item.unit.position }}</td>
+<td>
+{{ item.unit.position }}
+{% include "snippets/unit-readonly-badge.html" with unit=item.unit %}
+</td>
 <td colspan="2">
-<a href="{% url 'translate' project=object.component.project.slug component=object.component.slug lang=object.language.code %}?{{ search_url }}&amp;offset={{ item.offset }}" class="btn btn-xs btn-primary pull-right flip" title="{% trans "Open in full editor" %}"><i class="fa fa-pencil"></i> {% trans "Edit" %}</a>
+<a href="{% url 'translate' project=project.slug component=object.component.slug lang=object.language.code %}?{{ search_url }}&amp;offset={{ item.offset }}" class="btn btn-link btn-xs pull-right flip" title="{% trans "Open in full editor" %}">{% icon "pencil.svg" %}</a>
 {% if item.unit.context %}
 <div class="pull-right flip zen-context">
-<label>{% trans "Context:" %}</label>
+<label>{{ unit.translation.component.context_label }}</label>
 {{ item.unit.context }}
 </div>
 {% endif %}
@@ -22,12 +26,29 @@
 </tr>
 
 
-{% if item.unit.comment %}
-<tr id="row-comment-{{ item.unit.checksum }}">
+{% if item.unit.note %}
+<tr id="row-note-{{ item.unit.checksum }}">
 <td></td>
 <td colspan="2" class="translatetext">
     <label>{% trans "Source string comment" %}</label>
-    {% format_translation item.unit.comment item.unit.translation.component.project.source_language %}
+    {{ unit.note }}
+</td>
+</tr>
+{% endif %}
+
+
+{% if item.unit.source_unit.explanation %}
+<tr id="row-explanation-{{ item.unit.checksum }}">
+<td></td>
+<td colspan="2" class="translatetext">
+    <label>{% trans "Explanation" %}</label>
+    <div class="list-group">
+        <div class="list-group-item">
+            <div class="list-group-item-text">
+                {{ item.unit.source_unit.explanation|markdown }}
+            </div>
+        </div>
+    </div>
 </td>
 </tr>
 {% endif %}
@@ -36,8 +57,8 @@
 <tr id="row-source-{{ item.unit.checksum }}">
 <td>
 {% if user.profile.zen_mode == user.profile.ZEN_HORIZONTAL %}
-<i id="loading-{{ item.unit.checksum }}" class="fa fa-spinner fa-spin" style="display: none"></i>
-<i id="status-{{ item.unit.checksum }}"></i>
+{% loading_icon item.unit.checksum %}
+<span id="status-{{ item.unit.checksum }}">{% get_state_flags item.unit %}</span>
 {% endif %}
 </td>
 <td {% if user.profile.zen_mode != user.profile.ZEN_HORIZONTAL %}colspan="2"{% endif %} class="translatetext">
@@ -45,8 +66,14 @@
 {% if item.secondary %}
 {% for unit in item.secondary %}
 <div class="form-group">
-<label>{{ unit.translation.language }}</label>
-{% format_translation unit.target unit.translation.language unit.translation.plural %}
+<label>
+    {{ unit.translation.language }}
+    {% perm 'unit.edit' unit as user_can_edit_secondary %}
+    {% if user_can_edit_secondary %}
+    <a title="{% trans "Edit string" %}"href="{{ unit.get_absolute_url }}" class="btn btn-link btn-xs">{% icon "pencil.svg" %}</a>
+    {% endif %}
+</label>
+{% format_translation unit.target unit.translation.language unit.translation.plural unit=unit %}
 </div>
 {% endfor %}
 {% endif %}
@@ -54,12 +81,19 @@
 {% if item.unit.previous_source and item.unit.fuzzy %}
 <div class="form-group">
 <label>{% trans "Source change" %}</label>
-{% format_translation item.unit.source item.unit.translation.component.project.source_language diff=item.unit.previous_source num_plurals=item.unit.translation.plural.number %}
+{% format_translation item.unit.source item.unit.translation.component.source_language diff=item.unit.previous_source num_plurals=item.unit.translation.plural.number %}
 </div>
 {% endif %}
 
 {% if not user.profile.hide_source_secondary or not item.secondary %}
-{% format_translation item.unit.source item.unit.translation.component.project.source_language search_match=search_query num_plurals=item.unit.translation.plural.number unit=item.unit %}
+<div class="form-group">
+<label>
+    {{ item.unit.translation.component.source_language }}
+    {% perm 'unit.edit' item.unit.source_unit as user_can_edit_template %}
+    <a title="{% trans "Edit source string" %}"href="{{ item.unit.source_unit.get_absolute_url }}" class="btn btn-link btn-xs">{% icon "pencil.svg" %}</a>
+</label>
+{% format_translation item.unit.source item.unit.translation.component.source_language search_match=search_query num_plurals=item.unit.translation.plural.number unit=item.unit %}
+</div>
 {% endif %}
 
 </td>
@@ -70,8 +104,8 @@
 
 <tr id="row-edit-{{ item.unit.checksum }}">
 <td>
-<i id="loading-{{ item.unit.checksum }}" class="fa fa-spinner fa-spin" style="display: none"></i>
-<i id="status-{{ item.unit.checksum }}"></i>
+{% loading_icon item.unit.checksum %}
+<span id="status-{{ item.unit.checksum }}">{% get_state_flags item.unit %}</span>
 </td>
 {% endif %}
 <td {% if user.profile.zen_mode != user.profile.ZEN_HORIZONTAL %}colspan="2"{% endif %} class="translator">

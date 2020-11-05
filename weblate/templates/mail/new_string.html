@@ -3,7 +3,7 @@
 {% load i18n %}{% load translations %}
 
 {% block content %}
-<p>
-{% blocktrans %}There are new strings to translate on {{ translation }} at {{ site_title }}.{% endblocktrans %}
-</p>
+<div class="line buttons">
+    <a class="button" href="{{ change.get_absolute_url }}">{% trans "View" %}</a>
+</div>
 {% endblock %}

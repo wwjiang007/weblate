@@ -1,31 +1,23 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
-from __future__ import print_function
+from importlib.util import module_from_spec, spec_from_file_location
 
-import imp
-import json
+import requests
+from icu import Locale
 
-from six.moves.urllib.request import urlopen
-
-import PyICU
-
-URL = "http://hosted.weblate.org/exports/stats/weblate/master/"
+URL = "http://hosted.weblate.org/exports/stats/weblate/application/"
 THRESHOLD = 40
 
 
 def print_language(lang, fmt="{0} ({1})"):
     """Print language code with its name."""
-    locale = PyICU.Locale(lang)
-    print(fmt.format(lang, locale.getDisplayName(locale).capitalize().encode("utf-8")))
+    locale = Locale(lang)
+    print(fmt.format(lang, locale.getDisplayName(locale).capitalize()))
 
 
 def main():
-    # load data
-    handle = urlopen(URL)
-    data = handle.read()
-    handle.close()
-    # parse data
-    data = json.loads(data)
+    # load and parse data
+    data = requests.get(URL).json()
 
     # select languages
     languages = []
@@ -48,7 +40,9 @@ def main():
     languages.add("en")
     # load settings
     extra = set()
-    settings = imp.load_source("settings", "./weblate/settings_example.py")
+    spec = spec_from_file_location("settings", "./weblate/settings_example.py")
+    settings = module_from_spec(spec)
+    spec.loader.exec_module(settings)
     for lang in settings.LANGUAGES:
         if lang[0] in languages:
             languages.remove(lang[0])

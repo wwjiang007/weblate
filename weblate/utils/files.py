@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,25 +18,37 @@
 #
 
 import os
+import shutil
 import stat
 
 from django.conf import settings
 
-DEFAULT_DATA_DIR = os.path.join(settings.BASE_DIR, 'data')
-DEFAULT_TEST_DIR = os.path.join(settings.BASE_DIR, 'data-test')
-BUILD_DIR = os.path.join(settings.BASE_DIR, 'build')
-VENV_DIR = os.path.join(settings.BASE_DIR, '.venv')
-DOCS_DIR = os.path.join(settings.BASE_DIR, 'docs')
-SCRIPTS_DIR = os.path.join(settings.BASE_DIR, 'scripts')
-EXAMPLES_DIR = os.path.join(settings.BASE_DIR, 'weblate', 'examples')
+DEFAULT_DATA_DIR = os.path.join(settings.BASE_DIR, "data")
+DEFAULT_TEST_DIR = os.path.join(settings.BASE_DIR, "data-test")
+BUILD_DIR = os.path.join(settings.BASE_DIR, "build")
+VENV_DIR = os.path.join(settings.BASE_DIR, ".venv")
+DOCS_DIR = os.path.join(settings.BASE_DIR, "docs")
+SCRIPTS_DIR = os.path.join(settings.BASE_DIR, "scripts")
+EXAMPLES_DIR = os.path.join(settings.BASE_DIR, "weblate", "examples")
 
 
 def remove_readonly(func, path, excinfo):
     """Clear the readonly bit and reattempt the removal."""
     if isinstance(excinfo[1], FileNotFoundError):
         return
-    os.chmod(path, stat.S_IWRITE)
-    func(path)
+    if os.path.isdir(path):
+        os.chmod(path, stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC)
+    else:
+        os.chmod(path, stat.S_IREAD | stat.S_IWRITE)
+    if func in (os.open, os.lstat, os.rmdir):
+        # Failed to remove a directory
+        remove_tree(path)
+    else:
+        func(path)
+
+
+def remove_tree(path: str, ignore_errors: bool = False):
+    shutil.rmtree(path, ignore_errors=ignore_errors, onerror=remove_readonly)
 
 
 def should_skip(location):

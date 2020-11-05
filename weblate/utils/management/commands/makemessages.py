@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -25,8 +24,4 @@ from weblate.utils.files import should_skip
 
 class Command(BaseCommand):
     def find_files(self, root):
-        return [
-            obj
-            for obj in super(Command, self).find_files(root)
-            if not should_skip(obj.path)
-        ]
+        return [obj for obj in super().find_files(root) if not should_skip(obj.path)]

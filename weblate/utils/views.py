@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,36 +22,47 @@ import os
 from time import mktime
 from zipfile import ZipFile
 
+from django.conf import settings
 from django.core.paginator import EmptyPage, Paginator
-from django.http import Http404, HttpResponse, HttpResponseRedirect
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.utils.http import http_date
 from django.utils.translation import activate
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy, pgettext_lazy
 from django.views.generic.edit import FormView
 
-from weblate.formats.exporters import get_exporter
+from weblate.formats.models import EXPORTERS
 from weblate.trans.models import Component, Project, Translation
 from weblate.utils import messages
+from weblate.vcs.git import LocalRepository
+
+
+def get_percent_color(percent):
+    if percent >= 85:
+        return "#2eccaa"
+    if percent >= 50:
+        return "#38f"
+    return "#f6664c"
 
 
 def get_page_limit(request, default):
     """Return page and limit as integers."""
     try:
-        limit = int(request.GET.get('limit', default))
+        limit = int(request.GET.get("limit", default))
     except ValueError:
         limit = default
     # Cap it to range 10 - 2000
     limit = min(max(10, limit), 2000)
     try:
-        page = int(request.GET.get('page', 1))
+        page = int(request.GET.get("page", 1))
     except ValueError:
         page = 1
     page = max(1, page)
     return page, limit
 
 
-def get_paginator(request, object_list, default_page_limit=50):
+def get_paginator(request, object_list, default_page_limit=100):
     """Return paginator and current page."""
     page, limit = get_page_limit(request, default_page_limit)
     paginator = Paginator(object_list, limit)
@@ -62,24 +72,48 @@ def get_paginator(request, object_list, default_page_limit=50):
         return paginator.page(paginator.num_pages)
 
 
-class ComponentViewMixin(object):
+class ComponentViewMixin:
 
     # This should be done in setup once we drop support for older Django
     def get_component(self):
         return get_component(
-            self.request,
-            self.kwargs['project'],
-            self.kwargs['component']
+            self.request, self.kwargs["project"], self.kwargs["component"]
         )
 
 
-class ProjectViewMixin(object):
+class ProjectViewMixin:
     project = None
 
     # This should be done in setup once we drop support for older Django
     def dispatch(self, request, *args, **kwargs):
         self.project = get_project(self.request, self.kwargs["project"])
-        return super(ProjectViewMixin, self).dispatch(request, *args, **kwargs)
+        return super().dispatch(request, *args, **kwargs)
+
+
+SORT_CHOICES = {
+    "-priority,position": gettext_lazy("Position and priority"),
+    "position": gettext_lazy("Position"),
+    "priority": gettext_lazy("Priority"),
+    "labels": gettext_lazy("Labels"),
+    "timestamp": gettext_lazy("Age of string"),
+    "num_words": gettext_lazy("Number of words"),
+    "num_comments": gettext_lazy("Number of comments"),
+    "num_failing_checks": gettext_lazy("Number of failing checks"),
+    "context": pgettext_lazy("Translation key", "Key"),
+}
+
+SORT_LOOKUP = {key.replace("-", ""): value for key, value in SORT_CHOICES.items()}
+
+
+def get_sort_name(request):
+    """Gets sort name."""
+    sort_params = request.GET.get("sort_by", "-priority,position").replace("-", "")
+    sort_name = SORT_LOOKUP.get(sort_params, _("Position and priority"))
+    result = {
+        "query": request.GET.get("sort_by", "-priority,position"),
+        "name": sort_name,
+    }
+    return result
 
 
 def get_translation(request, project, component, lang, skip_acl=False):
@@ -88,10 +122,11 @@ def get_translation(request, project, component, lang, skip_acl=False):
         Translation.objects.prefetch(),
         language__code=lang,
         component__slug=component,
-        component__project__slug=project
+        component__project__slug=project,
     )
+
     if not skip_acl:
-        request.user.check_access(translation.component.project)
+        request.user.check_access_component(translation.component)
     return translation
 
 
@@ -100,27 +135,25 @@ def get_component(request, project, component, skip_acl=False):
     component = get_object_or_404(
         Component.objects.prefetch(),
         project__slug=project,
-        slug=component
+        slug=component,
     )
     if not skip_acl:
-        request.user.check_access(component.project)
+        request.user.check_access_component(component)
+    component.acting_user = request.user
     return component
 
 
 def get_project(request, project, skip_acl=False):
     """Return project matching parameters."""
-    project = get_object_or_404(
-        Project,
-        slug=project,
-    )
+    project = get_object_or_404(Project, slug=project)
     if not skip_acl:
         request.user.check_access(project)
+    project.acting_user = request.user
     return project
 
 
 def get_project_translation(request, project=None, component=None, lang=None):
     """Return project, component, translation tuple for given parameters."""
-
     if lang and component:
         # Language defined? We can get all
         translation = get_translation(request, project, component, lang)
@@ -137,17 +170,53 @@ def get_project_translation(request, project=None, component=None, lang=None):
             project = get_project(request, project)
 
     # Return tuple
-    return project, component, translation
+    return project or None, component or None, translation or None
+
+
+def create_component_from_doc(data):
+    # Calculate filename
+    uploaded = data["docfile"]
+    ext = os.path.splitext(os.path.basename(uploaded.name))[1]
+    filemask = "{}/{}{}".format(data["slug"], "*", ext)
+    filename = filemask.replace(
+        "*",
+        data["source_language"].code
+        if "source_language" in data
+        else settings.DEFAULT_LANGUAGE,
+    )
+    # Create fake component (needed to calculate path)
+    fake = Component(
+        project=data["project"],
+        slug=data["slug"],
+        name=data["name"],
+        template=filename,
+        filemask=filemask,
+    )
+    # Create repository
+    LocalRepository.from_files(fake.full_path, {filename: uploaded.read()})
+    return fake
+
+
+def create_component_from_zip(data):
+    # Create fake component (needed to calculate path)
+    fake = Component(
+        project=data["project"],
+        slug=data["slug"],
+        name=data["name"],
+    )
+
+    # Create repository
+    LocalRepository.from_zip(fake.full_path, data["zipfile"])
+    return fake
 
 
 def try_set_language(lang):
-    """Try to activate language"""
-
+    """Try to activate language."""
     try:
         activate(lang)
     except Exception:
         # Ignore failure on activating language
-        activate('en')
+        activate("en")
 
 
 def import_message(request, count, message_none, message_ok):
@@ -157,78 +226,75 @@ def import_message(request, count, message_none, message_ok):
         messages.success(request, message_ok % count)
 
 
-def zip_download_dir(path):
-    result = []
-    for root, _unused, files in os.walk(path):
-        if '/.git/' in root or '/.hg/' in root:
-            continue
-        result.extend((os.path.join(root, name) for name in files))
-    return zip_download(path, result)
+def iter_files(filenames):
+    for filename in filenames:
+        if os.path.isdir(filename):
+            for root, _unused, files in os.walk(filename):
+                if "/.git/" in root or "/.hg/" in root:
+                    continue
+                yield from (os.path.join(root, name) for name in files)
+        else:
+            yield filename
 
 
 def zip_download(root, filenames):
-    response = HttpResponse(content_type='application/zip')
-    with ZipFile(response, 'w') as zipfile:
-        for filename in filenames:
-            with open(filename, 'rb') as handle:
-                zipfile.writestr(
-                    os.path.relpath(filename, root),
-                    handle.read()
-                )
+    response = HttpResponse(content_type="application/zip")
+    with ZipFile(response, "w") as zipfile:
+        for filename in iter_files(filenames):
+            with open(filename, "rb") as handle:
+                zipfile.writestr(os.path.relpath(filename, root), handle.read())
+    response["Content-Disposition"] = 'attachment; filename="translations.zip"'
     return response
 
 
 def download_translation_file(translation, fmt=None, units=None):
     if fmt is not None:
         try:
-            exporter_cls = get_exporter(fmt)
+            exporter_cls = EXPORTERS[fmt]
         except KeyError:
-            raise Http404('File format not supported')
+            raise Http404("File format not supported")
         if not exporter_cls.supports(translation):
-            raise Http404('File format not supported')
+            raise Http404("File format not supported")
         exporter = exporter_cls(translation=translation)
         if units is None:
-            units = translation.unit_set.all()
+            units = translation.unit_set.prefetch_full()
         exporter.add_units(units)
         response = exporter.get_response(
-            '{{project}}-{0}-{{language}}.{{extension}}'.format(
+            "{{project}}-{0}-{{language}}.{{extension}}".format(
                 translation.component.slug
             )
         )
     else:
         # Force flushing pending units
-        translation.commit_pending('download', None)
+        translation.commit_pending("download", None)
 
         filenames = translation.filenames
 
         if len(filenames) == 1:
-            extension = translation.store.extension()
+            extension = translation.component.file_format_cls.extension()
             # Create response
-            with open(filenames[0], 'rb') as handle:
-                response = HttpResponse(
-                    handle.read(),
-                    content_type=translation.store.mimetype()
-                )
+            response = FileResponse(
+                open(filenames[0], "rb"),
+                content_type=translation.component.file_format_cls.mimetype(),
+            )
         else:
-            extension = 'zip'
+            extension = "zip"
             response = zip_download(translation.get_filename(), filenames)
 
         # Construct filename (do not use real filename as it is usually not
         # that useful)
-        filename = '{0}-{1}-{2}.{3}'.format(
+        filename = "{0}-{1}-{2}.{3}".format(
             translation.component.project.slug,
             translation.component.slug,
             translation.language.code,
-            extension
+            extension,
         )
 
         # Fill in response headers
-        response['Content-Disposition'] = 'attachment; filename={0}'.format(
-            filename
-        )
+        response["Content-Disposition"] = "attachment; filename={0}".format(filename)
 
     if translation.stats.last_changed:
-        response['Last-Modified'] = http_date(
+        response["Last-Modified"] = http_date(
             mktime(translation.stats.last_changed.timetuple())
         )
 
@@ -243,10 +309,8 @@ def show_form_errors(request, form):
         for error in field.errors:
             messages.error(
                 request,
-                _('Error in parameter %(field)s: %(error)s') % {
-                    'field': field.name,
-                    'error': error
-                }
+                _("Error in parameter %(field)s: %(error)s")
+                % {"field": field.name, "error": error},
             )
 
 

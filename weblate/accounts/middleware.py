@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -24,44 +23,69 @@ from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import AnonymousUser
-from django.utils.functional import SimpleLazyObject
+from django.utils.translation import activate, get_language, get_language_from_request
 
+from weblate.accounts.models import set_lang_cookie
+from weblate.accounts.utils import adjust_session_expiry
 from weblate.auth.models import get_anonymous
 
 
 def get_user(request):
-    """Based on django.contrib.auth.middleware.get_user
+    """Based on django.contrib.auth.middleware.get_user.
 
     Adds handling of anonymous user which is stored in database.
     """
     # pylint: disable=protected-access
-    if not hasattr(request, '_cached_user'):
+    if not hasattr(request, "_cached_user"):
         user = auth.get_user(request)
         if isinstance(user, AnonymousUser):
             user = get_anonymous()
-            # Set short expiry for anonymous sessions
-            request.session.set_expiry(2200)
-        else:
-            request.session.set_expiry(None)
 
         request._cached_user = user
     return request._cached_user
 
 
-class AuthenticationMiddleware(object):
-    """Copy of django.contrib.auth.middleware.AuthenticationMiddleware"""
+class AuthenticationMiddleware:
+    """Copy of django.contrib.auth.middleware.AuthenticationMiddleware."""
+
     def __init__(self, get_response=None):
         self.get_response = get_response
 
     def __call__(self, request):
-        request.user = SimpleLazyObject(lambda: get_user(request))
-        return self.get_response(request)
+        # Django uses lazy object here, but we need the user in pretty
+        # much every request, so there is no reason to delay this
+        request.user = user = get_user(request)
+
+        # Get language to use in this request
+        if user.is_authenticated and user.profile.language:
+            language = user.profile.language
+        else:
+            language = get_language_from_request(request)
+
+        # Extend session expiry for authenticated users
+        if user.is_authenticated:
+            adjust_session_expiry(request)
+
+        # Based on django.middleware.locale.LocaleMiddleware
+        activate(language)
+        request.LANGUAGE_CODE = get_language()
+
+        # Invoke the request
+        response = self.get_response(request)
+
+        # Update the language cookie if needed
+        if user.is_authenticated and user.profile.language != request.COOKIES.get(
+            settings.LANGUAGE_COOKIE_NAME
+        ):
+            set_lang_cookie(response, user.profile)
+
+        return response
 
 
-class RequireLoginMiddleware(object):
-    """
-    Middleware component that wraps the login_required decorator around
-    matching URL patterns. To use, add the class to MIDDLEWARE and
+class RequireLoginMiddleware:
+    """Middleware that applies the login_required decorator to matching URL patterns.
+
+    To use, add the class to MIDDLEWARE and
     define LOGIN_REQUIRED_URLS and LOGIN_REQUIRED_URLS_EXCEPTIONS in your
     settings.py. For example:
     ------
@@ -79,43 +103,35 @@ class RequireLoginMiddleware(object):
     LOGIN_REQUIRED_URLS_EXCEPTIONS is, conversely, where you explicitly
     define any exceptions (like login and logout URLs).
     """
+
     def __init__(self, get_response=None):
         self.get_response = get_response
-        self.required = self.get_setting_re(
-            'LOGIN_REQUIRED_URLS',
-            []
-        )
-        self.exceptions = self.get_setting_re(
-            'LOGIN_REQUIRED_URLS_EXCEPTIONS',
-            [r'/accounts/(.*)$', r'/static/(.*)$', r'/api/(.*)$']
-        )
+        self.required = self.get_setting_re(settings.LOGIN_REQUIRED_URLS)
+        self.exceptions = self.get_setting_re(settings.LOGIN_REQUIRED_URLS_EXCEPTIONS)
 
-    def get_setting_re(self, name, default):
-        """Grab regexp list from settings and compiles them"""
-        return tuple(
-            (re.compile(url) for url in getattr(settings, name, default))
-        )
+    def get_setting_re(self, setting):
+        """Grab regexp list from settings and compiles them."""
+        return tuple(re.compile(url) for url in setting)
 
     def process_view(self, request, view_func, view_args, view_kwargs):
-        """Check request whether it needs to enforce login for this URL based
-        on defined parameters.
-        """
+        """Check request whether it needs to enforce login for this URL."""
         # No need to process URLs if not configured
         if not self.required:
             return None
 
-        # No need to process URLs if user already logged in
+        # No need to process URLs if user already signed in
         if request.user.is_authenticated:
             return None
 
         # Let gitexporter handle authentication
         # - it doesn't go through standard Django authentication
         # - once HTTP_AUTHORIZATION is set, it enforces it
-        if 'weblate.gitexport' in settings.INSTALLED_APPS:
+        if "weblate.gitexport" in settings.INSTALLED_APPS:
             # pylint: disable=wrong-import-position
             import weblate.gitexport.views
-            if request.path.startswith('/git/'):
-                if request.META.get('HTTP_AUTHORIZATION'):
+
+            if request.path.startswith("/git/"):
+                if request.META.get("HTTP_AUTHORIZATION"):
                     return None
                 return weblate.gitexport.views.response_authenticate()
 
@@ -128,11 +144,7 @@ class RequireLoginMiddleware(object):
         # wrapped with the login_required decorator
         for url in self.required:
             if url.match(request.path):
-                return login_required(view_func)(
-                    request,
-                    *view_args,
-                    **view_kwargs
-                )
+                return login_required(view_func)(request, *view_args, **view_kwargs)
 
         # Explicitly return None for all non-matching requests
         return None

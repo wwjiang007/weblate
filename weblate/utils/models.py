@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,7 +17,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import absolute_import, unicode_literals
 
 from appconf import AppConf
 from django.core.cache import cache
@@ -31,15 +29,18 @@ from weblate.utils.decorators import disable_for_loaddata
 
 class WeblateConf(AppConf):
     WEBLATE_GPG_IDENTITY = None
-    WEBLATE_GPG_ALGO = 'default'
+    WEBLATE_GPG_ALGO = "default"
 
     RATELIMIT_ATTEMPTS = 5
     RATELIMIT_WINDOW = 300
     RATELIMIT_LOCKOUT = 600
 
-    RATELIMIT_SEARCH_ATTEMPTS = 6
+    RATELIMIT_SEARCH_ATTEMPTS = 30
     RATELIMIT_SEARCH_WINDOW = 60
     RATELIMIT_SEARCH_LOCKOUT = 60
+
+    RATELIMIT_COMMENT_ATTEMPTS = 30
+    RATELIMIT_COMMENT_WINDOW = 60
 
     RATELIMIT_TRANSLATE_ATTEMPTS = 30
     RATELIMIT_TRANSLATE_WINDOW = 60
@@ -47,35 +48,42 @@ class WeblateConf(AppConf):
     RATELIMIT_GLOSSARY_ATTEMPTS = 30
     RATELIMIT_GLOSSARY_WINDOW = 60
 
-    class Meta(object):
-        prefix = ''
+    SENTRY_DSN = None
+    SENTRY_SECURITY = None
+    SENTRY_ENVIRONMENT = "devel"
+    SENTRY_ORGANIZATION = "weblate"
+    SENTRY_TOKEN = None
+    SENTRY_PROJECTS = ["weblate"]
+    SENTRY_EXTRA_ARGS = {}
 
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_BROKER_URL = "memory://"
 
-class CeleryConf(AppConf):
-    """Defaults for Celery settings."""
-    TASK_ALWAYS_EAGER = True
-    BROKER_URL = 'memory://'
+    DATABASE_BACKUP = "plain"
 
-    IMPORTS = [
-        'weblate.accounts.notifications',
-        'weblate.trans.discovery',
-        'weblate.trans.models',
-        'weblate.trans.search',
-    ]
+    HIDE_VERSION = False
 
-    class Meta(object):
-        prefix = 'CELERY'
+    CSP_SCRIPT_SRC = []
+    CSP_IMG_SRC = []
+    CSP_CONNECT_SRC = []
+    CSP_STYLE_SRC = []
+    CSP_FONT_SRC = []
+
+    class Meta:
+        prefix = ""
 
 
 @receiver(post_save, sender=Change)
 @disable_for_loaddata
 def update_source(sender, instance, created, **kwargs):
-    if (not created
-            or instance.action not in Change.ACTIONS_CONTENT
-            or instance.translation is None):
+    if (
+        not created
+        or instance.action not in Change.ACTIONS_CONTENT
+        or instance.translation is None
+    ):
         return
     cache.set(
-        'last-content-change-{}'.format(instance.translation.pk),
+        "last-content-change-{}".format(instance.translation.pk),
         instance.pk,
-        180 * 86400
+        180 * 86400,
     )

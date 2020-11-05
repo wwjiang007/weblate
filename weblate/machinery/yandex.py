@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,7 +17,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from django.conf import settings
 
@@ -31,57 +29,60 @@ from weblate.machinery.base import (
 
 class YandexTranslation(MachineTranslation):
     """Yandex machine translation support."""
-    name = 'Yandex'
+
+    name = "Yandex"
     max_score = 90
 
     def __init__(self):
         """Check configuration."""
-        super(YandexTranslation, self).__init__()
+        super().__init__()
         if settings.MT_YANDEX_KEY is None:
-            raise MissingConfiguration(
-                'Yandex Translate requires API key'
-            )
+            raise MissingConfiguration("Yandex Translate requires API key")
 
     def check_failure(self, response):
-        if 'code' not in response or response['code'] == 200:
+        if "code" not in response or response["code"] == 200:
             return
-        if 'message' in response:
-            raise MachineTranslationError(response['message'])
-        raise MachineTranslationError(
-            'Error: {0}'.format(response['code'])
-        )
+        if "message" in response:
+            raise MachineTranslationError(response["message"])
+        raise MachineTranslationError("Error: {0}".format(response["code"]))
 
     def download_languages(self):
         """Download list of supported languages from a service."""
-        response = self.json_req(
-            'https://translate.yandex.net/api/v1.5/tr.json/getLangs',
-            key=settings.MT_YANDEX_KEY
+        response = self.request(
+            "get",
+            "https://translate.yandex.net/api/v1.5/tr.json/getLangs",
+            params={"key": settings.MT_YANDEX_KEY, "ui": "en"},
         )
-        self.check_failure(response)
-        return [tuple(item.split('-')) for item in response['dirs']]
+        payload = response.json()
+        self.check_failure(payload)
+        return payload["langs"].keys()
 
-    def is_supported(self, source, language):
-        """Check whether given language combination is supported."""
-        return (source, language) in self.supported_languages
-
-    def download_translations(self, source, language, text, unit, request):
+    def download_translations(self, source, language, text, unit, user, search):
         """Download list of possible translations from a service."""
-        response = self.json_req(
-            'https://translate.yandex.net/api/v1.5/tr.json/translate',
-            key=settings.MT_YANDEX_KEY,
-            text=text,
-            lang='{0}-{1}'.format(source, language),
-            target=language,
+        response = self.request(
+            "get",
+            "https://translate.yandex.net/api/v1.5/tr.json/translate",
+            params={
+                "key": settings.MT_YANDEX_KEY,
+                "text": text,
+                "lang": "{0}-{1}".format(source, language),
+                "target": language,
+            },
         )
+        payload = response.json()
 
-        self.check_failure(response)
+        self.check_failure(payload)
 
-        return [
-            {
-                'text': translation,
-                'quality': self.max_score,
-                'service': self.name,
-                'source': text
+        for translation in payload["text"]:
+            yield {
+                "text": translation,
+                "quality": self.max_score,
+                "service": self.name,
+                "source": text,
             }
-            for translation in response['text']
-        ]
+
+    def get_error_message(self, exc):
+        try:
+            return exc.response.json()["message"]
+        except Exception:
+            return super().get_error_message(exc)

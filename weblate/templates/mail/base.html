@@ -1,12 +1,15 @@
 {% load i18n %}
 {% load static %}
-{% load translations %}
+{% load humanize %}
+{% load compress %}
+{% load site_url %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}">
  <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{ subject }}</title>
+{% compress css inline %}
   <style>
 button,hr,input{overflow:visible}audio,canvas,progress,video{display:inline-block}progress,sub,sup{vertical-align:baseline}[type=checkbox],[type=radio],legend{box-sizing:border-box;padding:0}html{line-height:1.15;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}body{margin:0}article,aside,details,figcaption,figure,footer,header,main,menu,nav,section{display:block}h1{font-size:2em;margin:.67em 0}figure{margin:1em 40px}hr{box-sizing:content-box;height:0}code,kbd,pre,samp{font-family:monospace,monospace;font-size:1em}a{background-color:transparent;-webkit-text-decoration-skip:objects}abbr[title]{border-bottom:none;text-decoration:underline;text-decoration:underline dotted}b,strong{font-weight:bolder}dfn{font-style:italic}mark{background-color:#ff0;color:#000}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative}sub{bottom:-.25em}sup{top:-.5em}audio:not([controls]){display:none;height:0}img{border-style:none}svg:not(:root){overflow:hidden}button,input,optgroup,select,textarea{font-family:sans-serif;font-size:100%;line-height:1.15;margin:0}button,select{text-transform:none}[type=reset],[type=submit],button,html [type=button]{-webkit-appearance:button}[type=button]::-moz-focus-inner,[type=reset]::-moz-focus-inner,[type=submit]::-moz-focus-inner,button::-moz-focus-inner{border-style:none;padding:0}[type=button]:-moz-focusring,[type=reset]:-moz-focusring,[type=submit]:-moz-focusring,button:-moz-focusring{outline:ButtonText dotted 1px}fieldset{padding:.35em .75em .625em}legend{color:inherit;display:table;max-width:100%;white-space:normal}textarea{overflow:auto}[type=number]::-webkit-inner-spin-button,[type=number]::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}[type=search]::-webkit-search-cancel-button,[type=search]::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}[hidden],template{display:none}
 html,
@@ -37,112 +40,55 @@ a {
 	text-decoration: none;
 }
 p, pre {margin: 0;}
-.row {
+.container {
 	margin: 0 auto;
-	max-width: 800px;
 	width: 100%;
 	padding: 0 20px;
+}
+@media (min-width: 768px) {
+  .container {
+    width: 750px;
+  }
+}
+@media (min-width: 992px) {
+  .container {
+    width: 970px;
+  }
+}
+@media (min-width: 1200px) {
+  .container {
+    width: 970px;
+  }
 }
 .content {
 	padding: 30px 0;
 }
-.footer {
-	background-color: #144D3F;
-	padding: 0 0 80px 0;
-	width: 100%;
-	float: left;
-	color: #fff;
-	font-size: 18px;
-	position: relative;
+h1 img {
+    padding: 0 5px 0 0;
 }
-.footer .f-logo {
-    text-align: center;
-	width: 100%;
-    height: 150px;
-    display: block;
-}
-.footer .footer-left, .footer .footer-right {
-	width: 50%;
-	float: left;
-	font-size: 14px;
-	color: #2ECCAA;
-}
-.footer .footer-left a, .footer .footer-right a {
-	color: #2ECCAA;
-	text-decoration: underline;
-}
-.footer .footer-left a:hover, .footer .footer-right a:hover {
-	text-decoration: none;
-}
-.footer .footer-right {
-	width: 50%;
-	text-align: right;
-}
-.box {
-	width: 100%;
-	float: left;
-	border-radius: 20px;
-	padding-bottom: 14px;
-	background-color: #FFFFFF;
-	margin-bottom: 30px;
-	box-shadow: 0 2px 10px 0 rgba(0,0,0,0.1);
-}
-.box h1 {
-	width: 100%;
-	float: left;
-	padding: 14px 30px;
-	font-size: 28px;
+h1 {
+	font-size: 30px;
     font-weight: normal;
 	letter-spacing: -0.5px;
-	line-height: 36px;
-	margin: 0;
+	line-height: 48px;
+	margin: 20px 0;
 	color: #2A3744;
-	border-bottom: 1px solid #E9EAEC;
 }
-.box h2 {
-	width: 100%;
-	float: left;
-	padding: 7px 30px;
-	font-size: 20px;
-    font-weight: bold;
+h2 {
+	font-size: 26px;
+    font-weight: normal;
 	letter-spacing: -0.5px;
-	line-height: 22px;
-	margin: 0;
+	line-height: 31px;
 	color: #2A3744;
 }
-.box .bordered, .box .buttons, .box h2 {
-	border-top: 1px solid #E9EAEC;
-}
-.box .nav {
-	border-bottom: 1px solid #E9EAEC;
-    margin-bottom: 5px;
-    background-color: #eee;
-    color: #2A3744;
-}
-.box .line, .box p, .box .list-group, .box code, .box pre, .box ul, .box ol, .box table, .box .nav {
-	width: 100%;
-	float: left;
-	padding: 7px 30px;
-}
-.box ol, .box ul {
-    margin-left: 20px;
-}
-.box code, .box pre {
+code, pre {
 	word-wrap: break-word;
     white-space: pre-wrap;
 }
-.box .buttons {
+.buttons {
     padding-top: 18px;
 }
-.box .line-left {
-	width: 50%;
-	float: left;
-}
-.box .line-right {
-	width: 50%;
-	float: left;
-}
-.box .head {
+.head {
 	font-size: 28px;
 	letter-spacing: -0.5px;
 	line-height: 36px;
@@ -175,12 +121,6 @@ a.button:hover {
 	color: #2ECCAA;
 	border-color: #2ECCAA;
 }
-@media (max-width: 790px) {
-	footer .footer-left, footer .footer-right {width: 100%;}
-    footer .footer-left, footer .footer-right {text-align: center;}
-	.box .line-left, .box .line-right {width: 100%;}
-	.box .line .line-left {padding-left: 0; margin-bottom: 10px;}
-}
 .translatetext {
     background-color: #eee;
 }
@@ -190,125 +130,198 @@ ins {
 del {
     background-color: #fc7979;
 }
+.avatar{
+	-webkit-border-radius: 50%;
+	-moz-border-radius: 50%;
+	border-radius: 50%;
+}
+.history-row > div {
+    padding: 10px 0;
+}
+.history-row + .history-row > div {
+    border-top: 1px solid #E9EAEC;
+}
+.history-event, .history-data .text-muted {
+    font-size: 14px;
+}
+.history-event p {
+    margin-left: 34px;
+}
+.comment-content {
+    border-radius: 0 5px 5px 5px;
+    background-color: #E5F0F2;
+    padding: 8px 10px;
+}
+.comment-source {
+    background-color: #F2E5EA;
+}
+.footer {
+    background-color: #2A3744;
+    font-size: 14px;
+    line-height: 20px;
+    color: #E9EAEC;
+    padding: 20px 20px 30px 20px;
+    margin-top: 20px
+}
+.footer p:first-child {
+    margin-bottom: 20px;
+}
+.footer img {
+    padding-bottom: 20px;
+}
+.footer a {
+    color: #00D2E6;
+    color: #E9EAEC;
+
+}
+tr td {
+    text-align: right;
+    padding-left: 20px;
+}
+tr td:first-child {
+    text-align: left;
+    padding-left: 0;
+}
+{%  comment %}
+/* Bootstrap parts for history */
+{% endcomment %}
+.col-xs-1, .col-sm-1, .col-md-1, .col-lg-1, .col-xs-2, .col-sm-2, .col-md-2, .col-lg-2, .col-xs-3, .col-sm-3, .col-md-3, .col-lg-3, .col-xs-4, .col-sm-4, .col-md-4, .col-lg-4, .col-xs-5, .col-sm-5, .col-md-5, .col-lg-5, .col-xs-6, .col-sm-6, .col-md-6, .col-lg-6, .col-xs-7, .col-sm-7, .col-md-7, .col-lg-7, .col-xs-8, .col-sm-8, .col-md-8, .col-lg-8, .col-xs-9, .col-sm-9, .col-md-9, .col-lg-9, .col-xs-10, .col-sm-10, .col-md-10, .col-lg-10, .col-xs-11, .col-sm-11, .col-md-11, .col-lg-11, .col-xs-12, .col-sm-12, .col-md-12, .col-lg-12 {
+  position: relative;
+  min-height: 1px;
+  padding-right: 15px;
+  padding-left: 15px;
+}
+.col-xs-1, .col-xs-2, .col-xs-3, .col-xs-4, .col-xs-5, .col-xs-6, .col-xs-7, .col-xs-8, .col-xs-9, .col-xs-10, .col-xs-11, .col-xs-12 {
+  float: left;
+}
+.col-xs-10 {
+  width: 83.33333333%;
+}
+.col-xs-2 {
+  width: 16.66666667%;
+}
+.row:before,
+.row:after {
+  display: table;
+  content: " ";
+  clear: both;
+}
+.text-muted {
+  color: #bfc3c7;
+}
+.pull-right {
+  float: right !important;
+}
+img {
+  vertical-align: middle;
+}
+.clearfix:before,
+.clearfix:after {
+  display: table;
+  content: " ";
+}
+.clearfix:after {
+  clear: both;
+}
   </style>
+{% endcompress %}
  </head>
 
  <body>
+ {% filter add_site_url %}
     <div class="content">
-    <div class="row">
+    <div class="container">
         <div class="box">
             {% if change %}
-            <h1>{{ change.get_action_display }}</h1>
+            <h1>
+                <img src="{% if request %}{% static "email-logo.png" %}{% else %}cid:email-logo.png@cid.weblate.org{% endif %}" />
+                {{ change.get_action_display }}
+            </h1>
             <div class="nav">
-                {% if project %}<a href="{{ current_site_url }}{{ project.get_absolute_url }}">{{ project.name }}</a>{% endif %}
-                {% if component %}/ <a href="{{ current_site_url }}{{ component.get_absolute_url }}">{{ component.name }}</a>{% endif %}
-                {% if translation %}/ <a href="{{ current_site_url }}{{ translation.get_absolute_url }}">{{ translation.language.name }}</a>{% endif %}
+                {% if change.author %}{{ change.author.profile.get_user_display_link }}: {% endif %}
+                <a href="{{ current_site_url }}">{{ site_title }}</a>
+                {% if project %}/ <a href="{{ project.get_absolute_url }}">{{ project.name }}</a>{% endif %}
+                {% if component %}/ <a href="{{ component.get_absolute_url }}">{{ component.name }}</a>{% endif %}
+                {% if translation %}/ <a href="{{ translation.get_absolute_url }}">{{ translation.language.name }}</a>{% endif %}
             </div>
             {% else %}
-            <h1>{{ subject }}</h1>
+            <h1>
+                <img src="{% if request %}{% static "email-logo.png" %}{% else %}cid:email-logo.png@cid.weblate.org{% endif %}" />
+                {{ subject }}
+            </h1>
             {% endif %}
             {% block content %}
             {% endblock %}
         </div>
-    </div>
-    <div class="row">
 {% if translation %}
-        <div class="box">
-            <h1>
-                {% trans "Translation Information" %}
-            </h1>
-            <div class="line">
-                <div class="line-left">{% get_filter_name "all" %}</div>
-                <div class="line-right">{{ translation.stats.all }}</div>
-            </div>
-            <div class="line">
-                <div class="line-left">{% get_filter_name "translated" %}</div>
-                <div class="line-right">{{ translation.stats.translated }} ({{ translation.stats.translated_percent }}%)</div>
-            </div>
-            <div class="line">
-                <div class="line-left">{% get_filter_name "nottranslated" %}</div>
-                <div class="line-right">{{ translation.stats.nottranslated }} ({{ translation.stats.nottranslated_percent }}%)</div>
-            </div>
-            <div class="line">
-                <div class="line-left">{% get_filter_name "todo" %}</div>
-                <div class="line-right">{{ translation.stats.todo }} ({{ translation.stats.todo_percent }}%)</div>
-            </div>
-            <div class="line">
-                <div class="line-left">{% get_filter_name "fuzzy" %}</div>
-                <div class="line-right">{{ translation.stats.fuzzy }} ({{ translation.stats.fuzzy_percent }}%)</div>
-            </div>
-            <div class="line buttons">
-                <a class="button" href="{{ translation_url }}">{% trans "View" %}</a>
-            </div>
+        <h2>
+            {% trans "Translation Info" %}
+        </h2>
+        <table>
+            {% include "mail/snippets/stats.html" with stats=translation.stats url=translation.get_translate_url %}
+        </table>
+        <div class="buttons">
+            <a class="button" href="{{ translation_url }}">{% trans "View" %}</a>
         </div>
 {% elif component %}
-        <div class="box">
-            <h1>
-                {% trans "Component Information" %}
-            </h1>
-            <div class="line">
-                <div class="line-left">{% trans "Languages" %}</div>
-                <div class="line-right">{{ component.stats.languages }}</div>
-            </div>
-            <div class="line">
-                <div class="line-left">{% get_filter_name "all" %}</div>
-                <div class="line-right">{{ component.stats.all }}</div>
-            </div>
-            <div class="line">
-                <div class="line-left">{% get_filter_name "translated" %}</div>
-                <div class="line-right">{{ component.stats.translated }} ({{ component.stats.translated_percent }}%)</div>
-            </div>
-            <div class="line buttons">
-                <a class="button" href="{{ current_site_url }}{{ component.get_absolute_url  }}">{% trans "View" %}</a>
-            </div>
+        <h2>
+            {% trans "Component Information" %}
+        </h2>
+        <table>
+            <tr>
+                <td>{% trans "Languages" %}</td>
+                <td><a href="{{ component.get_absolute_url }}">{{ component.stats.languages|intcomma }}</a></td>
+                <td></td>
+            </tr>
+            {% include "mail/snippets/stats.html" with stats=component.stats %}
+        </table>
+        <div class="buttons">
+            <a class="button" href="{{ component.get_absolute_url  }}">{% trans "View" %}</a>
         </div>
 {% elif project %}
-        <div class="box">
-            <h1>
-                {% trans "Project Information" %}
-            </h1>
-            <div class="line">
-                <div class="line-left">{% trans "Components" %}</div>
-                <div class="line-right">{{ project.component_set.count }}</div>
-            </div>
-            <div class="line">
-                <div class="line-left">{% trans "Languages" %}</div>
-                <div class="line-right">{{ project.stats.languages }}</div>
-            </div>
-            <div class="line">
-                <div class="line-left">{% get_filter_name "all" %}</div>
-                <div class="line-right">{{ project.stats.all }}</div>
-            </div>
-            <div class="line">
-                <div class="line-left">{% get_filter_name "translated" %}</div>
-                <div class="line-right">{{ project.stats.translated }} ({{ project.stats.translated_percent }}%)</div>
-            </div>
-            <div class="line buttons">
-                <a class="button" href="{{ current_site_url }}{{ project.get_absolute_url  }}">{% trans "View" %}</a>
-            </div>
+        <h2>
+            {% trans "Project Information" %}
+        </h2>
+        <table>
+            <tr>
+                <td>{% trans "Components" %}</td>
+                <td><a href="{{ project.get_absolute_url }}">{{ project.component_set.count|intcomma }}</a></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>{% trans "Languages" %}</td>
+                <td><a href="{{ project.get_absolute_url }}#languages">{{ project.stats.languages|intcomma }}</td>
+                <td></td>
+            </tr>
+            {% include "mail/snippets/stats.html" with stats=project.stats %}
+        </table>
+        <div class="buttons">
+            <a class="button" href="{{ project.get_absolute_url  }}">{% trans "View" %}</a>
         </div>
 {% endif %}
-    </div>
-    </div>
-    <div class="footer">
-    	<div class="row">
-            <a class="f-logo" href="https://weblate.org/">
-                <img src="{% if request %}{{ current_site_url }}{% static "email-logo.png" %}{% else %}cid:email-logo@cid.weblate.org{% endif %}" />
-            </a>
+        <div class="footer" style="clear:both">
+			<p>
+                <img src="{% if request %}{% static "email-logo-footer.png" %}{% else %}cid:email-logo-footer.png@cid.weblate.org{% endif %}" /><br />
+                <a href="https://weblate.org/">{% trans "Weblate, the libre continuous localization system." %}</a>
+            </p>
+            {% if unsubscribe_nonce %}
+            <p>
+                ▸ <a href="{% url 'profile' %}#notifications">{% trans "Notification settings" %}</a>
+            </p>
+            <p>
+                ▸ <a href="{% url 'unsubscribe' %}?i={{ unsubscribe_nonce }}">{% trans "Turn off this notification" %}</a>
+            </p>
+            {% elif unsubscribe_note %}
+            <p>
+                ▸ {{ unsubscribe_note }}
+            </p>
+            {% endif %}
         </div>
-        <div class="row">
-			<div class="footer-left"><a href="https://weblate.org/">{% trans "Weblate, the continuous localization system" %}</a></div>
-            <div class="footer-right">
-                <a href="{{ current_site_url }}{% url 'profile' %}#notifications">{% trans "Notification settings" %}</a>
-                {% if unsubscribe_nonce %}
-                <a href="{{ current_site_url }}{% url 'unsubscribe' %}?i={{ unsubscribe_nonce }}">{% trans "Disable this notification" %}</a>
-                {% endif %}
-            </div>
-		</div>
-        <div class="row">
-            {% comment %}This avoids Gmail hiding footer as it finds unique content here{% endcomment %}
-            <span style="opacity: 0">Generated on {% now "DATETIME_FORMAT" %}</span>
-        </div>
+        {% comment %}This avoids Gmail hiding the footer, as it finds unique content here{% endcomment %}
+        {% now "DATETIME_FORMAT" as timestamp %}
+        <p style="opacity: 0" class="text-muted">{% blocktrans %}Generated on {{ timestamp }}.{% endblocktrans %}</p>
     </div>
+    </div>
+{% endfilter %}
  </body>
 </html>

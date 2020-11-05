@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,76 +17,74 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 import re
+from datetime import timedelta
 
-from django.db.models import Count
-from django.utils.translation import ugettext_lazy as _
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from weblate.checks.base import SourceCheck
-from weblate.lang.models import Language
+from weblate.utils.state import STATE_EMPTY, STATE_FUZZY
 
 # Matches (s) not followed by alphanumeric chars or at the end
-PLURAL_MATCH = re.compile(r'\(s\)(\W|\Z)')
+PLURAL_MATCH = re.compile(r"\(s\)(\W|\Z)")
 
 
 class OptionalPluralCheck(SourceCheck):
     """Check for not used plural form."""
-    check_id = 'optional_plural'
-    name = _('Optional plural')
-    description = _(
-        'The string is optionally used as plural, but not using plural forms'
-    )
-    severity = 'info'
 
-    def check_source(self, source, unit):
+    check_id = "optional_plural"
+    name = _("Unpluralised")
+    description = _("The string is used as plural, but not using plural forms")
+
+    def check_source_unit(self, source, unit):
         if len(source) > 1:
             return False
         return len(PLURAL_MATCH.findall(source[0])) > 0
 
 
 class EllipsisCheck(SourceCheck):
-    """Check for using ... instead of …"""
-    check_id = 'ellipsis'
-    name = _('Ellipsis')
-    description = _(
-        'The string uses three dots (...) '
-        'instead of an ellipsis character (…)'
-    )
-    severity = 'warning'
+    """Check for using "..." instead of "…"."""
 
-    def check_source(self, source, unit):
-        return '...' in source[0]
+    check_id = "ellipsis"
+    name = _("Ellipsis")
+    description = _(
+        "The string uses three dots (...) " "instead of an ellipsis character (…)"
+    )
+
+    def check_source_unit(self, source, unit):
+        return "..." in source[0]
 
 
 class MultipleFailingCheck(SourceCheck):
     """Check whether there are more failing checks on this translation."""
-    check_id = 'multiple_failures'
-    name = _('Multiple failing checks')
-    description = _(
-        'The translations in several languages have failing checks'
-    )
-    severity = 'warning'
-    batch_update = True
 
-    def check_source(self, source, unit):
-        related = Language.objects.filter(
-            check__content_hash=unit.content_hash,
-            check__project=unit.translation.component.project
-        ).distinct()
+    check_id = "multiple_failures"
+    name = _("Multiple failing checks")
+    description = _("The translations in several languages have failing checks")
+
+    def check_source_unit(self, source, unit):
+        from weblate.checks.models import Check
+
+        related = Check.objects.filter(unit__in=unit.unit_set.exclude(pk=unit.id))
         return related.count() >= 2
 
-    def check_source_project(self, project):
-        """Batch check for whole project."""
-        from weblate.checks.models import Check
-        return Check.objects.filter(
-            project=project,
-            language__isnull=False,
-        ).values(
-            'content_hash'
-        ).annotate(
-            Count('language')
-        ).filter(
-            language__count__gt=1
+
+class LongUntranslatedCheck(SourceCheck):
+    check_id = "long_untranslated"
+    name = _("Long untranslated")
+    description = _("The string has not been translated for a long time")
+
+    def check_source_unit(self, source, unit):
+        if unit.timestamp > timezone.now() - timedelta(days=90):
+            return False
+        states = list(unit.unit_set.values_list("state", flat=True))
+        total = len(states)
+        not_translated = states.count(STATE_EMPTY) + states.count(STATE_FUZZY)
+        translated_percent = 100 * (total - not_translated) / total
+        return (
+            total
+            and 2 * translated_percent
+            < unit.translation.component.stats.lazy_translated_percent
         )

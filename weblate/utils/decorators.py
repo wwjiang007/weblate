@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -23,9 +22,11 @@ from functools import wraps
 
 def disable_for_loaddata(signal_handler):
     """Decorator that turns off signal handlers when loading fixture data."""
+
     @wraps(signal_handler)
     def wrapper(*args, **kwargs):
-        if kwargs.get('raw'):
+        if kwargs.get("raw"):
             return
         signal_handler(*args, **kwargs)
+
     return wrapper

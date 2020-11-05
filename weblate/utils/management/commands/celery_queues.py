@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,14 +17,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from django.core.management.base import BaseCommand
-
 from weblate.utils.celery import get_queue_stats
+from weblate.utils.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = 'display Celery queue status'
+    help = "display Celery queue status"
 
     def handle(self, *args, **options):
         for key, value in sorted(get_queue_stats().items()):
-            self.stdout.write('{}: {}'.format(key, value))
+            self.stdout.write("{}: {}".format(key, value))

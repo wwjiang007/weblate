@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,9 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-"""
-Tests for data exports.
-"""
+"""Tests for data exports."""
 
 from django.urls import reverse
 
@@ -29,25 +26,17 @@ from weblate.trans.tests.test_views import FixtureTestCase
 
 class BasicViewTest(FixtureTestCase):
     def test_about(self):
-        response = self.client.get(
-            reverse('about')
-        )
-        self.assertContains(response, 'translate-toolkit')
+        response = self.client.get(reverse("about"))
+        self.assertContains(response, "translate-toolkit")
 
     def test_keys(self):
-        response = self.client.get(
-            reverse('keys')
-        )
-        self.assertContains(response, 'SSH')
+        response = self.client.get(reverse("keys"))
+        self.assertContains(response, "SSH")
 
     def test_stats(self):
-        response = self.client.get(
-            reverse('stats')
-        )
-        self.assertContains(response, 'Weblate statistics')
+        response = self.client.get(reverse("stats"))
+        self.assertContains(response, "Weblate statistics")
 
     def test_healthz(self):
-        response = self.client.get(
-            reverse('healthz')
-        )
-        self.assertContains(response, 'ok')
+        response = self.client.get(reverse("healthz"))
+        self.assertContains(response, "ok")

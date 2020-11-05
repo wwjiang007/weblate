@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,39 +17,38 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.addons.base import BaseAddon
-from weblate.addons.events import EVENT_UNIT_PRE_CREATE
+from weblate.addons.events import EVENT_COMPONENT_UPDATE, EVENT_UNIT_PRE_CREATE
+from weblate.addons.forms import BulkEditAddonForm
+from weblate.trans.bulk import bulk_perform
+from weblate.trans.models import Unit
 from weblate.utils.state import STATE_FUZZY, STATE_TRANSLATED
-
-SUPPORT_FUZZY = frozenset((
-    'ts', 'po', 'po-mono',
-))
 
 
 class FlagBase(BaseAddon):
     events = (EVENT_UNIT_PRE_CREATE,)
-    icon = 'flag'
+    icon = "flag.svg"
 
     @classmethod
     def can_install(cls, component, user):
         if not component.has_template():
             return False
-        if component.template_store.format_id in SUPPORT_FUZZY:
+        # Following formats support fuzzy flag, so avoid messing up with them
+        if component.file_format in {"ts", "po", "po-mono"}:
             return False
-        return super(FlagBase, cls).can_install(component, user)
+        return super().can_install(component, user)
 
 
 class SourceEditAddon(FlagBase):
-    name = 'weblate.flags.source_edit'
-    verbose = _('Flag new source strings as \"Needs editing\"')
+    name = "weblate.flags.source_edit"
+    verbose = _('Flag new source strings as "Needs editing"')
     description = _(
-        'Whenever a new source string is imported from the VCS, it is '
-        'flagged as needing editing in Weblate. This way you can easily '
-        'filter and edit source strings written by the developers.'
+        "Whenever a new source string is imported from the VCS, it is "
+        "flagged as needing editing in Weblate. This way you can easily "
+        "filter and edit source strings written by the developers."
     )
 
     def unit_pre_create(self, unit):
@@ -59,12 +57,12 @@ class SourceEditAddon(FlagBase):
 
 
 class TargetEditAddon(FlagBase):
-    name = 'weblate.flags.target_edit'
-    verbose = _('Flag new translations as \"Needs editing\"')
+    name = "weblate.flags.target_edit"
+    verbose = _('Flag new translations as "Needs editing"')
     description = _(
-        'Whenever a new translatable string is imported from the VCS, it is '
-        'flagged as needing editing in Weblate. This way you can easily '
-        'filter and edit translations created by the developers.'
+        "Whenever a new translatable string is imported from the VCS, it is "
+        "flagged as needing editing in Weblate. This way you can easily "
+        "filter and edit translations created by the developers."
     )
 
     def unit_pre_create(self, unit):
@@ -73,17 +71,46 @@ class TargetEditAddon(FlagBase):
 
 
 class SameEditAddon(FlagBase):
-    name = 'weblate.flags.same_edit'
-    verbose = _('Flag unchanged translations as \"Needs editing\"')
+    name = "weblate.flags.same_edit"
+    verbose = _('Flag unchanged translations as "Needs editing"')
     description = _(
-        'Whenever a new translatable string is imported from the VCS and it '
-        'matches source strings, it is flagged as needing editing in Weblate. '
-        'This is especially useful for file formats that include all strings '
-        'even if they are not translated.'
+        "Whenever a new translatable string is imported from the VCS and it matches a "
+        "source string, it is flagged as needing editing in Weblate. This is "
+        "especially useful for file formats that include all strings even if not "
+        "translated."
     )
 
     def unit_pre_create(self, unit):
-        if (unit.source == unit.target
-                and 'ignore-same' not in unit.all_flags
-                and unit.state >= STATE_TRANSLATED):
+        if (
+            not unit.translation.is_template
+            and unit.source == unit.target
+            and "ignore-same" not in unit.all_flags
+            and unit.state >= STATE_TRANSLATED
+        ):
             unit.state = STATE_FUZZY
+
+
+class BulkEditAddon(BaseAddon):
+    events = (EVENT_COMPONENT_UPDATE,)
+    name = "weblate.flags.bulk"
+    verbose = _("Bulk edit")
+    description = _("Bulk edit flags, labels or state for strings.")
+    settings_form = BulkEditAddonForm
+    multiple = True
+
+    def component_update(self, component):
+        label_set = component.project.label_set
+        bulk_perform(
+            None,
+            Unit.objects.filter(translation__component=component),
+            query=self.instance.configuration["q"],
+            target_state=self.instance.configuration["state"],
+            add_flags=self.instance.configuration["add_flags"],
+            remove_flags=self.instance.configuration["remove_flags"],
+            add_labels=label_set.filter(
+                name__in=self.instance.configuration["add_labels"]
+            ),
+            remove_labels=label_set.filter(
+                name__in=self.instance.configuration["remove_labels"]
+            ),
+        )

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,94 +17,75 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
-
-import re
 
 from django.conf import settings
 from django.db import models
-from django.utils.encoding import python_2_unicode_compatible
 
 from weblate.trans.mixins import UserDisplayMixin
 from weblate.trans.models.change import Change
-from weblate.utils.unitdata import UnitData
-
-MENTIONS_RE = re.compile(r'@([\w.@+-]+)\b', re.UNICODE)
+from weblate.utils.antispam import report_spam
+from weblate.utils.fields import JSONField
+from weblate.utils.request import get_ip_address, get_user_agent_raw
 
 
 class CommentManager(models.Manager):
     # pylint: disable=no-init
 
-    def add(self, unit, user, lang, text):
+    def add(self, unit, request, text):
         """Add comment to this unit."""
+        user = request.user
         new_comment = self.create(
             user=user,
-            content_hash=unit.content_hash,
-            project=unit.translation.component.project,
+            unit=unit,
             comment=text,
-            language=lang
+            userdetails={
+                "address": get_ip_address(request),
+                "agent": get_user_agent_raw(request),
+            },
         )
+        user.profile.increase_count("commented")
         Change.objects.create(
             unit=unit,
             comment=new_comment,
             action=Change.ACTION_COMMENT,
             user=user,
-            author=user
+            author=user,
+            details={"comment": text},
         )
-
-    def copy(self, project):
-        """Copy comments to new project
-
-        This is used on moving component to other project and ensures nothing
-        is lost. We don't actually look where the comment belongs as it
-        would make the operation really expensive and it should be done in the
-        cleanup cron job.
-        """
-        comments = []
-        for comment in self.iterator():
-            comments.append(Comment(
-                project=project,
-                comment=comment.comment,
-                content_hash=comment.content_hash,
-                user=comment.user,
-                language=comment.language,
-            ))
-        # The batch size is needed for MySQL
-        self.bulk_create(comments, batch_size=500)
 
 
 class CommentQuerySet(models.QuerySet):
     def order(self):
-        return self.order_by('timestamp')
+        return self.order_by("timestamp")
 
 
-@python_2_unicode_compatible
-class Comment(UnitData, UserDisplayMixin):
+class Comment(models.Model, UserDisplayMixin):
+    unit = models.ForeignKey("trans.Unit", on_delete=models.deletion.CASCADE)
     comment = models.TextField()
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, null=True, blank=True,
-        on_delete=models.deletion.CASCADE
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.deletion.CASCADE,
     )
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    resolved = models.BooleanField(default=False, db_index=True)
+    userdetails = JSONField()
 
     objects = CommentManager.from_queryset(CommentQuerySet)()
+    weblate_unsafe_delete = True
 
-    class Meta(object):
-        app_label = 'trans'
-        index_together = [
-            ('project', 'language', 'content_hash'),
-        ]
+    class Meta:
+        app_label = "trans"
+        verbose_name = "string comment"
+        verbose_name_plural = "string comments"
 
     def __str__(self):
-        return 'comment for {0} by {1}'.format(
-            self.content_hash,
-            self.user.username if self.user else 'unknown',
+        return "comment for {0} by {1}".format(
+            self.unit, self.user.username if self.user else "unknown"
         )
 
-    def get_mentions(self):
-        from weblate.auth.models import User
-        for match in MENTIONS_RE.findall(self.comment):
-            try:
-                yield User.objects.get(username=match)
-            except User.DoesNotExist:
-                continue
+    def report_spam(self):
+        report_spam(
+            self.userdetails["address"], self.userdetails["agent"], self.comment
+        )

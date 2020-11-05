@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-"""Captcha tests"""
+"""Captcha tests."""
 
 from unittest import TestCase
 
@@ -32,12 +31,12 @@ class ValidationTest(TestCase):
         return validator.validate(password)
 
     def test_chars_good(self):
-        self.assertIsNone(self.validate('123'))
+        self.assertIsNone(self.validate("123"))
 
     def test_chars_whitespace(self):
         with self.assertRaises(ValidationError):
-            self.validate(' \r\n\t')
+            self.validate(" \r\n\t")
 
     def test_chars_same(self):
         with self.assertRaises(ValidationError):
-            self.validate('x' * 10)
+            self.validate("x" * 10)

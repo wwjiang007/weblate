@@ -3,7 +3,7 @@
 Installing from sources
 =======================
 
-#. Please follow the installatin instructions for your system first:
+#. Please follow the installation instructions for your system first:
 
    * :doc:`venv-debian`
    * :doc:`venv-suse`
@@ -25,7 +25,7 @@ Installing from sources
    .. code-block:: sh
 
         . ~/weblate-env/bin/activate
-        pip install -e weblate-src 
+        pip install -e weblate-src
 
 #. Copy :file:`weblate/settings_example.py` to :file:`weblate/settings.py`.
 
@@ -39,9 +39,10 @@ Installing from sources
 
    .. code-block:: sh
 
-        ./manage.py migrate
-        ./manage.py collectstatic
-        ./scripts/generate-locales
+        weblate migrate
+        weblate collectstatic
+        weblate compress
+        weblate compilemessages
 
    .. note::
 

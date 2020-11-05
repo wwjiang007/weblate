@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,20 +17,40 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from django.conf import settings
+from django.utils.translation import get_language
+
 import weblate
 
+# Enabled languages in the docs
+LANGMAP = {
+    "zh-hans": "zh_CN",
+    "pt-br": "pt_BR",
+    "uk": "uk",
+    "ru": "ru",
+    "es": "es",
+    "pt": "pt",
+    "nb": "no",
+    "ja": "ja",
+    "fr": "fr",
+}
 
-def get_doc_url(page, anchor=''):
+
+def get_doc_url(page, anchor="", user=None):
     """Return URL to documentation."""
     # Should we use tagged release or latest version
-    if '-dev' in weblate.VERSION:
-        version = 'latest'
+    if "-dev" in weblate.VERSION or (
+        (user is None or not user.is_authenticated) and settings.HIDE_VERSION
+    ):
+        version = "latest"
     else:
-        version = 'weblate-{0}'.format(weblate.VERSION)
+        version = "weblate-{0}".format(weblate.VERSION)
+    # Language variant
+    code = LANGMAP.get(get_language(), "en")
     # Generate URL
-    url = 'https://docs.weblate.org/en/{0}/{1}.html'.format(version, page)
+    url = f"https://docs.weblate.org/{code}/{version}/{page}.html"
     # Optionally append anchor
-    if anchor != '':
-        url += '#{0}'.format(anchor)
+    if anchor != "":
+        url += "#{0}".format(anchor.replace("_", "-"))
 
     return url

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,7 +17,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from django import forms
 
@@ -26,18 +24,24 @@ from weblate.fonts.models import Font, FontGroup, FontOverride
 
 
 class FontForm(forms.ModelForm):
-    class Meta(object):
+    class Meta:
         model = Font
         fields = ("font",)
 
 
 class FontGroupForm(forms.ModelForm):
-    class Meta(object):
+    class Meta:
         model = FontGroup
         fields = ("name", "font")
 
+    def __init__(self, data=None, project=None, **kwargs):
+        super().__init__(data, **kwargs)
+        self.fields["font"].queryset = self.fields["font"].queryset.filter(
+            project=project
+        )
+
 
 class FontOverrideForm(forms.ModelForm):
-    class Meta(object):
+    class Meta:
         model = FontOverride
         fields = ("language", "font")

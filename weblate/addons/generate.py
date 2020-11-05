@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,9 +17,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.addons.base import BaseAddon
 from weblate.addons.events import EVENT_PRE_COMMIT
@@ -30,37 +28,28 @@ from weblate.utils.render import render_template
 
 class GenerateFileAddon(BaseAddon):
     events = (EVENT_PRE_COMMIT,)
-    name = 'weblate.generate.generate'
-    verbose = _('Statistics generator')
-    description = _(
-        'This addon generates a file containing detailed information '
-        'about the translation.'
-    )
+    name = "weblate.generate.generate"
+    verbose = _("Statistics generator")
+    description = _("Generates a file containing detailed info about the translation.")
     settings_form = GenerateForm
     multiple = True
-    icon = 'bar-chart'
-    has_summary = True
+    icon = "poll.svg"
 
     @classmethod
     def can_install(cls, component, user):
         if not component.translation_set.exists():
             return False
-        return super(GenerateFileAddon, cls).can_install(component, user)
+        return super().can_install(component, user)
 
     def pre_commit(self, translation, author):
         filename = self.render_repo_filename(
-            self.instance.configuration['filename'],
-            translation
+            self.instance.configuration["filename"], translation
         )
         if not filename:
             return
         content = render_template(
-            self.instance.configuration['template'],
-            translation=translation
+            self.instance.configuration["template"], translation=translation
         )
-        with open(filename, 'w') as handle:
+        with open(filename, "w") as handle:
             handle.write(content)
         translation.addon_commit_files.append(filename)
-
-    def get_summary(self):
-        return self.instance.configuration['filename']

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,7 +21,7 @@ from importlib import import_module
 
 from django.conf import settings
 from django.urls import reverse
-from django.utils.http import is_safe_url
+from django.utils.http import url_has_allowed_host_and_scheme
 from social_django.strategy import DjangoStrategy
 
 from weblate.utils.site import get_site_url
@@ -35,12 +34,10 @@ def create_session(*args):
 
 class WeblateStrategy(DjangoStrategy):
     def __init__(self, storage, request=None, tpl=None):
-        """
-        Restores session data based on passed ID.
-        """
-        super(WeblateStrategy, self).__init__(storage, request, tpl)
-        if request and 'verification_code' in request.GET and 'id' in request.GET:
-            self.session = create_session(request.GET['id'])
+        """Restore session data based on passed ID."""
+        super().__init__(storage, request, tpl)
+        if request and "verification_code" in request.GET and "id" in request.GET:
+            self.session = create_session(request.GET["id"])
 
     def request_data(self, merge=True):
         if not self.request:
@@ -48,21 +45,23 @@ class WeblateStrategy(DjangoStrategy):
         if merge:
             data = self.request.GET.copy()
             data.update(self.request.POST)
-        elif self.request.method == 'POST':
+        elif self.request.method == "POST":
             data = self.request.POST.copy()
         else:
             data = self.request.GET.copy()
         # This is mostly fix for lack of next validation in Python Social Auth
         # - https://github.com/python-social-auth/social-core/pull/92
         # - https://github.com/python-social-auth/social-core/issues/62
-        if 'next' in data and not is_safe_url(data['next'], allowed_hosts=None):
-            data['next'] = '{0}#account'.format(reverse('profile'))
+        if "next" in data and not url_has_allowed_host_and_scheme(
+            data["next"], allowed_hosts=None
+        ):
+            data["next"] = "{0}#account".format(reverse("profile"))
         return data
 
     def build_absolute_uri(self, path=None):
         if self.request:
-            self.request.__dict__['_current_scheme_host'] = get_site_url()
-        return super(WeblateStrategy, self).build_absolute_uri(path)
+            self.request.__dict__["_current_scheme_host"] = get_site_url()
+        return super().build_absolute_uri(path)
 
     def clean_partial_pipeline(self, token):
         # The cleanup somehow breaks our partial pipelines, simply skip
@@ -71,4 +70,4 @@ class WeblateStrategy(DjangoStrategy):
         return
 
     def really_clean_partial_pipeline(self, token):
-        super(WeblateStrategy, self).clean_partial_pipeline(token)
+        super().clean_partial_pipeline(token)

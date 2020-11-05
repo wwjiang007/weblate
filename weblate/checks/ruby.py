@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,12 +19,12 @@
 
 import re
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.checks.format import BaseFormatCheck
 
 RUBY_FORMAT_MATCH = re.compile(
-    r'''
+    r"""
     %(                                 # initial %
       (?:                              # classic printf style
         (?:(?P<ord>\d+)\$)?            # variable order, like %1$s
@@ -51,23 +50,24 @@ RUBY_FORMAT_MATCH = re.compile(
         )
       )
     )
-    ''',
-    re.VERBOSE
+    """,
+    re.VERBOSE,
 )
 
 
 class RubyFormatCheck(BaseFormatCheck):
-    """
-    Check for Ruby format string.
+    """Check for Ruby format string.
+
     Ruby support various format strings (excluding string interpolation):
     - printf syntax: %s, %1$s
     - named printf syntax: %<variable>s
     - template style (implicit %s): %{variable}
     """
-    check_id = 'ruby_format'
-    name = _('Ruby format')
-    description = _('Ruby format string does not match source')
+
+    check_id = "ruby_format"
+    name = _("Ruby format")
+    description = _("Ruby format string does not match source")
     regexp = RUBY_FORMAT_MATCH
 
     def is_position_based(self, string):
-        return string != '%' and not re.search(r'[$<{]', string)
+        return string != "%" and not re.search(r"[$<{]", string)

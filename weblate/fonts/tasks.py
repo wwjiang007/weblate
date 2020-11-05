@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,15 +17,14 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import absolute_import, unicode_literals
 
-from weblate.celery import app
 from weblate.fonts.models import FONT_STORAGE, Font
+from weblate.utils.celery import app
 
 
-@app.task
+@app.task(trail=False)
 def cleanup_font_files():
-    """Remove stale fonts"""
+    """Remove stale fonts."""
     try:
         files = FONT_STORAGE.listdir(".")[1]
     except OSError:

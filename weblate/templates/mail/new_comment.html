@@ -3,20 +3,19 @@
 {% load i18n %}{% load translations %}
 
 {% block content %}
-<p>
-{% blocktrans with user=user.username %}There has been a new comment on {{ component }} at {{ site_title }} by {{ user }}.{% endblocktrans %}
-</p>
 
 {% include "mail/snippets/source-string.html" %}
 
 <h2>{% trans "Comment" %}</h2>
 
 <p>
-{{ comment.comment }}
+{{ comment.comment|markdown }}
 </p>
 
 <div class="line buttons">
-    <a class="button" href="{{ current_site_url }}{{ unit.get_absolute_url }}">{% trans "Edit this string" %}</a>
+<a class="button" href="{{ unit.get_absolute_url }}#comments">{% trans "Edit this string" %}</a>
 </div>
+
+{% include "mail/snippets/unit-screenshots.html" %}
 
 {% endblock %}

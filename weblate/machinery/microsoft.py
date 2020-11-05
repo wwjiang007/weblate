@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,114 +19,124 @@
 
 from datetime import timedelta
 
-import six
 from django.conf import settings
 from django.utils import timezone
 
 from weblate.machinery.base import MachineTranslation, MissingConfiguration
 
-COGNITIVE_BASE_URL = 'https://api.cognitive.microsoft.com/sts/v1.0'
-COGNITIVE_TOKEN = COGNITIVE_BASE_URL + '/issueToken?Subscription-Key={0}'
-
-BASE_URL = 'https://api.microsofttranslator.com/V2/Ajax.svc/'
-TRANSLATE_URL = BASE_URL + 'Translate'
-LIST_URL = BASE_URL + 'GetLanguagesForTranslate'
+TOKEN_URL = "https://{0}{1}/sts/v1.0/issueToken?Subscription-Key={2}"
 TOKEN_EXPIRY = timedelta(minutes=9)
 
 
 class MicrosoftCognitiveTranslation(MachineTranslation):
     """Microsoft Cognitive Services Translator API support."""
-    name = 'Microsoft Translator'
+
+    name = "Microsoft Translator"
+    max_score = 90
 
     language_map = {
-        'zh-hant': 'zh-CHT',
-        'zh-hans': 'zh-CHS',
-        'zh-tw': 'zh-CHT',
-        'zh-cn': 'zh-CHS',
-        'tlh-qaak': 'tlh-Qaak',
-        'nb': 'no',
-        'bs-latn': 'bs-Latn',
-        'sr-latn': 'sr-Latn',
-        'sr-cyrl': 'sr-Cyrl',
+        "zh-hant": "zh-Hant",
+        "zh-hans": "zh-Hans",
+        "zh-tw": "zh-Hant",
+        "zh-cn": "zh-Hans",
+        "tlh": "tlh-Latn",
+        "tlh-qaak": "tlh-Piqd",
+        "nb": "no",
+        "bs-latn": "bs-Latn",
+        "sr-latn": "sr-Latn",
+        "sr-cyrl": "sr-Cyrl",
     }
 
     def __init__(self):
         """Check configuration."""
-        super(MicrosoftCognitiveTranslation, self).__init__()
+        super().__init__()
         self._access_token = None
         self._token_expiry = None
+
+        # check settings for Microsoft region prefix
+        if settings.MT_MICROSOFT_REGION is None:
+            region = ""
+        else:
+            region = "{}.".format(settings.MT_MICROSOFT_REGION)
+
+        self._cognitive_token_url = TOKEN_URL.format(
+            region,
+            settings.MT_MICROSOFT_ENDPOINT_URL,
+            settings.MT_MICROSOFT_COGNITIVE_KEY,
+        )
+
         if settings.MT_MICROSOFT_COGNITIVE_KEY is None:
-            raise MissingConfiguration(
-                'Microsoft Translator requires credentials'
-            )
+            raise MissingConfiguration("Microsoft Translator requires credentials")
+
+    @staticmethod
+    def get_url(suffix):
+        return "https://{}/{}".format(settings.MT_MICROSOFT_BASE_URL, suffix)
 
     def is_token_expired(self):
         """Check whether token is about to expire."""
         return self._token_expiry <= timezone.now()
 
-    def authenticate(self, request):
+    def get_authentication(self):
         """Hook for backends to allow add authentication headers to request."""
-        request.add_header(
-            'Authorization',
-            'Bearer {0}'.format(self.access_token)
-        )
+        return {"Authorization": "Bearer {0}".format(self.access_token)}
 
     @property
     def access_token(self):
         """Obtain and caches access token."""
         if self._access_token is None or self.is_token_expired():
-            self._access_token = self.json_req(
-                COGNITIVE_TOKEN.format(settings.MT_MICROSOFT_COGNITIVE_KEY),
-                skip_auth=True,
-                http_post=True,
-                raw=True,
-                fake='1',
-            )
+            self._access_token = self.request(
+                "post", self._cognitive_token_url, skip_auth=True
+            ).text
             self._token_expiry = timezone.now() + TOKEN_EXPIRY
 
         return self._access_token
 
-    def convert_language(self, language):
-        """Convert language to service specific code.
-
-        Remove second part of locale in most of cases.
-        """
-        return super(MicrosoftCognitiveTranslation, self).convert_language(
-            language.replace('_', '-').lower()
-        )
+    def map_language_code(self, code):
+        """Convert language to service specific code."""
+        return super().map_language_code(code).replace("_", "-")
 
     def download_languages(self):
         """Download list of supported languages from a service.
 
         Example of the response:
-        ['af', 'ar', 'bs-Latn', 'bg', 'ca', 'zh-CHS', 'zh-CHT', 'yue', 'hr',
-        'cs', 'da', 'nl', 'en', 'et', 'fj', 'fil', 'fi', 'fr', 'de', 'el',
-        'ht', 'he', 'hi', 'mww', 'h', 'id', 'it', 'ja', 'sw', 'tlh',
-        'tlh-Qaak', 'ko', 'lv', 'lt', 'mg', 'ms', 'mt', 'yua', 'no', 'otq',
-        'fa', 'pl', 'pt', 'ro', 'r', 'sm', 'sr-Cyrl', 'sr-Latn', 'sk', 'sl',
-        'es', 'sv', 'ty', 'th', 'to', 'tr', 'uk', 'ur', 'vi', 'cy']
+
+        ['af', 'ar', 'bs-Latn', 'bg', 'ca', 'zh-CHS', 'zh-CHT', 'yue', 'hr', 'cs', 'da',
+        'nl', 'en', 'et', 'fj', 'fil', 'fi', 'fr', 'de', 'el', 'ht', 'he', 'hi', 'mww',
+        'h', 'id', 'it', 'ja', 'sw', 'tlh', 'tlh-Qaak', 'ko', 'lv', 'lt', 'mg', 'ms',
+        'mt', 'yua', 'no', 'otq', 'fa', 'pl', 'pt', 'ro', 'r', 'sm', 'sr-Cyrl',
+        'sr-Latn', 'sk', 'sl', 'es', 'sv', 'ty', 'th', 'to', 'tr', 'uk', 'ur', 'vi',
+        'cy']
         """
-        response = self.json_req(LIST_URL)
+        response = self.request(
+            "get", self.get_url("languages"), params={"api-version": "3.0"}
+        )
+        # Microsoft tends to use utf-8-sig instead of plain utf-8
+        response.encoding = response.apparent_encoding
+        payload = response.json()
 
         # We should get an object, string usually means an error
-        if isinstance(response, six.string_types):
-            raise Exception(response)
+        if isinstance(payload, str):
+            raise Exception(payload)
 
-        return response
+        return payload["translation"].keys()
 
-    def download_translations(self, source, language, text, unit, request):
+    def download_translations(self, source, language, text, unit, user, search):
         """Download list of possible translations from a service."""
         args = {
-            'text': text[:5000],
-            'from': source,
-            'to': language,
-            'contentType': 'text/plain',
-            'category': 'general',
+            "api-version": "3.0",
+            "from": source,
+            "to": language,
+            "category": "general",
         }
-        response = self.json_req(TRANSLATE_URL, **args)
-        return [{
-            'text': response,
-            'quality': self.max_score,
-            'service': self.name,
-            'source': text,
-        }]
+        response = self.request(
+            "post", self.get_url("translate"), params=args, json=[{"Text": text[:5000]}]
+        )
+        # Microsoft tends to use utf-8-sig instead of plain utf-8
+        response.encoding = "utf-8-sig"
+        payload = response.json()
+        yield {
+            "text": payload[0]["translations"][0]["text"],
+            "quality": self.max_score,
+            "service": self.name,
+            "source": text,
+        }

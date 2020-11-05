@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,26 +17,28 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 from django.core.exceptions import ValidationError
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 
 from weblate.checks.flags import Flags
 
 
 def validate_filemask(val):
     """Validate that filemask contains *."""
-    if '*' not in val:
+    if "*" not in val:
         raise ValidationError(
-            _('Filemask does not contain * as a language placeholder!')
+            _("Filemask does not contain * as a language placeholder!")
         )
 
 
 def validate_autoaccept(val):
     """Validate correct value for autoaccept."""
     if val == 1:
-        raise ValidationError(_(
-            'A value of 1 is not allowed for autoaccept as '
-            'it would permit users to vote on their own suggestions.'
-        ))
+        raise ValidationError(
+            _(
+                "A value of 1 is not allowed for autoaccept as "
+                "it would permit users to vote on their own suggestions."
+            )
+        )
 
 
 def validate_check_flags(val):

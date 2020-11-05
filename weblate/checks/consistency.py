@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,29 +17,27 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from django.db.models import Count
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.checks.base import TargetCheck
-from weblate.utils.state import STATE_TRANSLATED
 
 
 class PluralsCheck(TargetCheck):
-    """Check for incomplete plural forms"""
-    check_id = 'plurals'
-    name = _('Missing plurals')
-    description = _('Some plural forms are not translated')
-    severity = 'danger'
+    """Check for incomplete plural forms."""
+
+    check_id = "plurals"
+    name = _("Missing plurals")
+    description = _("Some plural forms are not translated")
 
     def check_target_unit(self, sources, targets, unit):
         # Is this plural?
         if len(sources) == 1:
             return False
         # Is at least something translated?
-        if targets == len(targets) * ['']:
+        if targets == len(targets) * [""]:
             return False
         # Check for empty translation
-        return '' in targets
+        return "" in targets
 
     def check_single(self, source, target, unit):
         """We don't check target strings here."""
@@ -48,17 +45,17 @@ class PluralsCheck(TargetCheck):
 
 
 class SamePluralsCheck(TargetCheck):
-    """Check for same plural forms"""
-    check_id = 'same-plurals'
-    name = _('Same plurals')
-    description = _('Some plural forms are translated in the same way')
-    severity = 'warning'
+    """Check for same plural forms."""
+
+    check_id = "same-plurals"
+    name = _("Same plurals")
+    description = _("Some plural forms are translated in the same way")
 
     def check_target_unit(self, sources, targets, unit):
         # Is this plural?
-        if len(sources) == 1:
+        if len(sources) == 1 or len(targets) == 1:
             return False
-        if targets[0] == '':
+        if targets[0] == "":
             return False
         return len(set(targets)) == 1
 
@@ -68,38 +65,22 @@ class SamePluralsCheck(TargetCheck):
 
 
 class ConsistencyCheck(TargetCheck):
-    """Check for inconsistent translations"""
-    check_id = 'inconsistent'
-    name = _('Inconsistent')
+    """Check for inconsistent translations."""
+
+    check_id = "inconsistent"
+    name = _("Inconsistent")
     description = _(
-        'This string has more than one translation in this project'
+        "This string has more than one translation in this project "
+        "or is not translated in some components."
     )
     ignore_untranslated = False
-    severity = 'warning'
-    batch_update = True
-
-    def check_target_project(self, project):
-        """Batch check for whole project."""
-        from weblate.trans.models import Unit
-        return Unit.objects.filter(
-            translation__component__project=project,
-            translation__component__allow_translation_propagation=True,
-        ).values(
-            'content_hash', 'translation__language'
-        ).annotate(
-            Count('target', distinct=True)
-        ).filter(
-            target__count__gt=1
-        )
+    propagates = True
 
     def check_target_unit(self, sources, targets, unit):
-        # Do not check consistency if user asked not to have it
-        if not unit.translation.component.allow_translation_propagation:
-            return False
         for other in unit.same_source_units:
             if unit.target == other.target:
                 continue
-            if unit.translated or other.state >= STATE_TRANSLATED:
+            if unit.translated or other.translated:
                 return True
         return False
 
@@ -109,33 +90,45 @@ class ConsistencyCheck(TargetCheck):
 
 
 class TranslatedCheck(TargetCheck):
-    """Check for inconsistent translations"""
-    check_id = 'translated'
-    name = _('Has been translated')
-    description = _(
-        'This string has been translated in the past'
-    )
-    ignore_untranslated = False
-    severity = 'warning'
-    batch_update = True
+    """Check for inconsistent translations."""
 
-    def check_target_project(self, project):
-        """Batch check for whole project."""
-        from weblate.trans.models import Unit, Change
-        return Unit.objects.filter(
-            translation__component__project=project,
-            change__action__in=Change.ACTIONS_TRANSLATED,
-            state__lt=STATE_TRANSLATED,
-        ).values(
-            'content_hash', 'translation__language'
-        )
+    check_id = "translated"
+    name = _("Has been translated")
+    description = _("This string has been translated in the past")
+    ignore_untranslated = False
+
+    def get_description(self, check_obj):
+        unit = check_obj.unit
+        target = self.check_target_unit(unit.source, unit.target, unit)
+        if not target:
+            return super().get_description(check_obj)
+        return _('Last translation was "%s".') % target
 
     def check_target_unit(self, sources, targets, unit):
         if unit.translated:
             return False
 
-        return unit.change_set.content().exists()
+        from weblate.trans.models import Change
+
+        states = {Change.ACTION_SOURCE_CHANGE}
+        states.update(Change.ACTIONS_CONTENT)
+
+        changes = unit.change_set.filter(action__in=states).order()
+
+        for action, target in changes.values_list("action", "target"):
+            if action in Change.ACTIONS_CONTENT and target:
+                return target
+            if action == Change.ACTION_SOURCE_CHANGE:
+                break
+
+        return False
 
     def check_single(self, source, target, unit):
         """We don't check target strings here."""
         return False
+
+    def get_fixup(self, unit):
+        target = self.check_target_unit(unit.source, unit.target, unit)
+        if not target:
+            return None
+        return [(".*", target, "u")]

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,9 +16,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-from __future__ import unicode_literals
 
 from diff_match_patch import diff_match_patch
+from django.utils.html import escape
 
 
 def html_diff(old, new):
@@ -31,9 +30,9 @@ def html_diff(old, new):
     result = []
     for op, data in diff:
         if op == dmp.DIFF_DELETE:
-            result.append('<del>{0}</del>'.format(data))
+            result.append("<del>{0}</del>".format(escape(data)))
         elif op == dmp.DIFF_INSERT:
-            result.append('<ins>{0}</ins>'.format(data))
+            result.append("<ins>{0}</ins>".format(escape(data)))
         elif op == dmp.DIFF_EQUAL:
-            result.append(data)
-    return ''.join(result)
+            result.append(escape(data))
+    return "".join(result)

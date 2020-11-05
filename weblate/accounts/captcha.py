@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,35 +18,25 @@
 #
 """Simple mathematical captcha."""
 
-from __future__ import unicode_literals
 
 import ast
-import hashlib
 import operator
 import time
-from base64 import b64decode, b64encode
 from random import SystemRandom
 
-from django.conf import settings
+from weblate.utils.templatetags.icons import icon
 
 TIMEDELTA = 600
 
 # Supported operators
-OPERATORS = {
-    ast.Add: operator.add,
-    ast.Sub: operator.sub,
-    ast.Mult: operator.mul,
-}
+OPERATORS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul}
 
 
-class MathCaptcha(object):
+class MathCaptcha:
     """Simple match captcha object."""
-    operators = ('+', '-', '*')
-    operators_display = {
-        '+': '<i class="fa fa-plus"></i>',
-        '-': '<i class="fa fa-minus"></i>',
-        '*': '<i class="fa fa-times"></i>',
-    }
+
+    operators = ("+", "-", "*")
+    operators_display = {}
     interval = (1, 10)
 
     def __init__(self, question=None, timestamp=None):
@@ -59,6 +48,12 @@ class MathCaptcha(object):
             self.timestamp = time.time()
         else:
             self.timestamp = timestamp
+        if not self.operators_display:
+            self.operators_display = {
+                "+": icon("plus.svg"),
+                "-": icon("minus.svg"),
+                "*": icon("close.svg"),
+            }
 
     def generate_question(self):
         """Generate random question."""
@@ -68,31 +63,23 @@ class MathCaptcha(object):
         second = generator.randint(self.interval[0], self.interval[1])
 
         # We don't want negative answers
-        if operation == '-':
+        if operation == "-":
             first += self.interval[1]
 
-        return ' '.join((
-            str(first),
-            operation,
-            str(second)
-        ))
+        return str(first) + " " + operation + " " + str(second)
 
     @staticmethod
-    def from_hash(hashed):
-        """Create object from hash."""
-        question, timestamp = unhash_question(hashed)
-        return MathCaptcha(question, timestamp)
+    def unserialize(value):
+        """Create object from serialized."""
+        return MathCaptcha(*value)
 
-    @property
-    def hashed(self):
-        """Return hashed question."""
-        return hash_question(self.question, self.timestamp)
+    def serialize(self):
+        """Serialize captcha settings."""
+        return (self.question, self.timestamp)
 
     def validate(self, answer):
         """Validate answer."""
-        return (
-            self.result == answer and self.timestamp + TIMEDELTA > time.time()
-        )
+        return self.result == answer and self.timestamp + TIMEDELTA > time.time()
 
     @property
     def result(self):
@@ -103,49 +90,7 @@ class MathCaptcha(object):
     def display(self):
         """Get unicode for display."""
         parts = self.question.split()
-        return ' '.join((
-            parts[0],
-            self.operators_display[parts[1]],
-            parts[2],
-        ))
-
-
-def format_timestamp(timestamp):
-    """Format timestamp in a form usable in captcha."""
-    return '{0:>010x}'.format(int(timestamp))
-
-
-def checksum_question(question, timestamp):
-    """Return checksum for a question."""
-    challenge = ''.join((settings.SECRET_KEY, question, timestamp))
-    sha = hashlib.sha1(challenge.encode('utf-8'))
-    return sha.hexdigest()
-
-
-def hash_question(question, timestamp):
-    """Hashe question so that it can be later verified."""
-    timestamp = format_timestamp(timestamp)
-    hexsha = checksum_question(question, timestamp)
-    return ''.join((
-        hexsha,
-        timestamp,
-        b64encode(question.encode('utf-8')).decode('ascii')
-    ))
-
-
-def unhash_question(question):
-    """Unhashe question, verifying its content."""
-    if len(question) < 40:
-        raise ValueError('Invalid data')
-    hexsha = question[:40]
-    timestamp = question[40:50]
-    try:
-        question = b64decode(question[50:]).decode('utf-8')
-    except (TypeError, UnicodeError):
-        raise ValueError('Invalid encoding')
-    if hexsha != checksum_question(question, timestamp):
-        raise ValueError('Tampered question!')
-    return question, int(timestamp, 16)
+        return parts[0] + " " + self.operators_display[parts[1]] + " " + parts[2]
 
 
 def eval_expr(expr):
@@ -169,8 +114,5 @@ def eval_node(node):
         return OPERATORS[type(node)]
     if isinstance(node, ast.BinOp):
         # binary operation
-        return eval_node(node.op)(
-            eval_node(node.left),
-            eval_node(node.right)
-        )
+        return eval_node(node.op)(eval_node(node.left), eval_node(node.right))
     raise ValueError(node)

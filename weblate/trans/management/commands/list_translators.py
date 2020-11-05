@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,23 +16,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-from __future__ import unicode_literals
 
 from weblate.trans.management.commands import WeblateComponentCommand
 from weblate.trans.models.change import Change
 
 
 class Command(WeblateComponentCommand):
-    help = 'List translators for a component'
+    help = "List translators for a component"
 
     def add_arguments(self, parser):
-        super(Command, self).add_arguments(parser)
+        super().add_arguments(parser)
         parser.add_argument(
-            '--language-code',
-            action='store_true',
-            dest='code',
+            "--language-code",
+            action="store_true",
+            dest="code",
             default=False,
-            help='Use language code instead of language name',
+            help="Use language code instead of language name",
         )
 
     def handle(self, *args, **options):
@@ -43,13 +41,13 @@ class Command(WeblateComponentCommand):
                 authors = Change.objects.filter(translation=translation).authors_list()
                 if not authors:
                     continue
-                if options['code']:
+                if options["code"]:
                     key = translation.language.code
                 else:
                     key = translation.language.name
                 data.append({key: sorted(set(authors))})
         for language in data:
             name, translators = language.popitem()
-            self.stdout.write('[{0}]\n'.format(name))
+            self.stdout.write("[{0}]\n".format(name))
             for translator in translators:
-                self.stdout.write('{1} <{0}>\n'.format(*translator))
+                self.stdout.write("{1} <{0}>\n".format(*translator))

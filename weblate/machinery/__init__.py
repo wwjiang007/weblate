@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,4 +20,4 @@
 from weblate.utils.classloader import ClassLoader
 
 # Initialize checks list
-MACHINE_TRANSLATION_SERVICES = ClassLoader('MT_SERVICES')
+MACHINE_TRANSLATION_SERVICES = ClassLoader("MT_SERVICES")

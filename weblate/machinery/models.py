@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,7 +17,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from appconf import AppConf
 
@@ -34,14 +32,13 @@ class WeblateConf(AppConf):
     AWS_SECRET_ACCESS_KEY = None
     AWS_REGION = None
 
-    # Microsoft Translator service, register at
-    # https://datamarket.azure.com/developer/applications/
-    MICROSOFT_ID = None
-    MICROSOFT_SECRET = None
-
-    # Microsoft Conginite Services Translator, register at
-    # https://portal.azure.com/
+    # Microsoft Conginite Services Translator
     MICROSOFT_COGNITIVE_KEY = None
+    MICROSOFT_BASE_URL = "api.cognitive.microsofttranslator.com"
+    MICROSOFT_ENDPOINT_URL = "api.cognitive.microsoft.com"
+
+    # Microsoft Azure services region identification code
+    MICROSOFT_REGION = None
 
     # MyMemory identification email, see
     # https://mymemory.translated.net/doc/spec.php
@@ -54,6 +51,15 @@ class WeblateConf(AppConf):
     # Google API key for Google Translate API
     GOOGLE_KEY = None
 
+    # Google Translate API3 credentials and project id
+    GOOGLE_CREDENTIALS = None
+    GOOGLE_PROJECT = None
+    GOOGLE_LOCATION = "global"
+
+    # ModernMT
+    MT_MODERNMT_KEY = None
+    MT_MODERNMT_URL = "https://api.modernmt.com/"
+
     # API key for Yandex Translate API
     YANDEX_KEY = None
 
@@ -62,6 +68,7 @@ class WeblateConf(AppConf):
 
     # API key for DeepL API
     DEEPL_KEY = None
+    DEEPL_API_VERSION = "v2"
 
     # SAP Translation Hub
     SAP_BASE_URL = None
@@ -80,9 +87,9 @@ class WeblateConf(AppConf):
 
     # List of machine translations
     SERVICES = (
-        'weblate.machinery.weblatetm.WeblateTranslation',
-        'weblate.memory.machine.WeblateMemory',
+        "weblate.machinery.weblatetm.WeblateTranslation",
+        "weblate.memory.machine.WeblateMemory",
     )
 
-    class Meta(object):
-        prefix = 'MT'
+    class Meta:
+        prefix = "MT"

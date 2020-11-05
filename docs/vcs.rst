@@ -13,10 +13,116 @@ Accessing repositories
 ----------------------
 
 The VCS repository you want to use has to be accessible to Weblate. With a
-publicly available repository you just need to enter correct URL (for example
-``git://github.com/WeblateOrg/weblate.git`` or
-``https://github.com/WeblateOrg/weblate.git``), but for private repositories the
-setup might be more complex.
+publicly available repository you just need to enter the correct URL (for
+example ``https://github.com/WeblateOrg/weblate.git``), but for private
+repositories or for push URLs the setup is more complex and requires
+authentication.
+
+.. _hosted-push:
+
+Accessing repositories from Hosted Weblate
+++++++++++++++++++++++++++++++++++++++++++
+
+For Hosted Weblate there is a dedicated push user registered on GitHub,
+Bitbucket, Codeberg and GitLab (with username :guilabel:`weblate` named
+:guilabel:`Weblate push user`). You need to add this user as a collaborator and
+give it appropriate permission to your repository (read only is okay for
+cloning, write is required for pushing). Depending on service and your
+organization settings, this happens immediately or requires confirmation from
+Weblate side.
+
+The invitations on GitHub are accepted automatically within five minutes, on
+other services manual processing might be needed, so please be patient.
+
+Once the :guilabel:`weblate` user is added, you can configure
+:ref:`component-repo` and :ref:`component-push` using SSH protocol (for example
+``git@github.com:WeblateOrg/weblate.git``).
+
+.. _ssh-repos:
+
+SSH repositories
+++++++++++++++++
+
+The most frequently used method to access private repositories is based on SSH.
+Authorize the public Weblate SSH key (see :ref:`weblate-ssh-key`) to access the upstream
+repository this way.
+
+.. warning::
+
+    On GitHub, each key can be added to only one repository, see
+    :ref:`vcs-repos-github` and :ref:`hosted-push`.
+
+Weblate also stores the host key fingerprint upon first connection, and fails to
+connect to the host should it be changed later (see :ref:`verify-ssh`).
+
+In case adjustment is needed, do so from the Weblate admin interface:
+
+.. image:: images/ssh-keys.png
+
+
+.. _weblate-ssh-key:
+
+Weblate SSH key
+~~~~~~~~~~~~~~~
+
+The Weblate public key is visible to all users browsing the :guilabel:`About` page.
+
+Admins can generate or display the public key currently used by Weblate in the connection
+(from :guilabel:`SSH keys`) on the admin interface landing page.
+
+.. note::
+
+    The corresponding private SSH key can not currently have a password, so make sure it is
+    well protected.
+
+.. hint::
+
+   Make a backup of the generated private Weblate SSH key.
+
+.. _verify-ssh:
+
+Verifying SSH host keys
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Weblate automatically remembers the SSH host keys on first access and remembers
+them for further use.
+
+In case you want to verify them before connecting to the repository, verify the
+SSH host keys of the servers you are going to access in :guilabel:`Add host
+key`, from the same section of the admin interface. Enter the hostname you are
+going to access (e.g. ``gitlab.com``), and press :guilabel:`Submit`.  Verify
+its fingerprint matches the server you added. They are shown in the
+confirmation message:
+
+.. image:: images/ssh-keys-added.png
+
+.. _vcs-repos-github:
+
+GitHub repositories
++++++++++++++++++++
+
+Access via SSH is possible (see :ref:`ssh-repos`), but in case you need to
+access more than one repository, you will hit a GitHub limitation on allowed
+SSH key usage (since one key can be used only for one repository).
+
+In case the :ref:`component-push_branch` is not set, the project is forked and
+changes pushed through a fork. In case it is set, changes are pushed to the
+upstream repository and chosen branch.
+
+For smaller deployments, use HTTPS authentication with a personal access
+token and your GitHub account, see `Creating an access token for command-line use`_.
+
+.. _Creating an access token for command-line use: https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token
+
+For bigger setups, it is usually better to create a dedicated user for Weblate,
+assign it the public SSH key generated in Weblate (see :ref:`weblate-ssh-key`)
+and grant it access to all the repositories you want to translate. This
+approach is also used for Hosted Weblate, there is dedicated
+:guilabel:`weblate` user for that.
+
+.. seealso::
+
+    :ref:`hosted-push`
 
 .. _internal-urls:
 
@@ -24,80 +130,47 @@ Weblate internal URLs
 +++++++++++++++++++++
 
 To share one repository between different components you can use a special URL
-like ``weblate://project/component``. This way, the component will share the VCS
-repository configuration with referenced component and the VCS repository will
-be stored just once on the disk.
+like ``weblate://project/component``. This way, the component will share the
+VCS repository configuration with the referenced component
+(``project/component`` in the example).
 
-.. _ssh-repos:
+Weblate automatically adjusts repository URL when creating component when it
+finds component with matching repository setup. You can override this in last
+step of component configuration.
 
-SSH repositories
-++++++++++++++++
+Reasons to use this:
 
-The most frequently used method to access private repositories is based on SSH. To
-have access to such a repository, you generate SSH key for Weblate and authorize
-it to access the repository. Weblate also needs to know the host key to avoid
-man in the middle attacks. This all can be done in the Weblate administration
-interface:
-
-.. image:: images/ssh-keys.png
-
-Generating SSH keys
-~~~~~~~~~~~~~~~~~~~
-
-You can generate or display the key currently used by Weblate in the admin
-interface (follow :guilabel:`SSH keys` link on main admin page). Once you've
-done this, Weblate should be able to access your repository.
-
-.. note::
-
-    The keys need to be without password to make it work, so be sure they are
-    well protected against malicious usage.
-
-.. warning::
-
-    On GitHub, you can add the key to only one repository. See the following
-    sections for other solutions for GitHub.
-
-.. _verify-ssh:
-
-Verifying SSH host keys
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Before connecting to the repository, you also need to verify SSH host keys of
-servers you are going to access in the same section of the admin interface.
-You can do this in the :guilabel:`Add host key` section. Just enter hostname
-you are going to access (eg. ``gitlab.com``) and press :guilabel:`Submit`.
-After adding it please verify that the fingerprint matches the server you're
-adding, the fingerprints will be displayed in the confirmation message:
-
-.. image:: images/ssh-keys-added.png
+* Saves disk space on the server, the repository is stored just once.
+* Makes the updates faster, only one repository is updated.
+* There is just single exported repository with Weblate translations (see :ref:`git-exporter`).
+* Some addons can operate on more components sharing single repository, for example :ref:`addon-weblate.git.squash`.
 
 
 HTTPS repositories
 ++++++++++++++++++
 
-To access protected HTTPS repositories, you need to include the username and password
-in the URL. Don't worry, Weblate will strip this information when showing the URL
-to the users (if they are allowed to see the repository URL at all).
+To access protected HTTPS repositories, include the username and password
+in the URL. Don't worry, Weblate will strip this info when the URL is shown
+to users (if even allowed to see the repository URL at all).
 
-For example the GitHub URL with authentication might look like
+For example the GitHub URL with authentication added might look like:
 ``https://user:your_access_token@github.com/WeblateOrg/weblate.git``.
 
 .. note::
 
-    In case your username or password contains special chars, those have to be
+    If your username or password contains special characters, those have to be
     URL encoded, for example
-    ``https://user%40example.com:%24password%23@bitbucket.org/...```.
+    ``https://user%40example.com:%24password%23@bitbucket.org/…``.
 
 Using proxy
 +++++++++++
 
-If you need to access http/https VCS repositories using a proxy server, you
-need to configure the VCS to use it.
+If you need to access HTTP/HTTPS VCS repositories using a proxy server,
+configure the VCS to use it.
 
-This can be configured using the ``http_proxy``, ``https_proxy``, and
-``all_proxy`` environment variables (check cURL documentation for more details)
-or by enforcing it in VCS configuration, for example:
+This can be done using the ``http_proxy``, ``https_proxy``, and ``all_proxy``
+environment variables, (as described in the `cURL documentation <https://curl.haxx.se/docs/>`_)
+or by enforcing it in the VCS configuration, for example:
 
 .. code-block:: sh
 
@@ -105,15 +178,14 @@ or by enforcing it in VCS configuration, for example:
 
 .. note::
 
-    The proxy setting needs to be done in the same context which is used to
-    execute Weblate. For the environment it should be set for both wsgi and
-    Celery servers. The VCS configuration has to be set for the user which is
-    running Weblate.
+    The proxy configuration needs to be done under user running Weblate (see
+    also :ref:`file-permissions`) and with ``HOME=$DATA_DIR/home`` (see
+    :setting:`DATA_DIR`), otherwise Git executed by Weblate will not use it.
 
 .. seealso::
 
-    `curl manpage <https://curl.haxx.se/docs/manpage.html>`_,
-    `git config documentation <https://git-scm.com/docs/git-config>`_
+    `The cURL manpage <https://curl.haxx.se/docs/manpage.html>`_,
+    `Git config documentation <https://git-scm.com/docs/git-config>`_
 
 
 .. _vcs-git:
@@ -121,74 +193,62 @@ or by enforcing it in VCS configuration, for example:
 Git
 ---
 
-Git is first VCS backend that was available in Weblate and is still the most
-stable and tested one.
-
 .. seealso::
 
-    See :ref:`vcs-repos` for information how to access different kind of
-    repositories.
+    See :ref:`vcs-repos` for info on how to access different kinds of repositories.
 
-.. _vcs-repos-github:
-
-GitHub repositories
+Git with force push
 +++++++++++++++++++
 
-You can access GitHub repositories by SSH as mentioned above, but in case you
-need to access more repositories, you will hit a GitHub limitation on the SSH key
-usage (one key can be used only for one repository). There are several ways to
-work around this limitation.
+This behaves exactly like Git itself, the only difference being that it always
+force pushes. This is intended only in the case of using a separate repository
+for translations.
 
-For smaller deployments, you can use HTTPS authentication using a personal access
-token and your account, see `Creating an access token for command-line use`_.
+.. warning::
 
-.. _Creating an access token for command-line use: https://help.github.com/articles/creating-an-access-token-for-command-line-use/
-
-For a bigger setup, it is usually better to create dedicated user for Weblate,
-assign him the SSH key generated in Weblate and grant him access to all
-repositories you want.
+    Use with caution, as this easily leads to lost commits in your
+    upstream repository.
 
 Customizing Git configuration
 +++++++++++++++++++++++++++++
 
-Weblate invokes all VCS commands with HOME pointed to ``home`` directory in
-:setting:`DATA_DIR`, therefore if you want to edit user configuration, you need
-to do this in ``DATA_DIR/home/.git``.
+Weblate invokes all VCS commands with ``HOME=$DATA_DIR/home`` (see
+:setting:`DATA_DIR`), therefore editing the user configuration needs to be done
+in ``DATA_DIR/home/.git``.
 
 .. _vcs-git-helpers:
 
 Git remote helpers
 ++++++++++++++++++
 
-You can also use Git `remote helpers`_ for supporting other VCS as well, but
-this usually leads to other problems, so be prepared to debug them.
+You can also use Git `remote helpers`_ for additionally supporting other version
+control systems, but be prepared to debug problems this may lead to.
 
 At this time, helpers for Bazaar and Mercurial are available within separate
-repositories on GitHub: `git-remote-hg`_ and `git-remote-bzr`_. You can
-download them manually and put somewhere in your search path (for example
-:file:`~/bin`). You also need to have installed appropriate version control
-programs as well.
+repositories on GitHub: `git-remote-hg`_ and `git-remote-bzr`_.
+Download them manually and put somewhere in your search path
+(for example :file:`~/bin`). Make sure you have the corresponding version control
+systems installed.
 
-Once you have these installed, you can use such remotes to specify repository
+Once you have these installed, such remotes can be used to specify a repository
 in Weblate.
 
-To clone ``gnuhello`` project from Launchpad with Bazaar use::
+To clone the ``gnuhello`` project from Launchpad using Bazaar::
 
     bzr::lp:gnuhello
 
-For ``hello`` repository from selenic.com with Mercurial use::
+For the ``hello`` repository from selenic.com using Mercurial::
 
     hg::http://selenic.com/repo/hello
 
-.. _remote helpers: https://git-scm.com/docs/git-remote-helpers
+.. _remote helpers: https://git-scm.com/docs/gitremote-helpers
 .. _git-remote-hg: https://github.com/felipec/git-remote-hg
 .. _git-remote-bzr: https://github.com/felipec/git-remote-bzr
 
 .. warning::
 
-    Please be prepared to some inconvenience when using Git remote helpers,
-    for example with Mercurial, the remote helper sometimes tends to create new
-    tip when pushing changes back.
+    The inconvenience of using Git remote helpers is for example with Mercurial,
+    the remote helper sometimes creates a new tip when pushing changes back.
 
 .. _vcs-github:
 
@@ -197,56 +257,111 @@ GitHub
 
 .. versionadded:: 2.3
 
-This just adds a thin layer on top of :ref:`vcs-git` to allow push translation
-changes as pull requests instead of pushing directory to the repository.
-It currently uses the `hub`_ tool to do the integration.
+This adds a thin layer atop :ref:`vcs-git` using the `Github API`_ to allow pushing
+translation changes as pull requests, instead of pushing directly to the repository.
 
-There is no need to use this to access Git repositories, ordinary
-:ref:`vcs-git` works the same, the only difference is how pushing to a repository is
-handled. With :ref:`vcs-git` changes are pushed directly to the repository, while
+:ref:`vcs-git` pushes changes directly to a repository, while
 :ref:`vcs-github` creates pull requests.
-
-.. _github-push:
-
-Pushing changes to GitHub as pull request
-+++++++++++++++++++++++++++++++++++++++++
-
-If you are translating a project that's hosted on GitHub and don't want to
-push translations to the repository, you can have them sent as a pull request instead.
-
-You need to configure the `hub`_ command line tool and set
-:setting:`GITHUB_USERNAME` for this to work.
+The latter is not needed for merely accessing Git repositories.
 
 .. seealso::
 
-   :setting:`GITHUB_USERNAME`, :ref:`hub-setup` for configuration instructions
+   :ref:`push-changes`
 
-.. _hub-setup:
 
-Setting up hub
-++++++++++++++
+.. _github-push:
 
-:ref:`github-push` requires a configured `hub`_ installation on your server.
-Follow the installation instructions at https://hub.github.com/ and perform an
-action with `hub`_ to finish the configuration, for example:
+Pushing changes to GitHub as pull requests
+++++++++++++++++++++++++++++++++++++++++++
 
-.. code-block:: sh
+If not wanting to push translations to a GitHub repository, they can be sent as
+either one or many pull requests instead.
 
-    # DATA_DIR is set in Weblate settings.py, set it accordingy.
-    # Is is /app/data in Docker
-    HOME=${DATA_DIR}/home hub clone octocat/Spoon-Knife
+You need to configure API credentials to make this work.
 
-The `hub`_ will ask you for your GitHub credentials, retrieve a token and store
-it into :file:`~/.config/hub`. This file has to be readable by user running
-Weblate.
+.. seealso::
 
-.. note::
+   :setting:`GITHUB_USERNAME`,
+   :setting:`GITHUB_TOKEN`,
+   :setting:`GITHUB_CREDENTIALS`
 
-    Use the username you configured :guilabel:`hub` with as
-    :setting:`GITHUB_USERNAME` (:envvar:`WEBLATE_GITHUB_USERNAME` for the
-    Docker image).
+.. _Github API: https://docs.github.com/en/rest
 
-.. _hub: https://hub.github.com/
+.. _vcs-gitlab:
+
+GitLab
+------
+
+.. versionadded:: 3.9
+
+This just adds a thin layer atop :ref:`vcs-git` using the `GitLab API`_ to allow
+pushing translation changes as merge requests instead of
+pushing directly to the repository.
+
+There is no need to use this to access Git repositories, ordinary :ref:`vcs-git`
+works the same, the only difference is how pushing to a repository is
+handled. With :ref:`vcs-git` changes are pushed directly to the repository,
+while :ref:`vcs-gitlab` creates merge request.
+
+.. seealso::
+
+   :ref:`push-changes`
+
+.. _gitlab-push:
+
+Pushing changes to GitLab as merge requests
++++++++++++++++++++++++++++++++++++++++++++
+
+If not wanting to push translations to a GitLab repository, they can be sent as either
+one or many merge requests instead.
+
+You need to configure API credentials to make this work.
+
+.. seealso::
+
+   :setting:`GITLAB_USERNAME`,
+   :setting:`GITLAB_TOKEN`,
+   :setting:`GITLAB_CREDENTIALS`
+
+.. _GitLab API: https://docs.gitlab.com/ee/api/
+
+.. _vcs-pagure:
+
+Pagure
+------
+
+.. versionadded:: 4.3.2
+
+This just adds a thin layer atop :ref:`vcs-git` using the `Pagure API`_ to allow
+pushing translation changes as merge requests instead of
+pushing directly to the repository.
+
+There is no need to use this to access Git repositories, ordinary :ref:`vcs-git`
+works the same, the only difference is how pushing to a repository is
+handled. With :ref:`vcs-git` changes are pushed directly to the repository,
+while :ref:`vcs-pagure` creates merge request.
+
+.. seealso::
+
+   :ref:`push-changes`
+
+.. _pagure-push:
+
+Pushing changes to Pagure as merge requests
++++++++++++++++++++++++++++++++++++++++++++
+
+If not wanting to push translations to a Pagure repository, they can be sent as either
+one or many merge requests instead.
+
+You need to configure API credentials to make this work.
+
+.. seealso::
+
+   :setting:`PAGURE_USERNAME`,
+   :setting:`PAGURE_TOKEN`,
+   :setting:`PAGURE_CREDENTIALS`
+
+.. _Pagure API: https://pagure.io/api/0/
 
 .. _vcs-gerrit:
 
@@ -255,12 +370,12 @@ Gerrit
 
 .. versionadded:: 2.2
 
-Adds a thin layer atop :ref:`vcs-git` to allow pushing translation
-changes as Gerrit review requests, instead of pushing a directory to the repository.
-Currently uses the `git-review`_ tool to do the integration.
+Adds a thin layer atop :ref:`vcs-git` using the `git-review`_ tool to allow
+pushing translation changes as Gerrit review requests, instead of
+pushing them directly to the repository.
 
-Please refer to the Gerrit documentation for setting up the repository with
-necessary configuration.
+The Gerrit documentation has the details on the configuration necessary to set up
+such repositories.
 
 .. _git-review: https://pypi.org/project/git-review/
 
@@ -276,11 +391,12 @@ Mercurial is another VCS you can use directly in Weblate.
 .. note::
 
     It should work with any Mercurial version, but there are sometimes
-    incompatible changes to the command line interface which break Weblate.
+    incompatible changes to the command-line interface which breaks Weblate
+    integration.
 
 .. seealso::
 
-    See :ref:`vcs-repos` for information how to access different kind of
+    See :ref:`vcs-repos` for info on how to access different kinds of
     repositories.
 
 .. _vcs-git-svn:
@@ -290,34 +406,37 @@ Subversion
 
 .. versionadded:: 2.8
 
-Thanks to `git-svn`_, Weblate can work with `subversion`_ repositories. Git-svn
-is a Perl script that enables the usage of subversion with a git client, enabling
-users to have a full clone of the internal repository and commit locally.
+Weblate uses `git-svn`_ to interact with `subversion`_ repositories. It is
+a Perl script that lets subversion be used by a Git client, enabling
+users to maintain a full clone of the internal repository and commit locally.
 
 .. note::
 
     Weblate tries to detect Subversion repository layout automatically - it
     supports both direct URLs for branch or repositories with standard layout
-    (branches/, tags/ and trunk/). See `git-svn documentation
-    <https://git-scm.com/docs/git-svn#git-svn---stdlayout>`_ for more
-    information.
+    (branches/, tags/ and trunk/). More info about this is to be found in the
+    `git-svn documentation <https://git-scm.com/docs/git-svn#Documentation/git-svn.txt---stdlayout>`_.
+    If your repository does not have a standard layout and you encounter errors,
+    try including the branch name in the repository URL and leaving branch empty.
 
 .. versionchanged:: 2.19
 
-    In older versions only repositories with standard layout were supported.
+    Before this, there was only support for standard layout repositories.
 
 .. _git-svn: https://git-scm.com/docs/git-svn
 
 .. _subversion: https://subversion.apache.org/
 
-Subversion Credentials
+Subversion credentials
 ++++++++++++++++++++++
 
-Weblate expects you to have accepted the certificate upfront and inserted your
-credential, if needed. It will look into the DATA_DIR directory. To insert your
-credential and accept the certificate, you can run svn once with the `$HOME`
-environment variable set to the DATA_DIR::
+Weblate expects you to have accepted the certificate up-front and if needed,
+your credentials. It will look to insert them into the DATA_DIR directory.
+Accept the certificate by using `svn` once with the `$HOME` environment variable set to the DATA_DIR:
 
+.. code-block:: sh
+
+    # Use DATA_DIR as configured in Weblate settings.py, it is /app/data in the Docker
     HOME=${DATA_DIR}/home svn co https://svn.example.com/example
 
 .. seealso::
@@ -332,11 +451,11 @@ Local files
 
 .. versionadded:: 3.8
 
-Weblate can operate without remote VCS as well. The initial translations are
-imported by ZIP upload. Later you can replace individual files by file upload
-or add translation strings directly in Weblate (currently available only for
+Weblate can also operate without a remote VCS. The initial translations are
+imported by uploading them. Later you can replace individual files by file upload,
+or add translation strings directly from Weblate (currently available only for
 monolingual translations).
 
-In the background Weblate creates Git repository for you and all changes are
-tracked in in. In case you decide later to use VCS to store the translations,
-it's already within Weblate and you can base on that.
+In the background Weblate creates a Git repository for you and all changes are
+tracked in. In case you later decide to use a VCS to store the translations,
+you already have a repository within Weblate can base your integration on.

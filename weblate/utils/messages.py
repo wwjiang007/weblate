@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,48 +16,45 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-"""
-Wrapper around django.contrib.messages to work with Django REST Framework as
-well. And ignoring messages without request object (eg. from CLI).
+"""Wrapper around django.contrib.messages to work with Django REST Framework.
+
+It also ignories messages without request object (for example from CLI).
 """
 
-from __future__ import unicode_literals
 
 from django.contrib.messages import add_message, constants
 
 
 def get_request(request):
     """Return Django request object even for DRF requests."""
-    if hasattr(request, '_request'):
-        return request._request
-    return request
+    return getattr(request, "_request", request)
 
 
-def debug(request, message):
+def debug(request, message, extra_tags=""):
     """Add a message with the ``DEBUG`` level."""
     if request is not None:
-        add_message(get_request(request), constants.DEBUG, message)
+        add_message(get_request(request), constants.DEBUG, message, extra_tags)
 
 
-def info(request, message):
+def info(request, message, extra_tags=""):
     """Add a message with the ``INFO`` level."""
     if request is not None:
-        add_message(get_request(request), constants.INFO, message)
+        add_message(get_request(request), constants.INFO, message, extra_tags)
 
 
-def success(request, message):
+def success(request, message, extra_tags=""):
     """Add a message with the ``SUCCESS`` level."""
     if request is not None:
-        add_message(get_request(request), constants.SUCCESS, message)
+        add_message(get_request(request), constants.SUCCESS, message, extra_tags)
 
 
-def warning(request, message):
+def warning(request, message, extra_tags=""):
     """Add a message with the ``WARNING`` level."""
     if request is not None:
-        add_message(get_request(request), constants.WARNING, message)
+        add_message(get_request(request), constants.WARNING, message, extra_tags)
 
 
-def error(request, message):
+def error(request, message, extra_tags=""):
     """Add a message with the ``ERROR`` level."""
     if request is not None:
-        add_message(get_request(request), constants.ERROR, message)
+        add_message(get_request(request), constants.ERROR, message, extra_tags)

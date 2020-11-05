@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,29 +17,28 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from weblate.trans.management.commands import WeblateLangCommand
 from weblate.trans.tasks import commit_pending
 
 
 class Command(WeblateLangCommand):
-    help = 'commits pending changes older than given age'
+    help = "commits pending changes older than given age"
 
     def add_arguments(self, parser):
-        super(Command, self).add_arguments(parser)
+        super().add_arguments(parser)
         parser.add_argument(
-            '--age',
-            action='store',
+            "--age",
+            action="store",
             type=int,
-            dest='age',
+            dest="age",
             default=None,
-            help='Age of changes to commit in hours'
+            help="Age of changes to commit in hours",
         )
 
     def handle(self, *args, **options):
         commit_pending(
-            options['age'],
-            set(self.get_translations(**options).values_list('id', flat=True)),
-            self.stdout.write if int(options['verbosity']) >= 1 else None,
+            options["age"],
+            set(self.get_translations(**options).values_list("id", flat=True)),
+            self.stdout.write if int(options["verbosity"]) >= 1 else None,
         )

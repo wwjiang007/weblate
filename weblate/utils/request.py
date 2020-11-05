@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,23 +17,29 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 import user_agents
-from django.utils.encoding import force_text
+from django.utils.encoding import force_str
+
+
+def get_request_meta(request, name: str):
+    """Returns request meta if request is set and meta available."""
+    if not request:
+        return ""
+    return force_str(request.META.get(name, ""), errors="replace")
 
 
 def get_ip_address(request):
     """Return IP address for request."""
-    return request.META.get('REMOTE_ADDR', '')
+    return get_request_meta(request, "REMOTE_ADDR")
 
 
-def get_user_agent(request, max_length=200):
-    """Return user agent for request."""
-    uaobj = user_agents.parse(
-        force_text(
-            request.META.get('HTTP_USER_AGENT', ''),
-            errors='replace'
-        )
-    )
-    return force_text(uaobj)[:max_length]
+def get_user_agent_raw(request):
+    """Return raw user agent string."""
+    return get_request_meta(request, "HTTP_USER_AGENT")
+
+
+def get_user_agent(request, max_length: int = 200):
+    """Return formatted user agent for request."""
+    uaobj = user_agents.parse(get_user_agent_raw(request))
+    return force_str(uaobj)[:max_length]

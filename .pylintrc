@@ -7,7 +7,7 @@ extension-pkg-whitelist=siphashc
 
 # Add files or directories to the blacklist. They should be base names, not
 # paths.
-ignore=migrations,settings.py,settings_openshift.py,settings_test.py,settings_test_mysql.py,settings_test_postgresql.py,settings_test_sqlite.py,.git,test-repos,repos,settings_test_nose.py,build,settings_dev.py,.venv
+ignore=migrations,settings.py,settings_test.py,.git,test-repos,repos,build,.venv
 
 # Add files or directories matching the regex patterns to the blacklist. The
 # regex matches against base names, not paths.
@@ -54,8 +54,7 @@ confidence=
 # --enable=similarities". If you want to run only the classes checker, but have
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
-# Remove on migration to Python 3: useless-object-inheritance
-disable=missing-docstring,unused-argument,no-self-use,no-member,broad-except,locally-disabled,star-args,useless-object-inheritance,cyclic-import
+disable=missing-docstring,unused-argument,no-self-use,no-member,broad-except,locally-disabled,star-args,cyclic-import,bad-continuation
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -239,7 +238,7 @@ init-import=no
 
 # List of qualified module names which can have objects that can redefine
 # builtins.
-redefining-builtins-modules=six.moves,past.builtins,future.builtins
+redefining-builtins-modules=past.builtins,future.builtins
 
 
 [TYPECHECK]
@@ -281,7 +280,7 @@ ignored-classes=SQLObject
 # (useful for modules/projects where namespaces are manipulated during runtime
 # and thus existing member attributes cannot be deduced by static analysis. It
 # supports qualified module names, as well as Unix pattern matching.
-ignored-modules=six.moves
+ignored-modules=
 
 # Show a hint with possible names when a member name was not found. The aspect
 # of finding the hint is based on edit distance.
@@ -388,7 +387,9 @@ single-line-if-stmt=no
 # List of method names used to declare (i.e. assign) instance attributes.
 defining-attr-methods=__init__,
                       __new__,
-                      setUp
+                      setUp,
+                      initialize_options,
+                      setup
 
 # List of member names, which should be excluded from the protected access
 # warning.

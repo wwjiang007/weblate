@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,18 +17,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from django import forms
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 
 class TOSForm(forms.Form):
     confirm = forms.BooleanField(
-        label=_("I agree with the Terms of Service document"),
-        required=True
+        label=_("I agree with the Terms of Service document"), required=True
     )
-    next = forms.CharField(
-        required=False,
-        widget=forms.HiddenInput,
-    )
+    next = forms.CharField(required=False, widget=forms.HiddenInput)

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,76 +17,70 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 import argparse
 import json
 
-from django.core.management.base import BaseCommand
-
 from weblate.auth.models import User
+from weblate.utils.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = 'imports users from JSON dump of database'
+    help = "imports users from JSON dump of database"
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--check',
-            action='store_true',
-            help='Only check import, do not actually create users'
+            "--check",
+            action="store_true",
+            help="Only check import, do not actually create users",
         )
         parser.add_argument(
-            'json-file',
-            type=argparse.FileType('r'),
-            help='JSON file containing user dump to import',
+            "json-file",
+            type=argparse.FileType("r"),
+            help="JSON file containing user dump to import",
         )
 
     def handle(self, *args, **options):
-        """Create default set of groups and optionally updates them and moves
-        users around to default group.
-        """
-
-        data = json.load(options['json-file'])
-        options['json-file'].close()
+        data = json.load(options["json-file"])
+        options["json-file"].close()
 
         for line in data:
-            if 'fields' in line:
-                line = line['fields']
+            if "fields" in line:
+                line = line["fields"]
 
-            if 'is_active' in line and not line['is_active']:
+            if "is_active" in line and not line["is_active"]:
                 continue
 
-            if not line['email'] or not line['username']:
-                self.stderr.write(
-                    'Skipping {0}, has blank username or email'.format(line)
-                )
+            username = line["username"]
+            email = line["email"]
+
+            if not email or not username:
+                self.stderr.write(f"Skipping {line}, has blank username or email")
                 continue
 
-            if User.objects.filter(username=line['username']).exists():
-                self.stderr.write(
-                    'Skipping {0}, username exists'.format(line['username'])
-                )
+            if User.objects.filter(username=username).exists():
+                self.stderr.write(f"Skipping {username}, username exists")
                 continue
 
-            if User.objects.filter(email=line['email']).exists():
-                self.stderr.write(
-                    'Skipping {0}, email exists'.format(line['email'])
-                )
+            if User.objects.filter(email=email).exists():
+                self.stderr.write(f"Skipping {email}, email exists")
                 continue
 
-            if line['last_name'] not in line['first_name']:
-                full_name = '{0} {1}'.format(
-                    line['first_name'],
-                    line['last_name']
-                )
+            last_name = line.get("last_name", "")
+            first_name = line.get("first_name", "")
+            if last_name and last_name not in first_name:
+                full_name = f"{first_name} {last_name}"
+            elif first_name:
+                full_name = first_name
+            elif last_name:
+                full_name = last_name
             else:
-                full_name = line['first_name']
+                full_name = username
 
-            if not options['check']:
+            if not options["check"]:
                 User.objects.create(
-                    username=line['username'],
+                    username=username,
                     full_name=full_name,
-                    password=line['password'],
-                    email=line['email']
+                    password=line.get("password", ""),
+                    email=email,
                 )

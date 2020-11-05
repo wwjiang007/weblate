@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,53 +17,53 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
+
+from urllib.parse import quote
 
 from django.conf import settings
-from six.moves.urllib.error import HTTPError
-from six.moves.urllib.parse import quote
+from requests.exceptions import HTTPError
 
 from weblate.machinery.base import MachineTranslation, MissingConfiguration
 
-AMAGAMA_LIVE = 'https://amagama-live.translatehouse.org/api/v1'
+AMAGAMA_LIVE = "https://amagama-live.translatehouse.org/api/v1"
 
 
 class TMServerTranslation(MachineTranslation):
     """tmserver machine translation support."""
-    name = 'tmserver'
+
+    name = "tmserver"
 
     def __init__(self):
         """Check configuration."""
-        super(TMServerTranslation, self).__init__()
+        super().__init__()
         self.url = self.get_server_url()
 
     @staticmethod
     def get_server_url():
         """Return URL of a server."""
         if settings.MT_TMSERVER is None:
-            raise MissingConfiguration(
-                'Not configured tmserver URL'
-            )
+            raise MissingConfiguration("Not configured tmserver URL")
 
-        return settings.MT_TMSERVER.rstrip('/')
+        return settings.MT_TMSERVER.rstrip("/")
 
-    def convert_language(self, language):
+    def map_language_code(self, code):
         """Convert language to service specific code."""
-        return language.replace('-', '_').lower()
+        return super().map_language_code(code).replace("-", "_").lower()
 
     def download_languages(self):
         """Download list of supported languages from a service."""
         try:
             # This will raise exception in DEBUG mode
-            data = self.json_req('{0}/languages/'.format(self.url))
+            response = self.request("get", "{0}/languages/".format(self.url))
+            data = response.json()
         except HTTPError as error:
-            if error.code == 404:
+            if error.response.status_code == 404:
                 return []
             raise
         return [
             (src, tgt)
-            for src in data['sourceLanguages']
-            for tgt in data['targetLanguages']
+            for src in data["sourceLanguages"]
+            for tgt in data["targetLanguages"]
         ]
 
     def is_supported(self, source, language):
@@ -75,30 +74,30 @@ class TMServerTranslation(MachineTranslation):
             return True
         return (source, language) in self.supported_languages
 
-    def download_translations(self, source, language, text, unit, request):
+    def download_translations(self, source, language, text, unit, user, search):
         """Download list of possible translations from a service."""
-        url = '{0}/{1}/{2}/unit/{3}'.format(
+        url = "{0}/{1}/{2}/unit/{3}".format(
             self.url,
-            quote(source, b''),
-            quote(language, b''),
-            quote(text[:500].replace('\r', ' ').encode('utf-8'), b'')
+            quote(source, b""),
+            quote(language, b""),
+            quote(text[:500].replace("\r", " ").encode(), b""),
         )
-        response = self.json_req(url)
+        response = self.request("get", url)
+        payload = response.json()
 
-        return [
-            {
-                'text': line['target'],
-                'quality': int(line['quality']),
-                'service': self.name,
-                'source': line['source']
+        for line in payload:
+            yield {
+                "text": line["target"],
+                "quality": int(line["quality"]),
+                "service": self.name,
+                "source": line["source"],
             }
-            for line in response
-        ]
 
 
 class AmagamaTranslation(TMServerTranslation):
     """Specific instance of tmserver ran by Virtaal authors."""
-    name = 'Amagama'
+
+    name = "Amagama"
 
     @staticmethod
     def get_server_url():

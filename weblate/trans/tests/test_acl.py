@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -24,94 +23,88 @@ from django.conf import settings
 from django.core import mail
 from django.urls import reverse
 
-from weblate.auth.models import Group, User
+from weblate.auth.models import Group, User, get_anonymous
+from weblate.lang.models import Language
 from weblate.trans.models import Project
 from weblate.trans.tests.test_views import FixtureTestCase
 
 
 class ACLTest(FixtureTestCase):
     def setUp(self):
-        super(ACLTest, self).setUp()
+        super().setUp()
         self.project.access_control = Project.ACCESS_PRIVATE
         self.project.save()
-        self.access_url = reverse('manage-access', kwargs=self.kw_project)
-        self.translate_url = reverse('translate', kwargs=self.kw_translation)
+        self.access_url = reverse("manage-access", kwargs=self.kw_project)
+        self.translate_url = reverse("translate", kwargs=self.kw_translation)
         self.second_user = User.objects.create_user(
-            'seconduser',
-            'noreply@example.org',
-            'testpassword'
+            "seconduser", "noreply@example.org", "testpassword"
         )
-        self.admin_group = self.project.group_set.get(
-            name__endswith='@Administration'
-        )
+        self.admin_group = self.project.group_set.get(name__endswith="@Administration")
 
     def add_acl(self):
         """Add user to ACL."""
-        self.project.add_user(self.user, '@Translate')
+        self.project.add_user(self.user, "@Translate")
 
     def test_acl_denied(self):
-        """No access to the project without ACL.
-        """
+        """No access to the project without ACL."""
         response = self.client.get(self.access_url)
         self.assertEqual(response.status_code, 404)
+        self.assertFalse(get_anonymous().can_access_project(self.project))
 
     def test_acl_disable(self):
-        """Test disabling ACL.
-        """
+        """Test disabling ACL."""
         response = self.client.get(self.access_url)
         self.assertEqual(response.status_code, 404)
         self.project.access_control = Project.ACCESS_PUBLIC
         self.project.save()
+        self.assertTrue(get_anonymous().can_access_project(self.project))
         response = self.client.get(self.access_url)
         self.assertEqual(response.status_code, 403)
         response = self.client.get(self.translate_url)
         self.assertContains(response, 'type="submit" name="save"')
 
     def test_acl_protected(self):
-        """Test ACL protected project.
-        """
+        """Test ACL protected project."""
         response = self.client.get(self.access_url)
         self.assertEqual(response.status_code, 404)
         self.project.access_control = Project.ACCESS_PROTECTED
         self.project.save()
+        self.assertTrue(get_anonymous().can_access_project(self.project))
         response = self.client.get(self.access_url)
         self.assertEqual(response.status_code, 403)
         response = self.client.get(self.translate_url)
         self.assertContains(
-            response, 'Insufficient privileges for saving translations.'
+            response, "Insufficient privileges for saving translations."
         )
 
     def test_acl(self):
-        """Regular user should not have access to user management.
-        """
+        """Regular user should not have access to user management."""
         self.add_acl()
         response = self.client.get(self.access_url)
         self.assertEqual(response.status_code, 403)
 
     def test_edit_acl(self):
-        """Manager should have access to user management.
-        """
+        """Manager should have access to user management."""
         self.add_acl()
         self.make_manager()
         response = self.client.get(self.access_url)
-        self.assertContains(response, 'Users')
+        self.assertContains(response, "Users")
 
     def test_edit_acl_owner(self):
-        """Owner should have access to user management.
-        """
+        """Owner should have access to user management."""
         self.add_acl()
-        self.project.add_user(self.user, '@Administration')
+        self.project.add_user(self.user, "@Administration")
         response = self.client.get(self.access_url)
-        self.assertContains(response, 'Users')
+        self.assertContains(response, "Users")
 
     def add_user(self):
         self.add_acl()
-        self.project.add_user(self.user, '@Administration')
+        self.project.add_user(self.user, "@Administration")
 
         # Add user
         response = self.client.post(
-            reverse('add-user', kwargs=self.kw_project),
-            {'user': self.second_user.username}
+            reverse("add-user", kwargs=self.kw_project),
+            {"user": self.second_user.username},
         )
         self.assertRedirects(response, self.access_url)
 
@@ -122,45 +115,61 @@ class ACLTest(FixtureTestCase):
 
     def test_invite_invalid(self):
         """Test inviting invalid form."""
-        self.project.add_user(self.user, '@Administration')
+        self.project.add_user(self.user, "@Administration")
         response = self.client.post(
-            reverse('invite-user', kwargs=self.kw_project),
-            {'email': 'invalid', 'full_name': 'name'},
-            follow=True
+            reverse("invite-user", kwargs=self.kw_project),
+            {"email": "invalid", "username": "valid", "full_name": "name"},
+            follow=True,
         )
         # This error comes from Django validation
-        self.assertContains(response, 'Enter a valid email addres')
+        self.assertContains(response, "Enter a valid email addres")
 
     def test_invite_existing(self):
         """Test inviting existing user."""
-        self.project.add_user(self.user, '@Administration')
+        self.project.add_user(self.user, "@Administration")
         response = self.client.post(
-            reverse('invite-user', kwargs=self.kw_project),
-            {'email': self.user.email, 'full_name': 'name'},
-            follow=True
+            reverse("invite-user", kwargs=self.kw_project),
+            {
+                "email": self.user.email,
+                "username": self.user.username,
+                "full_name": "name",
+            },
+            follow=True,
         )
-        self.assertContains(response, 'User with this E-mail already exists')
+        self.assertContains(response, "User with this E-mail already exists")
 
     def test_invite_user(self):
         """Test inviting user."""
-        self.project.add_user(self.user, '@Administration')
+        self.project.add_user(self.user, "@Administration")
         response = self.client.post(
-            reverse('invite-user', kwargs=self.kw_project),
-            {'email': 'user@example.com', 'full_name': 'name'},
-            follow=True
+            reverse("invite-user", kwargs=self.kw_project),
+            {"email": "user@example.com", "username": "username", "full_name": "name"},
+            follow=True,
         )
         # Ensure user is now listed
-        self.assertContains(response, 'user@example.com')
+        self.assertContains(response, "user@example.com")
         # Check invitation mail
         self.assertEqual(len(mail.outbox), 1)
         message = mail.outbox[0]
-        self.assertEqual(message.subject, '[Weblate] Invitation to Weblate')
+        self.assertEqual(message.subject, "[Weblate] Invitation to Weblate")
+        mail.outbox = []
+
+        # Resend invitation
+        response = self.client.post(
+            reverse("resend_invitation", kwargs=self.kw_project),
+            {"user": "user@example.com"},
+            follow=True,
+        )
+        # Check invitation mail
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertEqual(message.subject, "[Weblate] Invitation to Weblate")
 
     def remove_user(self):
         # Remove user
         response = self.client.post(
-            reverse('delete-user', kwargs=self.kw_project),
-            {'user': self.second_user.username}
+            reverse("delete-user", kwargs=self.kw_project),
+            {"user": self.second_user.username},
         )
         self.assertRedirects(response, self.access_url)
 
@@ -170,189 +179,153 @@ class ACLTest(FixtureTestCase):
         self.assertNotContains(response, self.second_user.email)
 
     def test_add_acl(self):
-        """Adding and removing user from the ACL project.
-        """
+        """Adding and removing user from the ACL project."""
         self.add_user()
         self.remove_user()
 
     def test_add_owner(self):
-        """Adding and removing owner from the ACL project.
-        """
+        """Adding and removing owner from the ACL project."""
         self.add_user()
         self.client.post(
-            reverse('set-groups', kwargs=self.kw_project),
+            reverse("set-groups", kwargs=self.kw_project),
             {
-                'user': self.second_user.username,
-                'group': self.admin_group.pk,
-                'action': 'add',
-            }
+                "user": self.second_user.username,
+                "group": self.admin_group.pk,
+                "action": "add",
+            },
         )
         self.assertTrue(
-            User.objects.all_admins(self.project).filter(
-                username=self.second_user.username
-            ).exists()
+            User.objects.all_admins(self.project)
+            .filter(username=self.second_user.username)
+            .exists()
         )
         self.client.post(
-            reverse('set-groups', kwargs=self.kw_project),
+            reverse("set-groups", kwargs=self.kw_project),
             {
-                'user': self.second_user.username,
-                'group': self.admin_group.pk,
-                'action': 'remove',
-            }
+                "user": self.second_user.username,
+                "group": self.admin_group.pk,
+                "action": "remove",
+            },
         )
         self.assertFalse(
-            User.objects.all_admins(self.project).filter(
-                username=self.second_user.username
-            ).exists()
+            User.objects.all_admins(self.project)
+            .filter(username=self.second_user.username)
+            .exists()
         )
         self.remove_user()
 
     def test_delete_owner(self):
-        """Adding and deleting owner from the ACL project.
-        """
+        """Adding and deleting owner from the ACL project."""
         self.add_user()
         self.client.post(
-            reverse('set-groups', kwargs=self.kw_project),
+            reverse("set-groups", kwargs=self.kw_project),
             {
-                'user': self.second_user.username,
-                'group': self.admin_group.pk,
-                'action': 'add',
-            }
+                "user": self.second_user.username,
+                "group": self.admin_group.pk,
+                "action": "add",
+            },
         )
         self.remove_user()
         self.assertFalse(
-            User.objects.all_admins(self.project).filter(
-                username=self.second_user.username
-            ).exists()
+            User.objects.all_admins(self.project)
+            .filter(username=self.second_user.username)
+            .exists()
         )
 
     def test_denied_owner_delete(self):
         """Test that deleting last owner does not work."""
-        self.project.add_user(self.user, '@Administration')
+        self.project.add_user(self.user, "@Administration")
         self.client.post(
-            reverse('set-groups', kwargs=self.kw_project),
+            reverse("set-groups", kwargs=self.kw_project),
             {
-                'user': self.second_user.username,
-                'group': self.admin_group.pk,
-                'action': 'remove',
-            }
+                "user": self.second_user.username,
+                "group": self.admin_group.pk,
+                "action": "remove",
+            },
         )
         self.assertTrue(
-            User.objects.all_admins(self.project).filter(
-                username=self.user.username
-            ).exists()
+            User.objects.all_admins(self.project)
+            .filter(username=self.user.username)
+            .exists()
         )
         self.client.post(
-            reverse('set-groups', kwargs=self.kw_project),
+            reverse("set-groups", kwargs=self.kw_project),
             {
-                'user': self.user.username,
-                'group': self.admin_group.pk,
-                'action': 'remove',
-            }
+                "user": self.user.username,
+                "group": self.admin_group.pk,
+                "action": "remove",
+            },
         )
         self.assertTrue(
-            User.objects.all_admins(self.project).filter(
-                username=self.user.username
-            ).exists()
+            User.objects.all_admins(self.project)
+            .filter(username=self.user.username)
+            .exists()
         )
 
     def test_nonexisting_user(self):
         """Test adding non existing user."""
-        self.project.add_user(self.user, '@Administration')
+        self.project.add_user(self.user, "@Administration")
         response = self.client.post(
-            reverse('add-user', kwargs=self.kw_project),
-            {'user': 'nonexisting'},
-            follow=True
+            reverse("add-user", kwargs=self.kw_project),
+            {"user": "nonexisting"},
+            follow=True,
         )
-        self.assertContains(response, 'No matching user found.')
-
-    def test_change_access(self):
-        self.add_acl()
-        url = reverse('change-access', kwargs=self.kw_project)
-        self.project.add_user(self.user, '@Administration')
-
-        if 'weblate.billing' in settings.INSTALLED_APPS:
-            # No permissions
-            response = self.client.post(url, {'access_control': 0})
-            self.assertEqual(response.status_code, 403)
-
-            # Allow editing by creating billing plan
-            from weblate.billing.models import Plan, Billing
-            plan = Plan.objects.create()
-            billing = Billing.objects.create(plan=plan)
-            billing.projects.add(self.project)
-
-        # Editing should now work, but components do not have a license
-        response = self.client.post(
-            url,
-            {'access_control': Project.ACCESS_PROTECTED},
-            follow=True
-        )
-        self.assertRedirects(response, self.access_url)
-        self.assertContains(
-            response, 'You must specify a license for these components'
-        )
-
-        # Set component license
-        self.project.component_set.update(license='Test license')
-
-        # Editing should now work
-        response = self.client.post(
-            url,
-            {'access_control': Project.ACCESS_PROTECTED},
-            follow=True
-        )
-        self.assertRedirects(response, self.access_url)
-
-        # Verify change has been done
-        project = Project.objects.get(pk=self.project.pk)
-        self.assertEqual(project.access_control, Project.ACCESS_PROTECTED)
+        self.assertContains(response, "No matching user found.")
 
     def test_acl_groups(self):
-        """Test handling of ACL groups.
-        """
-        if 'weblate.billing' in settings.INSTALLED_APPS:
+        """Test handling of ACL groups."""
+        if "weblate.billing" in settings.INSTALLED_APPS:
             billing_group = 1
         else:
             billing_group = 0
-        match = '{}@'.format(self.project.name)
+        match = "{}@".format(self.project.name)
         self.project.access_control = Project.ACCESS_PUBLIC
-        self.project.enable_review = False
+        self.project.translation_review = False
         self.project.save()
-        self.assertEqual(
-            1, Group.objects.filter(name__startswith=match).count()
-        )
+        self.assertEqual(1, Group.objects.filter(name__startswith=match).count())
         self.project.access_control = Project.ACCESS_PROTECTED
-        self.project.enable_review = True
+        self.project.translation_review = True
         self.project.save()
         self.assertEqual(
-            9 + billing_group,
-            Group.objects.filter(name__startswith=match).count()
+            9 + billing_group, Group.objects.filter(name__startswith=match).count()
         )
         self.project.access_control = Project.ACCESS_PRIVATE
-        self.project.enable_review = True
+        self.project.translation_review = True
         self.project.save()
         self.assertEqual(
-            9 + billing_group,
-            Group.objects.filter(name__startswith=match).count()
+            9 + billing_group, Group.objects.filter(name__startswith=match).count()
         )
         self.project.access_control = Project.ACCESS_CUSTOM
         self.project.save()
-        self.assertEqual(
-            0, Group.objects.filter(name__startswith=match).count()
-        )
+        self.assertEqual(0, Group.objects.filter(name__startswith=match).count())
         self.project.access_control = Project.ACCESS_CUSTOM
         self.project.save()
-        self.assertEqual(
-            0, Group.objects.filter(name__startswith=match).count()
-        )
+        self.assertEqual(0, Group.objects.filter(name__startswith=match).count())
         self.project.access_control = Project.ACCESS_PRIVATE
         self.project.save()
         self.assertEqual(
-            9 + billing_group,
-            Group.objects.filter(name__startswith=match).count()
+            9 + billing_group, Group.objects.filter(name__startswith=match).count()
         )
         self.project.delete()
-        self.assertEqual(
-            0, Group.objects.filter(name__startswith=match).count()
-        )
+        self.assertEqual(0, Group.objects.filter(name__startswith=match).count())
+
+    def test_restricted_component(self):
+        # Make the project public
+        self.project.access_control = Project.ACCESS_PUBLIC
+        self.project.save()
+        # Add user language to ensure the suggestions are shown
+        self.user.profile.languages.add(Language.objects.get(code="cs"))
+
+        url = self.component.get_absolute_url()
+
+        # It is shown on the dashboard and accessible
+        self.assertEqual(self.client.get(url).status_code, 200)
+        self.assertContains(self.client.get(reverse("home")), url)
+
+        # Make it restricted
+        self.component.restricted = True
+        self.component.save(update_fields=["restricted"])
+
+        # It is no longer shown on the dashboard and not accessible
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.assertNotContains(self.client.get(reverse("home")), url)

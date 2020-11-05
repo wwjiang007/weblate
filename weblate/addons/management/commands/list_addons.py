@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,25 +16,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-from __future__ import unicode_literals
 
 from textwrap import wrap
 
-from django.core.management.base import BaseCommand
-
 from weblate.addons.models import ADDONS
+from weblate.utils.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = 'List installed addons'
+    help = "List installed addons"
 
     def handle(self, *args, **options):
         """List installed addons."""
         for _unused, obj in sorted(ADDONS.items()):
-            self.stdout.write('.. _addon-{}:'.format(obj.name))
-            self.stdout.write('\n')
+            self.stdout.write(".. _addon-{}:".format(obj.name))
+            self.stdout.write("\n")
             self.stdout.write(obj.verbose)
-            self.stdout.write('-' * len(obj.verbose))
-            self.stdout.write('\n')
-            self.stdout.write('\n'.join(wrap(obj.description, 79)))
-            self.stdout.write('\n')
+            self.stdout.write("-" * len(obj.verbose))
+            self.stdout.write("\n")
+            self.stdout.write("\n".join(wrap(obj.description, 79)))
+            self.stdout.write("\n")

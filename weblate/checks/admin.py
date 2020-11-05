@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -22,6 +21,6 @@ from weblate.wladmin.models import WeblateModelAdmin
 
 
 class CheckAdmin(WeblateModelAdmin):
-    list_display = ['content_hash', 'check', 'project', 'language', 'ignore']
-    search_fields = ['content_hash', 'check']
-    list_filter = ['check', 'project', 'ignore']
+    list_display = ["check", "unit", "dismissed"]
+    search_fields = ["unit__source", "check"]
+    list_filter = ["check", "dismissed"]

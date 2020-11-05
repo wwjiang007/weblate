@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,94 +19,89 @@
 
 """Test for check views."""
 
-from __future__ import unicode_literals
 
 from django.urls import reverse
 
-from weblate.trans.tests.test_views import FixtureTestCase
+from weblate.trans.tests.test_views import ViewTestCase
 
 
-class ChecksViewTest(FixtureTestCase):
+class ChecksViewTest(ViewTestCase):
     """Testing of check views."""
-    def test_browse(self):
-        response = self.client.get(reverse('checks'))
-        self.assertContains(response, '/same/')
 
-        response = self.client.get(reverse('checks'), {'language': 'de'})
-        self.assertContains(response, '/same/')
+    def test_browse(self):
+        response = self.client.get(reverse("checks"))
+        self.assertContains(response, "/same/")
+
+        response = self.client.get(reverse("checks"), {"lang": "de"})
+        self.assertContains(response, "/same/")
+
+        response = self.client.get(reverse("checks"), {"project": self.project.slug})
+        self.assertContains(response, "/same/")
 
         response = self.client.get(
-            reverse('checks'),
-            {'project': self.project.slug}
+            reverse("checks"),
+            {"project": self.project.slug, "component": self.component.slug},
         )
-        self.assertContains(response, '/same/')
+        self.assertContains(response, "/same/")
 
     def test_check(self):
-        response = self.client.get(
-            reverse('show_check', kwargs={'name': 'same'})
-        )
-        self.assertContains(response, '/same/')
+        response = self.client.get(reverse("show_check", kwargs={"name": "same"}))
+        self.assertContains(response, "/same/")
+
+        response = self.client.get(reverse("show_check", kwargs={"name": "ellipsis"}))
+        self.assertContains(response, "…")
 
         response = self.client.get(
-            reverse('show_check', kwargs={'name': 'ellipsis'})
-        )
-        self.assertContains(response, '…')
-
-        response = self.client.get(
-            reverse('show_check', kwargs={'name': 'not-existing'})
+            reverse("show_check", kwargs={"name": "not-existing"})
         )
         self.assertEqual(response.status_code, 404)
 
         response = self.client.get(
-            reverse('show_check', kwargs={'name': 'same'}),
-            {'project': self.project.slug}
+            reverse("show_check", kwargs={"name": "same"}),
+            {"project": self.project.slug},
         )
         self.assertRedirects(
             response,
             reverse(
-                'show_check_project',
-                kwargs={'name': 'same', 'project': self.project.slug}
-            )
+                "show_check_project",
+                kwargs={"name": "same", "project": self.project.slug},
+            ),
         )
         response = self.client.get(
-            reverse('show_check', kwargs={'name': 'same'}),
-            {'language': 'de'}
+            reverse("show_check", kwargs={"name": "same"}), {"lang": "de"}
         )
-        self.assertContains(
-            response,
-            '/checks/same/test/?language=de'
-        )
+        self.assertContains(response, "/checks/same/test/?lang=de")
 
     def test_project(self):
         response = self.client.get(
             reverse(
-                'show_check_project',
-                kwargs={'name': 'same', 'project': self.project.slug}
+                "show_check_project",
+                kwargs={"name": "same", "project": self.project.slug},
             )
         )
-        self.assertContains(response, '/same/')
+        self.assertContains(response, "/same/")
 
         response = self.client.get(
             reverse(
-                'show_check_project',
-                kwargs={'name': 'same', 'project': self.project.slug}
+                "show_check_project",
+                kwargs={"name": "same", "project": self.project.slug},
             ),
-            {'language': 'cs'}
+            {"lang": "cs"},
         )
-        self.assertContains(response, '/same/')
+        self.assertContains(response, "/same/")
 
         response = self.client.get(
             reverse(
-                'show_check_project',
-                kwargs={'name': 'ellipsis', 'project': self.project.slug}
+                "show_check_project",
+                kwargs={"name": "ellipsis", "project": self.project.slug},
             )
         )
-        self.assertContains(response, '…')
+        self.assertContains(response, "…")
 
         response = self.client.get(
             reverse(
-                'show_check_project',
-                kwargs={'name': 'non-existing', 'project': self.project.slug}
+                "show_check_project",
+                kwargs={"name": "non-existing", "project": self.project.slug},
             )
         )
         self.assertEqual(response.status_code, 404)
@@ -115,44 +109,36 @@ class ChecksViewTest(FixtureTestCase):
     def test_component(self):
         response = self.client.get(
             reverse(
-                'show_check_component',
+                "show_check_component",
                 kwargs={
-                    'name': 'same',
-                    'project': self.project.slug,
-                    'component': self.component.slug,
-                }
+                    "name": "same",
+                    "project": self.project.slug,
+                    "component": self.component.slug,
+                },
             )
         )
-        self.assertContains(response, '/same/')
+        self.assertContains(response, "/same/")
 
         response = self.client.get(
             reverse(
-                'show_check_component',
+                "show_check_component",
                 kwargs={
-                    'name': 'ellipsis',
-                    'project': self.project.slug,
-                    'component': self.component.slug,
-                }
+                    "name": "multiple_failures",
+                    "project": self.project.slug,
+                    "component": self.component.slug,
+                },
             )
         )
-        self.assertRedirects(
-            response,
-            '{0}?type=check%3Aellipsis'.format(
-                reverse('review_source', kwargs={
-                    'project': self.project.slug,
-                    'component': self.component.slug,
-                })
-            )
-        )
+        self.assertContains(response, "/multiple_failures/")
 
         response = self.client.get(
             reverse(
-                'show_check_component',
+                "show_check_component",
                 kwargs={
-                    'name': 'non-existing',
-                    'project': self.project.slug,
-                    'component': self.component.slug,
-                }
+                    "name": "non-existing",
+                    "project": self.project.slug,
+                    "component": self.component.slug,
+                },
             )
         )
         self.assertEqual(response.status_code, 404)

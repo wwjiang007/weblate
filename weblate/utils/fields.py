@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,7 +17,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 import json
 
@@ -27,11 +25,12 @@ from django.db import models
 
 
 class JSONField(models.TextField):
-    """JSON serializaed TextField"""
+    """JSON serializaed TextField."""
 
     def __init__(self, **kwargs):
-        kwargs['default'] = {}
-        super(JSONField, self).__init__(**kwargs)
+        if "default" not in kwargs:
+            kwargs["default"] = {}
+        super().__init__(**kwargs)
 
     def to_python(self, value):
         """Convert a string from the database to a Python value."""
@@ -39,7 +38,7 @@ class JSONField(models.TextField):
             return None
         try:
             return json.loads(value)
-        except ValueError:
+        except (ValueError, TypeError):
             return value
 
     def get_prep_value(self, value):
@@ -48,16 +47,40 @@ class JSONField(models.TextField):
             return None
         if isinstance(value, (dict, list)):
             return json.dumps(value, cls=DjangoJSONEncoder)
-        return super(JSONField, self).get_prep_value(value)
+        return super().get_prep_value(value)
 
     def from_db_value(self, value, *args, **kwargs):
         return self.to_python(value)
 
     def get_db_prep_save(self, value, *args, **kwargs):
-        if not value:
+        if value is None:
             value = {}
         return json.dumps(value, cls=DjangoJSONEncoder)
 
     def value_from_object(self, obj):
-        value = super(JSONField, self).value_from_object(obj)
+        value = super().value_from_object(obj)
         return json.dumps(value, cls=DjangoJSONEncoder)
+
+
+class CaseInsensitiveFieldMixin:
+    """Field mixin that uses case-insensitive lookup alternatives if they exist."""
+
+    LOOKUP_CONVERSIONS = {
+        "exact": "iexact",
+        "contains": "icontains",
+        "startswith": "istartswith",
+        "endswith": "iendswith",
+        "regex": "iregex",
+    }
+
+    def get_lookup(self, lookup_name):
+        converted = self.LOOKUP_CONVERSIONS.get(lookup_name, lookup_name)
+        return super().get_lookup(converted)
+
+
+class UsernameField(CaseInsensitiveFieldMixin, models.CharField):
+    pass
+
+
+class EmailField(CaseInsensitiveFieldMixin, models.EmailField):
+    pass

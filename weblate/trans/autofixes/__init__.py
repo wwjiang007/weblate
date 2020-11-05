@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -19,13 +18,12 @@
 #
 """Import all the autofixes defined in settings.
 
-Note, unlike checks, using a sortable data object so fixes are applied in
-desired order.
+Note, unlike checks, using a sortable data object so fixes are applied in desired order.
 """
 
 from weblate.utils.classloader import ClassLoader
 
-AUTOFIXES = ClassLoader('AUTOFIX_LIST')
+AUTOFIXES = ClassLoader("AUTOFIX_LIST")
 
 
 def fix_target(target, unit):

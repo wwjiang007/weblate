@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,36 +17,36 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from django.core.management.base import BaseCommand
-
 from weblate.auth.models import create_groups, setup_project_groups
 from weblate.trans.models import Project
+from weblate.utils.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = 'setups default user groups'
+    help = "setups default user groups"
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--no-privs-update',
-            action='store_false',
-            dest='update',
+            "--no-privs-update",
+            action="store_false",
+            dest="update",
             default=True,
-            help='Prevents updates of privileges of existing groups'
+            help="Prevents updates of privileges of existing groups",
         )
         parser.add_argument(
-            '--no-projects-update',
-            action='store_false',
-            dest='projects',
+            "--no-projects-update",
+            action="store_false",
+            dest="projects",
             default=True,
-            help='Prevents updates of groups for existing projects'
+            help="Prevents updates of groups for existing projects",
         )
 
     def handle(self, *args, **options):
-        """Create default set of groups and optionally updates them and moves
-        users around to default group.
+        """Create or update default set of groups.
+
+        It also optionally updates them and moves users around to default group.
         """
-        create_groups(options['update'])
-        if options['projects']:
+        create_groups(options["update"])
+        if options["projects"]:
             for project in Project.objects.iterator():
                 setup_project_groups(Project, project)

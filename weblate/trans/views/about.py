@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,101 +16,94 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-from __future__ import unicode_literals
 
 from django.db.models import Count, Sum
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from django.views.generic import TemplateView
 
 from weblate.accounts.models import Profile
 from weblate.checks.models import Check
-from weblate.utils.requirements import get_optional_versions, get_versions
+from weblate.trans.models import Component, Project
+from weblate.utils.requirements import get_versions_list
 from weblate.utils.stats import GlobalStats
 from weblate.vcs.gpg import get_gpg_public_key, get_gpg_sign_key
 from weblate.vcs.ssh import get_key_data
 
 MENU = (
-    (
-        'index',
-        'about',
-        _('About Weblate'),
-    ),
-    (
-        'stats',
-        'stats',
-        _('Statistics'),
-    ),
-    (
-        'keys',
-        'keys',
-        _('Keys'),
-    ),
+    ("index", "about", _("About Weblate")),
+    ("stats", "stats", _("Statistics")),
+    ("keys", "keys", _("Keys")),
 )
 
 
 class AboutView(TemplateView):
-    page = 'index'
+    page = "index"
 
     def page_context(self, context):
-        context.update({
-            'title': _('About Weblate'),
-            'versions': get_versions() + get_optional_versions(),
-            'allow_index': True,
-        })
+        context.update(
+            {
+                "title": _("About Weblate"),
+                "versions": get_versions_list(),
+                "allow_index": True,
+            }
+        )
 
     def get_context_data(self, **kwargs):
-        context = super(AboutView, self).get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
 
-        context['menu_items'] = MENU
-        context['menu_page'] = self.page
+        context["menu_items"] = MENU
+        context["menu_page"] = self.page
 
         self.page_context(context)
 
         return context
 
     def get_template_names(self):
-        return ['about/{0}.html'.format(self.page)]
+        return ["about/{0}.html".format(self.page)]
 
 
 class StatsView(AboutView):
-    page = 'stats'
+    page = "stats"
 
     def page_context(self, context):
-        context['title'] = _('Weblate statistics')
+        context["title"] = _("Weblate statistics")
 
         stats = GlobalStats()
 
         totals = Profile.objects.aggregate(
-            Sum('translated'), Sum('suggested'), Count('id')
+            Sum("translated"), Sum("suggested"), Count("id")
         )
 
-        context['total_translations'] = totals['translated__sum']
-        context['total_suggestions'] = totals['suggested__sum']
-        context['total_users'] = totals['id__count']
-        context['total_strings'] = stats.source_strings
-        context['total_units'] = stats.all
-        context['total_words'] = stats.source_words
-        context['total_languages'] = stats.languages
-        context['total_checks'] = Check.objects.count()
-        context['ignored_checks'] = Check.objects.filter(ignore=True).count()
+        context["total_translations"] = totals["translated__sum"]
+        context["total_suggestions"] = totals["suggested__sum"]
+        context["total_users"] = totals["id__count"]
+        context["stats"] = stats
+        context["total_checks"] = Check.objects.count()
+        context["total_projects"] = Project.objects.count()
+        context["total_components"] = Component.objects.count()
+        context["dismissed_checks"] = Check.objects.filter(dismissed=True).count()
 
-        top_translations = Profile.objects.order_by('-translated')[:10]
-        top_suggestions = Profile.objects.order_by('-suggested')[:10]
-        top_uploads = Profile.objects.order_by('-uploaded')[:10]
+        top_translations = Profile.objects.order_by("-translated")[:10]
+        top_suggestions = Profile.objects.order_by("-suggested")[:10]
+        top_uploads = Profile.objects.order_by("-uploaded")[:10]
+        top_comments = Profile.objects.order_by("-commented")[:10]
 
-        context['top_translations'] = top_translations.select_related('user')
-        context['top_suggestions'] = top_suggestions.select_related('user')
-        context['top_uploads'] = top_uploads.select_related('user')
+        context["top_translations"] = top_translations.select_related("user")
+        context["top_suggestions"] = top_suggestions.select_related("user")
+        context["top_uploads"] = top_uploads.select_related("user")
+        context["top_comments"] = top_comments.select_related("user")
 
 
 class KeysView(AboutView):
-    page = 'keys'
+    page = "keys"
 
     def page_context(self, context):
-        context.update({
-            'title': _('Weblate keys'),
-            'gpg_key_id': get_gpg_sign_key(),
-            'gpg_key': get_gpg_public_key(),
-            'ssh_key': get_key_data(),
-            'allow_index': True,
-        })
+        context.update(
+            {
+                "title": _("Weblate keys"),
+                "gpg_key_id": get_gpg_sign_key(),
+                "gpg_key": get_gpg_public_key(),
+                "ssh_key": get_key_data(),
+                "allow_index": True,
+            }
+        )

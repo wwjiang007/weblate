@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,70 +17,45 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
-from django.conf.urls import include, url
+from django.urls import include, path
 
 from weblate.api.routers import WeblateRouter
 from weblate.api.views import (
     ChangeViewSet,
+    ComponentListViewSet,
     ComponentViewSet,
+    GlossaryViewSet,
+    GroupViewSet,
     LanguageViewSet,
     Metrics,
     ProjectViewSet,
+    RoleViewSet,
     ScreenshotViewSet,
-    SourceViewSet,
     TranslationViewSet,
     UnitViewSet,
+    UserViewSet,
 )
 
 # Routers provide an easy way of automatically determining the URL conf.
 router = WeblateRouter()
-router.register(
-    r'projects',
-    ProjectViewSet
-)
-router.register(
-    r'components',
-    ComponentViewSet,
-    'component',
-)
-router.register(
-    r'translations',
-    TranslationViewSet
-)
-router.register(
-    r'languages',
-    LanguageViewSet
-)
-router.register(
-    r'changes',
-    ChangeViewSet
-)
-router.register(
-    r'units',
-    UnitViewSet
-)
-router.register(
-    r'sources',
-    SourceViewSet
-)
-router.register(
-    r'screenshots',
-    ScreenshotViewSet
-)
+router.register("users", UserViewSet)
+router.register("groups", GroupViewSet)
+router.register("roles", RoleViewSet)
+router.register("projects", ProjectViewSet)
+router.register("components", ComponentViewSet, "component")
+router.register("translations", TranslationViewSet)
+router.register("languages", LanguageViewSet)
+router.register("component-lists", ComponentListViewSet)
+router.register("changes", ChangeViewSet)
+router.register("units", UnitViewSet)
+router.register("screenshots", ScreenshotViewSet)
+router.register("glossary", GlossaryViewSet)
 
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
 urlpatterns = [
-    url(
-        r'^metrics/$',
-        Metrics.as_view(),
-        name='metrics',
-    ),
-    url(
-        r'^',
-        include(router.urls)
-    ),
+    path("metrics/", Metrics.as_view(), name="metrics"),
+    path("", include(router.urls)),
 ]

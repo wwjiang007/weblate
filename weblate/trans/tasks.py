@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -17,87 +16,105 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-
-from __future__ import absolute_import, unicode_literals
-
 import os
-from datetime import timedelta
+from datetime import date, timedelta
 from glob import glob
-from shutil import rmtree
 from time import time
+from typing import List, Optional
 
+from celery import current_task
 from celery.schedules import crontab
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Count, F
 from django.utils import timezone
+from django.utils.translation import gettext as _
+from django.utils.translation import ngettext, override
 from filelock import Timeout
-from whoosh.index import EmptyIndexError
 
-from weblate.auth.models import get_anonymous
-from weblate.celery import app
-from weblate.checks.models import Check
+from weblate.addons.models import Addon
+from weblate.auth.models import User, get_anonymous
 from weblate.lang.models import Language
+from weblate.trans.autotranslate import AutoTranslate
 from weblate.trans.exceptions import FileParseError
 from weblate.trans.models import (
     Change,
     Comment,
     Component,
     Project,
-    Source,
     Suggestion,
-    Unit,
+    Translation,
 )
-from weblate.trans.search import Fulltext
+from weblate.utils.celery import app
 from weblate.utils.data import data_dir
-from weblate.utils.files import remove_readonly
+from weblate.utils.errors import report_error
+from weblate.utils.files import remove_tree
+from weblate.vcs.base import RepositoryException
 
 
-@app.task(autoretry_for=(Timeout,), retry_backoff=600)
-def perform_update(cls, pk):
+@app.task(
+    trail=False, autoretry_for=(Timeout,), retry_backoff=600, retry_backoff_max=3600
+)
+def perform_update(cls, pk, auto=False, obj=None):
     try:
-        if cls == 'Project':
-            obj = Project.objects.get(pk=pk)
+        if obj is None:
+            if cls == "Project":
+                obj = Project.objects.get(pk=pk)
+            else:
+                obj = Component.objects.get(pk=pk)
+        if settings.AUTO_UPDATE in ("full", True) or not auto:
+            obj.do_update()
         else:
-            obj = Component.objects.get(pk=pk)
-
-        obj.do_update()
+            obj.update_remote_branch()
     except FileParseError:
         # This is stored as alert, so we can silently ignore here
         return
 
 
-@app.task(autoretry_for=(Timeout,), retry_backoff=600)
-def perform_load(pk, *args):
+@app.task(
+    trail=False, autoretry_for=(Timeout,), retry_backoff=600, retry_backoff_max=3600
+)
+def perform_load(
+    pk: int,
+    force: bool = False,
+    langs: Optional[List[str]] = None,
+    changed_template: bool = False,
+    from_link: bool = False,
+):
     component = Component.objects.get(pk=pk)
-    component.create_translations(*args)
+    component.create_translations(
+        force=force, langs=langs, changed_template=changed_template, from_link=from_link
+    )
 
 
-@app.task(autoretry_for=(Timeout,), retry_backoff=600)
+@app.task(
+    trail=False, autoretry_for=(Timeout,), retry_backoff=600, retry_backoff_max=3600
+)
 def perform_commit(pk, *args):
     component = Component.objects.get(pk=pk)
     component.commit_pending(*args)
 
 
-@app.task(autoretry_for=(Timeout,), retry_backoff=600)
+@app.task(
+    trail=False, autoretry_for=(Timeout,), retry_backoff=600, retry_backoff_max=3600
+)
 def perform_push(pk, *args, **kwargs):
     component = Component.objects.get(pk=pk)
     component.do_push(*args, **kwargs)
 
 
-@app.task(autoretry_for=(Timeout,), retry_backoff=600)
+@app.task(
+    trail=False, autoretry_for=(Timeout,), retry_backoff=600, retry_backoff_max=3600
+)
 def commit_pending(hours=None, pks=None, logger=None):
     if pks is None:
         components = Component.objects.all()
     else:
-        components = Component.objects.filter(
-            translation__pk__in=pks
-        ).distinct()
+        components = Component.objects.filter(translation__pk__in=pks).distinct()
 
     for component in components.prefetch():
         if hours is None:
-            age = timezone.now() - timedelta(
-                hours=component.commit_pending_age
-            )
+            age = timezone.now() - timedelta(hours=component.commit_pending_age)
         else:
             age = timezone.now() - timedelta(hours=hours)
 
@@ -111,93 +128,26 @@ def commit_pending(hours=None, pks=None, logger=None):
             continue
 
         if logger:
-            logger('Committing {0}'.format(component))
+            logger("Committing {0}".format(component))
 
-        perform_commit.delay(component.pk, 'commit_pending', None)
-
-
-@app.task
-def cleanup_fulltext():
-    """Remove stale units from fulltext"""
-    fulltext = Fulltext()
-    languages = list(Language.objects.values_list('code', flat=True)) + [None]
-    # We operate only on target indexes as they will have all IDs anyway
-    for lang in languages:
-        if lang is None:
-            index = fulltext.get_source_index()
-        else:
-            index = fulltext.get_target_index(lang)
-        try:
-            fields = index.reader().all_stored_fields()
-        except EmptyIndexError:
-            continue
-        for item in fields:
-            if Unit.objects.filter(pk=item['pk']).exists():
-                continue
-            fulltext.clean_search_unit(item['pk'], lang)
-
-
-@app.task
-def optimize_fulltext():
-    fulltext = Fulltext()
-    index = fulltext.get_source_index()
-    index.optimize()
-    languages = Language.objects.have_translation()
-    for lang in languages:
-        index = fulltext.get_target_index(lang.code)
-        index.optimize()
+        perform_commit.delay(component.pk, "commit_pending", None)
 
 
 def cleanup_sources(project):
-    """Remove stale Source objects."""
-    for pk in project.component_set.values_list('id', flat=True):
+    """Remove stale source Unit objects."""
+    for component in project.component_set.filter(template="").iterator():
+        translation = component.source_translation
+        # Skip translations with a filename (eg. when POT file is present)
+        if translation.filename:
+            continue
         with transaction.atomic():
-            source_ids = Unit.objects.filter(
-                translation__component_id=pk
-            ).values('id_hash').distinct()
-
-            Source.objects.filter(
-                component_id=pk
-            ).exclude(
-                id_hash__in=source_ids
+            # Remove all units where there is just one referenced unit (self)
+            translation.unit_set.annotate(Count("unit")).filter(
+                unit__count__lte=1
             ).delete()
 
 
-def cleanup_source_data(project):
-    with transaction.atomic():
-        # List all current unit content_hashs
-        units = Unit.objects.filter(
-            translation__component__project=project
-        ).values('content_hash').distinct()
-
-        # Remove source comments and checks for deleted units
-        for obj in Comment, Check:
-            obj.objects.filter(
-                language=None, project=project
-            ).exclude(
-                content_hash__in=units
-            ).delete()
-
-
-def cleanup_language_data(project):
-    for lang in Language.objects.iterator():
-        with transaction.atomic():
-            # List current unit content_hashs
-            units = Unit.objects.filter(
-                translation__language=lang,
-                translation__component__project=project
-            ).values('content_hash').distinct()
-
-            # Remove checks, suggestions and comments for deleted units
-            for obj in Check, Suggestion, Comment:
-                obj.objects.filter(
-                    language=lang, project=project
-                ).exclude(
-                    content_hash__in=units
-                ).delete()
-
-
-@app.task
+@app.task(trail=False)
 def cleanup_project(pk):
     """Perform cleanup of project models."""
     try:
@@ -206,66 +156,52 @@ def cleanup_project(pk):
         return
 
     cleanup_sources(project)
-    cleanup_source_data(project)
-    cleanup_language_data(project)
 
 
-@app.task
+@app.task(trail=False)
 def cleanup_suggestions():
     # Process suggestions
     anonymous_user = get_anonymous()
-    suggestions = Suggestion.objects.prefetch_related('project', 'language')
-    for suggestion in suggestions.iterator():
+    suggestions = Suggestion.objects.prefetch_related("unit")
+    for suggestion in suggestions:
         with transaction.atomic():
             # Remove suggestions with same text as real translation
-            is_different = False
-            # Do not rely on the SQL as MySQL compares strings case insensitive
-            for unit in suggestion.related_units:
-                if unit.target != suggestion.target:
-                    is_different = True
-                    break
-
-            if not is_different:
+            if (
+                suggestion.unit.target == suggestion.target
+                and suggestion.unit.translated
+            ):
                 suggestion.delete_log(
-                    anonymous_user,
-                    change=Change.ACTION_SUGGESTION_CLEANUP
+                    anonymous_user, change=Change.ACTION_SUGGESTION_CLEANUP
                 )
                 continue
 
             # Remove duplicate suggestions
             sugs = Suggestion.objects.filter(
-                content_hash=suggestion.content_hash,
-                language=suggestion.language,
-                project=suggestion.project,
-                target=suggestion.target
-            ).exclude(
-                id=suggestion.id
-            )
+                unit=suggestion.unit, target=suggestion.target
+            ).exclude(id=suggestion.id)
             # Do not rely on the SQL as MySQL compares strings case insensitive
             for other in sugs:
                 if other.target == suggestion.target:
                     suggestion.delete_log(
-                        anonymous_user,
-                        change=Change.ACTION_SUGGESTION_CLEANUP
+                        anonymous_user, change=Change.ACTION_SUGGESTION_CLEANUP
                     )
                     break
 
 
-@app.task
+@app.task(trail=False)
 def update_remotes():
     """Update all remote branches (without attempt to merge)."""
-    non_linked = Component.objects.with_repo()
-    for component in non_linked.iterator():
-        if settings.AUTO_UPDATE:
-            component.do_update()
-        else:
-            component.update_remote_branch()
+    if settings.AUTO_UPDATE not in ("full", "remote", True, False):
+        return
+
+    for component in Component.objects.with_repo().iterator():
+        perform_update("Component", -1, auto=True, obj=component)
 
 
-@app.task
+@app.task(trail=False)
 def cleanup_stale_repos():
-    prefix = data_dir('vcs')
-    vcs_mask = os.path.join(prefix, '*', '*')
+    prefix = data_dir("vcs")
+    vcs_mask = os.path.join(prefix, "*", "*")
 
     yesterday = time() - 86400
 
@@ -278,20 +214,19 @@ def cleanup_stale_repos():
             continue
 
         # Parse path
-        project, component = os.path.split(path[len(prefix) + 1:])
+        project, component = os.path.split(path[len(prefix) + 1 :])
 
         # Find matching components
         objects = Component.objects.with_repo().filter(
-            slug=component,
-            project__slug=project
+            slug=component, project__slug=project
         )
 
         # Remove stale dirs
         if not objects.exists():
-            rmtree(path, onerror=remove_readonly)
+            remove_tree(path)
 
 
-@app.task
+@app.task(trail=False)
 def cleanup_old_suggestions():
     if not settings.SUGGESTION_CLEANUP_DAYS:
         return
@@ -299,7 +234,7 @@ def cleanup_old_suggestions():
     Suggestion.objects.filter(timestamp__lt=cutoff).delete()
 
 
-@app.task
+@app.task(trail=False)
 def cleanup_old_comments():
     if not settings.COMMENT_CLEANUP_DAYS:
         return
@@ -307,97 +242,181 @@ def cleanup_old_comments():
     Comment.objects.filter(timestamp__lt=cutoff).delete()
 
 
-@app.task
-def repository_alerts(threshold=10):
+@app.task(trail=False)
+def repository_alerts(threshold=settings.REPOSITORY_ALERT_THRESHOLD):
     non_linked = Component.objects.with_repo()
     for component in non_linked.iterator():
-        if component.repository.count_missing() > 10:
-            component.add_alert('RepositoryOutdated', childs=True)
-        else:
-            component.delete_alert('RepositoryOutdated', childs=True)
-        if component.repository.count_outgoing() > 10:
-            component.add_alert('RepositoryChanges', childs=True)
-        else:
-            component.delete_alert('RepositoryChanges', childs=True)
+        try:
+            if component.repository.count_missing() > threshold:
+                component.add_alert("RepositoryOutdated")
+            else:
+                component.delete_alert("RepositoryOutdated")
+            if component.repository.count_outgoing() > threshold:
+                component.add_alert("RepositoryChanges")
+            else:
+                component.delete_alert("RepositoryChanges")
+        except RepositoryException as error:
+            report_error(cause="Could not check repository status")
+            component.add_alert("MergeFailure", error=component.error_text(error))
 
 
-@app.task
-def component_alerts():
-    for component in Component.objects.iterator():
+@app.task(trail=False)
+def component_alerts(component_ids=None):
+    if component_ids:
+        components = Component.objects.filter(pk__in=component_ids).iterator()
+    else:
+        components = Component.objects.iterator()
+    for component in components:
         component.update_alerts()
 
 
-@app.task
-def component_after_save(pk, changed_git, changed_setup, changed_template,
-                         skip_push):
+@app.task(trail=False, autoretry_for=(Component.DoesNotExist,), retry_backoff=60)
+def component_after_save(
+    pk, changed_git, changed_setup, changed_template, changed_variant, skip_push
+):
     component = Component.objects.get(pk=pk)
     component.after_save(
-        changed_git, changed_setup, changed_template, skip_push
+        changed_git, changed_setup, changed_template, changed_variant, skip_push
     )
 
 
-@app.task
-def component_removal(pk):
-    Component.objects.get(pk=pk).delete()
+@app.task(trail=False)
+def component_removal(pk, uid):
+    user = User.objects.get(pk=uid)
+    try:
+        obj = Component.objects.get(pk=pk)
+        obj.acting_user = user
+        Change.objects.create(
+            project=obj.project,
+            action=Change.ACTION_REMOVE_COMPONENT,
+            target=obj.slug,
+            user=user,
+            author=user,
+        )
+        obj.delete()
+    except Component.DoesNotExist:
+        return
 
 
-@app.task
-def project_removal(pk):
-    Project.objects.get(pk=pk).delete()
+@app.task(trail=False)
+def project_removal(pk, uid):
+    user = User.objects.get(pk=uid)
+    try:
+        obj = Project.objects.get(pk=pk)
+        Change.objects.create(
+            action=Change.ACTION_REMOVE_PROJECT, target=obj.slug, user=user, author=user
+        )
+        obj.delete()
+    except Project.DoesNotExist:
+        return
+
+
+@app.task(trail=False)
+def auto_translate(
+    user_id,
+    translation_id,
+    mode,
+    filter_type,
+    auto_source,
+    component,
+    engines,
+    threshold,
+):
+    if user_id:
+        user = User.objects.get(pk=user_id)
+    else:
+        user = None
+    with override(user.profile.language if user else "en"):
+        translation = Translation.objects.get(pk=translation_id)
+        translation.log_info(
+            "starting automatic translation %s", current_task.request.id
+        )
+        auto = AutoTranslate(user, translation, filter_type, mode)
+        if auto_source == "mt":
+            auto.process_mt(engines, threshold)
+        else:
+            auto.process_others(component)
+        translation.log_info("completed automatic translation")
+
+        if auto.updated == 0:
+            return _("Automatic translation completed, no strings were updated.")
+
+        return (
+            ngettext(
+                "Automatic translation completed, %d string was updated.",
+                "Automatic translation completed, %d strings were updated.",
+                auto.updated,
+            )
+            % auto.updated
+        )
+
+
+@app.task(trail=False)
+def create_component(addons_from=None, in_task=False, **kwargs):
+    kwargs["project"] = Project.objects.get(pk=kwargs["project"])
+    kwargs["source_language"] = Language.objects.get(pk=kwargs["source_language"])
+    component = Component.objects.create(**kwargs)
+    Change.objects.create(action=Change.ACTION_CREATE_COMPONENT, component=component)
+    if addons_from:
+        addons = Addon.objects.filter(
+            component__pk=addons_from, project_scope=False, repo_scope=False
+        )
+        for addon in addons:
+            # Avoid installing duplicate addons
+            if component.addon_set.filter(name=addon.name).exists():
+                continue
+            if not addon.addon.can_install(component, None):
+                continue
+            addon.addon.create(component, configuration=addon.configuration)
+    if in_task:
+        return None
+    return component
+
+
+@app.task(trail=False)
+def update_checks(pk):
+    component = Component.objects.get(pk=pk)
+    for translation in component.translation_set.exclude(
+        pk=component.source_translation.pk
+    ).iterator():
+        for unit in translation.unit_set.iterator():
+            unit.run_checks()
+    for unit in component.source_translation.unit_set.iterator():
+        unit.run_checks()
+    for translation in component.translation_set.iterator():
+        translation.invalidate_cache()
+
+
+@app.task(trail=False)
+def daily_update_checks():
+    # Update every component roughly once in a month
+    components = Component.objects.annotate(idmod=F("id") % 30).filter(
+        idmod=date.today().day
+    )
+    for component_id in components.values_list("id", flat=True):
+        update_checks.delay(component_id)
 
 
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
+    sender.add_periodic_task(3600, commit_pending.s(), name="commit-pending")
     sender.add_periodic_task(
-        3600,
-        commit_pending.s(),
-        name='commit-pending',
+        crontab(hour=3, minute=30), update_remotes.s(), name="update-remotes"
     )
     sender.add_periodic_task(
-        crontab(hour=3, minute=30),
-        update_remotes.s(),
-        name='update-remotes',
+        crontab(hour=0, minute=30), daily_update_checks.s(), name="daily-update-checks"
+    )
+    sender.add_periodic_task(3600 * 24, repository_alerts.s(), name="repository-alerts")
+    sender.add_periodic_task(3600 * 24, component_alerts.s(), name="component-alerts")
+    sender.add_periodic_task(
+        3600 * 24, cleanup_suggestions.s(), name="suggestions-cleanup"
     )
     sender.add_periodic_task(
-        3600 * 24,
-        repository_alerts.s(),
-        name='repository-alerts',
+        3600 * 24, cleanup_stale_repos.s(), name="cleanup-stale-repos"
     )
     sender.add_periodic_task(
-        3600 * 24,
-        component_alerts.s(),
-        name='component-alerts',
+        3600 * 24, cleanup_old_suggestions.s(), name="cleanup-old-suggestions"
     )
     sender.add_periodic_task(
-        3600 * 24,
-        cleanup_suggestions.s(),
-        name='suggestions-cleanup',
-    )
-    sender.add_periodic_task(
-        3600 * 24,
-        cleanup_stale_repos.s(),
-        name='cleanup-stale-repos',
-    )
-    sender.add_periodic_task(
-        3600 * 24,
-        cleanup_old_suggestions.s(),
-        name='cleanup-old-suggestions',
-    )
-    sender.add_periodic_task(
-        3600 * 24,
-        cleanup_old_comments.s(),
-        name='cleanup-old-comments',
-    )
-
-    # Following fulltext maintenance tasks should not be
-    # executed at same time
-    sender.add_periodic_task(
-        crontab(hour=2, minute=30, day_of_week='saturday'),
-        cleanup_fulltext.s(),
-        name='fulltext-cleanup',
-    )
-    sender.add_periodic_task(
-        crontab(hour=2, minute=30, day_of_week='sunday'),
-        optimize_fulltext.s(),
-        name='fulltext-optimize',
+        3600 * 24, cleanup_old_comments.s(), name="cleanup-old-comments"
     )

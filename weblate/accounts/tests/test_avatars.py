@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,13 +17,11 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-"""
-Tests for user handling.
-"""
+"""Tests for user handling."""
 
 from io import BytesIO
 
-import httpretty
+import responses
 from django.urls import reverse
 from PIL import Image
 
@@ -33,87 +30,61 @@ from weblate.auth.models import User
 from weblate.trans.tests.test_views import FixtureTestCase
 
 TEST_URL = (
-    'https://www.gravatar.com/avatar/'
-    '55502f40dc8b7c769880b10874abc9d0?d=identicon&s=32'
+    "https://www.gravatar.com/avatar/"
+    "55502f40dc8b7c769880b10874abc9d0?d=identicon&s=32"
 )
 
 
 class AvatarTest(FixtureTestCase):
     def setUp(self):
-        super(AvatarTest, self).setUp()
-        self.user.email = 'test@example.com'
+        super().setUp()
+        self.user.email = "test@example.com"
         self.user.save()
 
     def test_avatar_for_email(self):
-        url = avatar.avatar_for_email(
-            self.user.email,
-            size=32,
-        )
+        url = avatar.avatar_for_email(self.user.email, size=32)
         self.assertEqual(TEST_URL, url)
 
-    @httpretty.activate
+    @responses.activate
     def test_avatar(self):
-        image = Image.new('RGB', (32, 32))
+        image = Image.new("RGB", (32, 32))
         storage = BytesIO()
-        image.save(storage, 'PNG')
+        image.save(storage, "PNG")
         imagedata = storage.getvalue()
-        httpretty.register_uri(
-            httpretty.GET,
-            TEST_URL,
-            body=imagedata,
-        )
+        responses.add(responses.GET, TEST_URL, body=imagedata)
         # Real user
         response = self.client.get(
-            reverse(
-                'user_avatar',
-                kwargs={'user': self.user.username, 'size': 32}
-            )
+            reverse("user_avatar", kwargs={"user": self.user.username, "size": 32})
         )
         self.assert_png(response)
         self.assertEqual(response.content, imagedata)
         # Test caching
         response = self.client.get(
-            reverse(
-                'user_avatar',
-                kwargs={'user': self.user.username, 'size': 32}
-            )
+            reverse("user_avatar", kwargs={"user": self.user.username, "size": 32})
         )
         self.assert_png(response)
         self.assertEqual(response.content, imagedata)
 
-    @httpretty.activate
+    @responses.activate
     def test_avatar_error(self):
-        httpretty.register_uri(
-            httpretty.GET,
-            TEST_URL,
-            status=503,
-        )
+        responses.add(responses.GET, TEST_URL, status=503)
         # Choose different username to avoid using cache
-        self.user.username = 'test2'
+        self.user.username = "test2"
         self.user.save()
         response = self.client.get(
-            reverse(
-                'user_avatar',
-                kwargs={'user': self.user.username, 'size': 32}
-            )
+            reverse("user_avatar", kwargs={"user": self.user.username, "size": 32})
         )
         self.assert_png(response)
 
     def test_anonymous_avatar(self):
-        anonymous = User.objects.get(username='anonymous')
+        anonymous = User.objects.get(username="anonymous")
         # Anonymous user
         response = self.client.get(
-            reverse(
-                'user_avatar',
-                kwargs={'user': anonymous.username, 'size': 32}
-            )
+            reverse("user_avatar", kwargs={"user": anonymous.username, "size": 32})
         )
         self.assertRedirects(
-            response, '/static/weblate-32.png',
-            fetch_redirect_response=False
+            response, "/static/weblate-32.png", fetch_redirect_response=False
         )
 
     def test_fallback_avatar(self):
-        self.assert_png_data(
-            avatar.get_fallback_avatar(32)
-        )
+        self.assert_png_data(avatar.get_fallback_avatar(32))

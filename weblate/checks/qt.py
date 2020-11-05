@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,34 +19,35 @@
 
 import re
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.checks.format import BaseFormatCheck
 
 QT_FORMAT_MATCH = re.compile(
-    r'''
+    r"""
     %(                     # initial %
           L?               # optional localized representation of numbers
           (?P<ord>\d{1,2}) # variable order, like %1
-    )''',
-    re.VERBOSE
+    )""",
+    re.VERBOSE,
 )
 
 QT_PLURAL_MATCH = re.compile(
-    r'''
+    r"""
     %(                     # initial %
           L?               # optional localized representation of numbers
           (?P<type>n)      # plural: %n
-    )''',
-    re.VERBOSE
+    )""",
+    re.VERBOSE,
 )
 
 
 class QtFormatCheck(BaseFormatCheck):
-    """Check for Qt format string"""
-    check_id = 'qt_format'
-    name = _('Qt format')
-    description = _('Qt format string does not match source')
+    """Check for Qt format string."""
+
+    check_id = "qt_format"
+    name = _("Qt format")
+    description = _("Qt format string does not match source")
     regexp = QT_FORMAT_MATCH
 
     def is_position_based(self, string):
@@ -56,10 +56,11 @@ class QtFormatCheck(BaseFormatCheck):
 
 
 class QtPluralCheck(BaseFormatCheck):
-    """Check for Qt plural string"""
-    check_id = 'qt_plural_format'
-    name = _('Qt plural format')
-    description = _('Qt plural format string does not match source')
+    """Check for Qt plural string."""
+
+    check_id = "qt_plural_format"
+    name = _("Qt plural format")
+    description = _("Qt plural format string does not match source")
     regexp = QT_PLURAL_MATCH
 
     def is_position_based(self, string):

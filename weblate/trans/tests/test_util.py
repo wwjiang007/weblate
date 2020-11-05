@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -20,40 +19,36 @@
 
 from django.test import SimpleTestCase
 
-from weblate.trans.util import cleanup_repo_url, translation_percent
+from weblate.trans.util import cleanup_path, cleanup_repo_url, translation_percent
 
 
 class HideCredentialsTest(SimpleTestCase):
     def test_http(self):
         self.assertEqual(
-            cleanup_repo_url('http://foo:bar@example.com'),
-            'http://example.com',
+            cleanup_repo_url("http://foo:bar@example.com"), "http://example.com"
         )
 
     def test_http_user(self):
         self.assertEqual(
-            cleanup_repo_url('http://foo@example.com'),
-            'http://example.com',
+            cleanup_repo_url("http://foo@example.com"), "http://example.com"
         )
 
     def test_git(self):
         self.assertEqual(
-            cleanup_repo_url('git://git.weblate.org/weblate.git'),
-            'git://git.weblate.org/weblate.git',
+            cleanup_repo_url("git://git.weblate.org/weblate.git"),
+            "git://git.weblate.org/weblate.git",
         )
 
     def test_github(self):
         self.assertEqual(
-            cleanup_repo_url('git@github.com:WeblateOrg/weblate.git'),
-            'git@github.com:WeblateOrg/weblate.git',
+            cleanup_repo_url("git@github.com:WeblateOrg/weblate.git"),
+            "git@github.com:WeblateOrg/weblate.git",
         )
 
     def test_git_hg(self):
         self.assertEqual(
-            cleanup_repo_url(
-                'hg::https://bitbucket.org/sumwars/sumwars-code'
-            ),
-            'hg::https://bitbucket.org/sumwars/sumwars-code'
+            cleanup_repo_url("hg::https://bitbucket.org/sumwars/sumwars-code"),
+            "hg::https://bitbucket.org/sumwars/sumwars-code",
         )
 
 
@@ -78,3 +73,20 @@ class TranslationPercentTest(SimpleTestCase):
 
     def test_almost_translated_file(self):
         self.assertAlmostEqual(translation_percent(99999999, 100000000), 99.9)
+
+
+class CleanupPathTest(SimpleTestCase):
+    def test_relative(self):
+        self.assertEqual(cleanup_path("../*.po"), "*.po")
+
+    def test_current(self):
+        self.assertEqual(cleanup_path("./*.po"), "*.po")
+
+    def test_mixed(self):
+        self.assertEqual(cleanup_path("./../*.po"), "*.po")
+
+    def test_slash(self):
+        self.assertEqual(cleanup_path("/*.po"), "*.po")
+
+    def test_double_slash(self):
+        self.assertEqual(cleanup_path("foo//*.po"), "foo/*.po")

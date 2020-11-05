@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,33 +17,30 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from django.apps import AppConfig
-from django.core.checks import Critical, register
+from django.core.checks import register
 
 from weblate.gitexport.utils import find_git_http_backend
-from weblate.utils.docs import get_doc_url
+from weblate.utils.checks import weblate_check
 
 
 class GitExportConfig(AppConfig):
-    name = 'weblate.gitexport'
-    label = 'gitexport'
-    verbose_name = 'Git Exporter'
+    name = "weblate.gitexport"
+    label = "gitexport"
+    verbose_name = "Git Exporter"
 
     def ready(self):
-        super(GitExportConfig, self).ready()
+        super().ready()
         register(check_git_backend)
 
 
 def check_git_backend(app_configs, **kwargs):
     if find_git_http_backend() is None:
         return [
-            Critical(
-                'Failed to find git-http-backend, '
-                'the git exporter will not work.',
-                hint=get_doc_url('admin/optionals', 'git-exporter'),
-                id='weblate.E022',
+            weblate_check(
+                "weblate.E022",
+                "Failed to find git-http-backend, " "the git exporter will not work.",
             )
         ]
     return []

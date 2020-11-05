@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,104 +17,133 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 import subprocess
+from typing import Optional
 
 from django.conf import settings
 from django.core.cache import cache
-from django.utils.encoding import force_text
+from siphashc import siphash
 
-from weblate.trans.util import (
-    add_configuration_error,
-    delete_configuration_error,
-    get_clean_env,
-)
+from weblate.trans.util import get_clean_env
+from weblate.utils.checks import weblate_check
+from weblate.utils.errors import report_error
+
+GPG_ERRORS = {}
 
 
-def generate_gpg_key():
+def check_gpg(app_configs, **kwargs):
+    get_gpg_public_key()
+    template = "{}: {}"
+    return [
+        weblate_check("weblate.C036", template.format(key, message))
+        for key, message in GPG_ERRORS.items()
+    ]
+
+
+def gpg_error(name: str, error: Exception, silent: bool = False):
+    report_error(cause=name)
+
+    if not silent:
+        GPG_ERRORS[name] = "{}\n{}\n{}".format(
+            error, getattr(error, "stderr", ""), getattr(error, "stdout", "")
+        )
+
+
+def generate_gpg_key() -> Optional[str]:
     try:
-        subprocess.check_output(
+        subprocess.run(
             [
-                'gpg',
-                '--batch',
-                '--pinentry-mode', 'loopback',
-                '--passphrase', '',
-                '--quick-generate-key',
+                "gpg",
+                "--batch",
+                "--pinentry-mode",
+                "loopback",
+                "--passphrase",
+                "",
+                "--quick-generate-key",
                 settings.WEBLATE_GPG_IDENTITY,
                 settings.WEBLATE_GPG_ALGO,
-                'default', 'never',
+                "default",
+                "never",
             ],
-            stderr=subprocess.STDOUT,
             env=get_clean_env(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            check=True,
         )
-        delete_configuration_error('GPG key generating')
         return get_gpg_key()
-    except (subprocess.CalledProcessError, OSError) as exc:
-        add_configuration_error('GPG key generating', force_text(exc))
+    except (subprocess.CalledProcessError, OSError) as error:
+        gpg_error("GPG key generating", error)
         return None
 
 
-def get_gpg_key(silent=False):
+def get_gpg_key(silent=False) -> Optional[str]:
     try:
-        output = subprocess.check_output(
+        result = subprocess.run(
             [
-                'gpg',
-                '--batch',
-                '--with-colons',
-                '--list-secret-keys',
+                "gpg",
+                "--batch",
+                "--with-colons",
+                "--list-secret-keys",
                 settings.WEBLATE_GPG_IDENTITY,
             ],
-            stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             env=get_clean_env(),
-        ).decode('utf-8')
-        for line in output.splitlines():
-            if not line.startswith('fpr:'):
+            universal_newlines=True,
+            check=True,
+        )
+        for line in result.stdout.splitlines():
+            if not line.startswith("fpr:"):
                 continue
-            delete_configuration_error('GPG key listing')
-            return line.split(':')[9]
+            return line.split(":")[9]
         return None
-    except (subprocess.CalledProcessError, OSError) as exc:
-        if not silent:
-            add_configuration_error('GPG key listing', force_text(exc))
+    except (subprocess.CalledProcessError, OSError) as error:
+        gpg_error("GPG key listing", error, silent)
         return None
 
 
-def get_gpg_sign_key():
+def gpg_cache_key(suffix: str) -> str:
+    return "gpg:{}:{}".format(
+        siphash("Weblate GPG hash", settings.WEBLATE_GPG_IDENTITY), suffix
+    )
+
+
+def get_gpg_sign_key() -> Optional[str]:
     """High level wrapper to cache key ID."""
     if not settings.WEBLATE_GPG_IDENTITY:
         return None
-    keyid = cache.get('gpg-key-id')
+    cache_key = gpg_cache_key("id")
+    keyid = cache.get(cache_key)
     if keyid is None:
         keyid = get_gpg_key(silent=True)
         if keyid is None:
             keyid = generate_gpg_key()
         if keyid:
-            cache.set('gpg-key-id', keyid, 7 * 86400)
+            cache.set(cache_key, keyid, 7 * 86400)
     return keyid
 
 
-def get_gpg_public_key():
+def get_gpg_public_key() -> Optional[str]:
     key = get_gpg_sign_key()
     if key is None:
         return None
-    data = cache.get('gpg-key-public')
+    cache_key = gpg_cache_key("public")
+    data = cache.get(cache_key)
     if not data:
         try:
-            data = subprocess.check_output(
-                [
-                    'gpg',
-                    '--batch',
-                    '-armor',
-                    '--export',
-                    key,
-                ],
-                stderr=subprocess.STDOUT,
+            result = subprocess.run(
+                ["gpg", "--batch", "-armor", "--export", key],
                 env=get_clean_env(),
-            ).decode('utf-8')
-            cache.set('gpg-key-public', data, 7 * 86400)
-            delete_configuration_error('GPG key public')
-        except (subprocess.CalledProcessError, OSError) as exc:
-            add_configuration_error('GPG key public', force_text(exc))
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+                check=True,
+            )
+            data = result.stdout
+            cache.set(cache_key, data, 7 * 86400)
+        except (subprocess.CalledProcessError, OSError) as error:
+            gpg_error("GPG key public", error)
             return None
     return data

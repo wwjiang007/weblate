@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -18,13 +17,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
 
 from crispy_forms.helper import FormHelper
 from django import forms
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from weblate.accounts.forms import EmailField
+from weblate.wladmin.models import BackupService
 
 
 class ActivateForm(forms.Form):
@@ -45,7 +44,7 @@ class SSHAddForm(forms.Form):
     )
 
     def __init__(self, *args, **kwargs):
-        super(SSHAddForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.helper = FormHelper(self)
         self.helper.form_tag = False
         self.helper.form_class = "form-inline"
@@ -58,3 +57,13 @@ class TestMailForm(forms.Form):
         label=_("E-mail"),
         help_text=_("The test e-mail will be sent to this address."),
     )
+
+
+class BackupForm(forms.ModelForm):
+    class Meta:
+        model = BackupService
+        fields = ("repository",)
+
+
+class UserSearchForm(forms.Form):
+    email = forms.CharField(label=_("User e-mail"))

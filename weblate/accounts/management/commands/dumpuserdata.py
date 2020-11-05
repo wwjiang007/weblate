@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2019 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2020 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <https://weblate.org/>
 #
@@ -21,35 +20,31 @@
 import argparse
 import json
 
-from django.core.management.base import BaseCommand
 from django.core.serializers.json import DjangoJSONEncoder
 
 from weblate.accounts.models import Profile
+from weblate.utils.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = 'dumps user data to JSON file'
+    help = "dumps user data to JSON file"
 
     def add_arguments(self, parser):
         parser.add_argument(
-            'json-file',
-            type=argparse.FileType('w'),
-            help='File where to export',
+            "json-file", type=argparse.FileType("w"), help="File where to export"
         )
 
     def handle(self, *args, **options):
         data = []
 
-        profiles = Profile.objects.select_related(
-            'user'
-        ).prefetch_related(
-            'watched', 'languages', 'secondary_languages'
+        profiles = Profile.objects.select_related("user").prefetch_related(
+            "watched", "languages", "secondary_languages"
         )
 
-        for profile in profiles.iterator():
+        for profile in profiles:
             if not profile.user.is_active:
                 continue
             data.append(profile.dump_data())
 
-        json.dump(data, options['json-file'], indent=2, cls=DjangoJSONEncoder)
-        options['json-file'].close()
+        json.dump(data, options["json-file"], indent=2, cls=DjangoJSONEncoder)
+        options["json-file"].close()
